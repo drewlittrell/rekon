@@ -74,6 +74,10 @@ export function assessmentMatchesDefectEvidence(input) {
       return Array.isArray(input.assessment?.details?.continuationEvidence)
         && input.assessment.details.continuationEvidence.length > 0;
     }
+    if (input.assessment?.details?.structuredMechanism === "teardown-shares-stop-policy") {
+      return Array.isArray(input.assessment?.details?.sourceEvidence)
+        && input.assessment.details.sourceEvidence.length >= 2;
+    }
     return (input.assessment?.details?.structuredMechanism === "fail-fast-aggregate"
       || input.assessment?.details?.structuredMechanism === "sequential-unhandled-awaits")
       && assessmentOverlapsChangedLines(input.assessment, input.changedLines);
@@ -82,6 +86,10 @@ export function assessmentMatchesDefectEvidence(input) {
     if (input.assessment?.details?.structuredMechanism === "switch-discriminant-not-requeued") {
       return Array.isArray(input.assessment?.details?.traversalEvidence)
         && input.assessment.details.traversalEvidence.length > 0;
+    }
+    if (input.assessment?.details?.structuredMechanism === "noncomputed-class-property-key-reference") {
+      return Array.isArray(input.assessment?.details?.sourceEvidence)
+        && input.assessment.details.sourceEvidence.length >= 2;
     }
     const anchorLines = new Set(
       (input.scopeResolution ?? [])

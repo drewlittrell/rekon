@@ -74,7 +74,9 @@ Source-local terminal XHR listener evidence does not require a complete graph:
 policy preserves it when a named `readystatechange` handler reaches
 `readyState === 4` without visible same-handler removal or once-only
 registration. Browser retention and workload impact remain judgment or runtime
-verification questions.
+verification questions. Abort listeners that retain a Promise rejection
+closure across visible normal settlement paths are handled by the same
+source-local boundary.
 
 Error-propagation policy compares compound throw guards with deterministic
 error-identity mappings in the same source file. It emits a semantic claim only
@@ -86,18 +88,22 @@ Those claims leave downstream cause handling and message visibility to the
 same verification boundary. It also recognizes Promise bridges that resolve
 from a known emitter event and reject other failures without forwarding that
 emitter's error event. Whether the emitter can fail remains an autonomous
-judgment or focused verification question. Scope-resolution candidates remain
+judgment or focused verification question. A signal-backed cancellation flag
+that reaches a zero-argument Promise rejection is preserved as a separate abort
+reason assessment. Scope-resolution candidates remain
 bounded to source transformers that expose both identifier rewriting and a
 lexical-boundary classifier.
 
-Dependency-resolution policy consumes three bounded `dependency_flow` shapes. It
+Dependency-resolution policy consumes four bounded `dependency_flow` shapes. It
 recognizes a loop that conditionally overwrites and later returns a selected
 lookup result, and a resolver callback that iterates provider candidates but
 returns a generic lookup without referencing the current candidate. It also
 recognizes a resolver that first-matches one selector across multiple reference
 properties, returns a canonical property from the selected item, and already
-has a visible multi-match ambiguity contract elsewhere in the function. An
-unconditional first-match exit, candidate-specific returns, and ordinary
+has a visible multi-match ambiguity contract elsewhere in the function. The
+fourth shape records an explicit import module passed directly through
+all-re-export expansion. An unconditional first-match exit,
+candidate-specific returns, and ordinary
 single-property lookups stay silent. Intended provider precedence and namespace
 semantics remain autonomous judgment or focused verification questions.
 
@@ -108,7 +114,8 @@ intended contract and runtime impact to autonomous judgment or focused
 verification. It also recognizes request normalizers that spread caller
 options but forward a temporary `Request` signal instead of the caller-owned
 abort signal. Signal identity and runtime cancellation remain explicit
-verification boundaries.
+verification boundaries. It also recognizes a default or baseline assignment
+that appears after a user option/config spread.
 
 Scope-resolution policy recognizes binding transforms that iterate reference
 names and resolve each owner from one scope anchor. It records the possibility
@@ -122,7 +129,8 @@ emits a semantic claim with the key, omitted parameters, guard, and fallback
 locations. It also recognizes lazy Promise member caches that reuse an async
 load without visible rejection eviction. Provider failure behavior, cross-call
 ordering, and user-visible impact remain autonomous judgment or focused
-verification questions.
+verification questions. Raw-input guards that disagree with a
+fallback-normalized cache-key binding are preserved separately.
 
 Cleanup-completeness policy consumes `cleanup_flow` facts from explicit
 lifecycle functions. It distinguishes fail-fast aggregate and sequential wait
@@ -130,13 +138,16 @@ mechanisms. It also recognizes dependency-bearing React effects whose
 `Promise.all` or `Promise.allSettled` continuation updates component state
 without returned cleanup. Actual rejection behavior, effect scheduling, and
 retained runtime state remain autonomous judgment or focused verification
-questions.
+questions. Teardown-aware schedulers that place cleanup work under an ordinary
+stop policy are assessed separately from cleanup-function wait semantics.
 
 Scope-resolution policy consumes `scope_model` facts for name-only binding
 ownership and scope-skipping renamers. The traversal mechanism requires an
 existing parent-scope exception for method keys and decorators but no
 corresponding switch-discriminant requeue. Whether a concrete transform emits
 incorrect code remains autonomous judgment or focused verification.
+Identifier-reference classifiers that model adjacent key positions but omit
+noncomputed class property keys are preserved for the same verification path.
 
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same

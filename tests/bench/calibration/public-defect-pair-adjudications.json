@@ -161,6 +161,55 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms resolveTargetIdFromTabs used one first-match lookup across raw targetId, suggestedTargetId, tabId, and label namespaces, then returned the selected tab's canonical target ID even though the same resolver already rejected ambiguous prefix matches. Rekon emits semantic.dependencyResolution on that cross-namespace path and clears after the fixed revision gathers distinct canonical target IDs and rejects multiple exact matches; upstream tests cover each friendly namespace colliding with another tab's raw ID and route behavior returns 409 without acting."
+    },
+    {
+      "pairId": "undici-cache-key-path-normalization",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms makeCacheKey normalized opts.path to fullPath with a slash fallback, then passed the raw optional member into pathHasQueryOrFragment before serializing and returning fullPath as the key path. Rekon emits semantic.cacheIntegrity on that raw-versus-normalized guard and clears when the guard uses fullPath; the upstream regression covers query parameters with an omitted path."
+    },
+    {
+      "pairId": "playwright-max-failures-teardown",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms createPhasesTask already modeled teardown dependencies but scheduled teardown projects through the same default Dispatcher phase as ordinary work, while the dispatcher stopped immediately after maxFailures. Rekon emits semantic.cleanupCompleteness on that teardown-aware scheduler without an interruption exemption and clears when teardown projects are isolated in ignoreMaxFailures phases; the upstream regression proves teardown still runs after the failure limit."
+    },
+    {
+      "pairId": "typescript-ambient-import-source-expansion",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms getImportCompletionAction passed an explicit moduleSymbol into getAllReExportingModules for every source, allowing a re-export candidate to replace a bare ambient module. Rekon emits semantic.dependencyResolution on that unconditional explicit-source expansion and clears when bare specifiers use direct symbol export information; the upstream fourslash regression verifies the ambient module specifier."
+    },
+    {
+      "pairId": "tanstack-query-cancel-reason-propagation",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms addConsumeAwareSignal set the cancelled flag from context.signal, but fetchPage responded with zero-argument Promise.reject and discarded the signal reason. Rekon emits semantic.errorPropagation on that signal-backed empty rejection and clears when context.signal.reason is forwarded; the upstream regression verifies the cancellation reason reaches observers."
+    },
+    {
+      "pairId": "vite-rolldown-transform-target-precedence",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms prepareRolldownOptimizerRun spread rolldownOptions.transform before assigning ESBUILD_BASELINE_WIDELY_AVAILABLE_TARGET, so JavaScript object precedence overwrote a caller target. Rekon emits semantic.optionPropagation on that default-after-user-options assignment and clears when the default moves before the spread; the upstream issue provides the failing configuration and expected target behavior."
+    },
+    {
+      "pairId": "vitest-abort-listener-settlement-retention",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms withCancel attached an abort listener closing over reject while normal Promise resolution and rejection paths left the listener installed. Rekon emits semantic.resourceLifetime on that listener-with-settlement shape and clears when every normal and exceptional path removes the named handler; the upstream fix documents the retained closure and preserves once-only abort handling."
+    },
+    {
+      "pairId": "vitest-class-property-key-reference",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms isRefIdentifier excluded noncomputed method and static property keys but not noncomputed PropertyDefinition keys, causing the mock import walker to classify class field names as value references. Rekon emits semantic.scopeResolution on that missing adjacent reference-position rule and clears when the classifier returns true only for the field initializer; the upstream regression covers import injection around class properties."
     }
   ]
 }

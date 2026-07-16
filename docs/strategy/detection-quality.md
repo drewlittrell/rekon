@@ -335,10 +335,19 @@ extractor requires named React `useEffect` and `useState` imports, a global
 state, and no returned cleanup. The pinned Automerge pair retains the stale
 continuation on the buggy revision and clears after cleanup prevents a
 superseded URL set from overwriting newer state.
-All seven semantic classes have three independent positive pairs. All remain
+
+A fourth source-grounded pair now covers each semantic class without widening
+generic syntax rules: normalized cache-key guards, teardown scheduling under
+early stop, explicit ambient-module expansion, abort-reason loss, defaults
+after user option spreads, abort-listener settlement cleanup, and class-property
+reference positions. Each mechanism is deterministic evidence projected to an
+assessment, validated against a pinned public fix, and adjudicated by direct
+source review during calibration.
+
+All seven semantic classes have four independent positive pairs. All remain
 below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available data.
-Its token and cost totals cover the ten model-adjudicated pairs only; eleven newer
+Its token and cost totals cover the ten model-adjudicated pairs only; eighteen newer
 pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source

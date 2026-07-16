@@ -1159,3 +1159,162 @@ test("current high-confidence judgments confirm or reject matching candidates wi
   assert.equal(stale.assessments[0].confidence.verification, "unverified");
   assert.deepEqual(stale.ignored, [confirmed.id]);
 });
+
+test("semantic policies project the expanded structured mechanisms into assessments", () => {
+  const ref = { type: "EvidenceGraph", id: "expanded-semantic-evidence", schemaVersion: "0.1.0" };
+  const cases = [
+    {
+      mechanism: "raw-cache-input-after-normalization",
+      evaluate: (fact) => evaluateCacheIntegritySignals([fact], ref),
+      fact: {
+        kind: "cache_flow",
+        subject: "src/cache.ts:makeCacheKey",
+        value: {
+          source: "src/cache.ts",
+          caller: "makeCacheKey",
+          mechanism: "raw-cache-input-after-normalization",
+          normalizedBinding: "fullPath",
+          rawInput: "opts.path",
+          fallbackExpression: "opts.path || '/'",
+          guardExpression: "!hasQuery(opts.path)",
+          keyExpression: "fullPath",
+          location: { line: 19 },
+          guardLocation: { line: 21 },
+          keyLocation: { line: 28 },
+        },
+      },
+    },
+    {
+      mechanism: "teardown-shares-stop-policy",
+      evaluate: (fact) => evaluateCleanupCompletenessSignals([fact], ref),
+      fact: {
+        kind: "cleanup_flow",
+        subject: "src/tasks.ts:createPhasesTask",
+        value: {
+          source: "src/tasks.ts",
+          caller: "createPhasesTask",
+          mechanism: "teardown-shares-stop-policy",
+          teardownCollection: "teardownToSetups",
+          dispatcherExpression: "new Dispatcher(testRun)",
+          location: { line: 388 },
+          teardownLocation: { line: 397 },
+          dispatcherLocation: { line: 422 },
+        },
+      },
+    },
+    {
+      mechanism: "bare-explicit-source-expanded",
+      evaluate: (fact) => evaluateDependencyResolutionSignals([fact], ref),
+      fact: {
+        kind: "dependency_flow",
+        subject: "src/imports.ts:getImportCompletionAction",
+        value: {
+          source: "src/imports.ts",
+          caller: "getImportCompletionAction",
+          mechanism: "bare-explicit-source-expanded",
+          resultBinding: "exportInfos",
+          expansionFunction: "getAllReExportingModules",
+          explicitModuleExpression: "moduleSymbol",
+          location: { line: 213 },
+          expansionLocation: { line: 213 },
+        },
+      },
+    },
+    {
+      mechanism: "abort-rejection-without-reason",
+      evaluate: (fact) => evaluateErrorPropagationSignals([fact], ref),
+      fact: {
+        kind: "error_flow",
+        subject: "src/query.ts:fetchPage",
+        value: {
+          source: "src/query.ts",
+          caller: "fetchPage",
+          action: "reject",
+          mechanism: "abort-rejection-without-reason",
+          cancellationBinding: "cancelled",
+          signalExpression: "context.signal",
+          rejectionExpression: "Promise.reject()",
+          location: { line: 47 },
+          cancellationLocation: { line: 34 },
+          signalLocation: { line: 33 },
+        },
+      },
+    },
+    {
+      mechanism: "default-after-user-options",
+      evaluate: (fact) => evaluateOptionPropagationSignals([fact], ref),
+      fact: {
+        kind: "option_flow",
+        subject: "src/options.ts:build:target",
+        value: {
+          source: "src/options.ts",
+          caller: "build",
+          mechanism: "default-after-user-options",
+          property: "target",
+          spreadSource: "rolldownOptions.transform",
+          defaultExpression: "ESBUILD_BASELINE_TARGET",
+          location: { line: 840 },
+          spreadLocation: { line: 839 },
+          objectLocation: { line: 838 },
+        },
+      },
+    },
+    {
+      mechanism: "abort-listener-retained-after-settlement",
+      evaluate: (fact) => evaluateResourceLifetimeSignals([fact], ref, { evidenceComplete: false }),
+      fact: {
+        kind: "resource_flow",
+        subject: "src/context.ts:signal:abort",
+        value: {
+          source: "src/context.ts",
+          caller: "withCancel",
+          action: "retain",
+          mechanism: "abort-listener-retained-after-settlement",
+          target: "signal",
+          eventName: "abort",
+          handlerExpression: "onAbort",
+          resolveIdentifier: "resolve",
+          rejectIdentifier: "reject",
+          location: { line: 120 },
+          handlerLocation: { line: 119 },
+          settlementLocations: [{ line: 129 }, { line: 133 }],
+        },
+      },
+    },
+    {
+      mechanism: "noncomputed-class-property-key-reference",
+      evaluate: (fact) => evaluateScopeResolutionSignals([fact], ref),
+      fact: {
+        kind: "scope_model",
+        subject: "src/walker.ts:isRefIdentifier",
+        value: {
+          source: "src/walker.ts",
+          caller: "isRefIdentifier",
+          mechanism: "noncomputed-class-property-key-reference",
+          parentParameter: "parent",
+          modeledExclusions: ["MethodDefinition.noncomputed-key", "static-property-key"],
+          missingExclusion: "PropertyDefinition.noncomputed-key",
+          location: { line: 286 },
+          methodExclusionLocation: { line: 310 },
+          propertyKeyExclusionLocation: { line: 315 },
+        },
+      },
+    },
+  ];
+
+  for (const entry of cases) {
+    const assessments = entry.evaluate(entry.fact);
+    assert.equal(assessments.length, 1, entry.mechanism);
+    assert.equal(assessments[0].details.structuredMechanism, entry.mechanism);
+    assert.equal(assessments[0].kind, "semantic_claim");
+    assert.equal(assessments[0].confidence.verification, "unverified");
+    assert.deepEqual(
+      entry.evaluate({
+        ...entry.fact,
+        value: { ...entry.fact.value, mechanism: "unrelated" },
+      }),
+      [],
+      `${entry.mechanism} rejects unrelated facts`,
+    );
+  }
+});

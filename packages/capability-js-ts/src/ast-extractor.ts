@@ -196,6 +196,18 @@ export type ErrorReasonPropagationEvidence = {
   causeLocation: AstLocation;
 };
 
+export type AbortReasonDropEvidence = {
+  kind: "abort-reason-drop";
+  caller: string;
+  mechanism: "abort-rejection-without-reason";
+  cancellationBinding: string;
+  signalExpression: string;
+  rejectionExpression: string;
+  location: AstLocation;
+  cancellationLocation: AstLocation;
+  signalLocation: AstLocation;
+};
+
 export type PromiseEventErrorBridgeEvidence = {
   kind: "promise-event-error-bridge";
   caller: string;
@@ -223,6 +235,18 @@ export type OptionPropagationEvidence = {
   callbackProperty?: string;
   callbackOwner?: string;
   location: AstLocation;
+  objectLocation: AstLocation;
+};
+
+export type DefaultOptionOverrideEvidence = {
+  kind: "default-option-override";
+  caller: string;
+  mechanism: "default-after-user-options";
+  property: string;
+  spreadSource: string;
+  defaultExpression: string;
+  location: AstLocation;
+  spreadLocation: AstLocation;
   objectLocation: AstLocation;
 };
 
@@ -283,6 +307,20 @@ export type TerminalEventListenerEvidence = {
   terminalLocation: AstLocation;
 };
 
+export type AbortListenerLifetimeEvidence = {
+  kind: "abort-listener-lifetime";
+  caller: string;
+  mechanism: "abort-listener-retained-after-settlement";
+  target: string;
+  eventName: "abort";
+  handlerExpression: string;
+  resolveIdentifier: string;
+  rejectIdentifier: string;
+  location: AstLocation;
+  handlerLocation: AstLocation;
+  settlementLocations: AstLocation[];
+};
+
 export type ScopeResolutionEvidence = {
   kind: "scope-model";
   classifierName: string;
@@ -327,6 +365,18 @@ export type ScopeTraversalEscapeEvidence = {
   bindingCheckLocation: AstLocation;
   skipLocation: AstLocation;
   exceptionLocation: AstLocation;
+};
+
+export type ReferencePositionEvidence = {
+  kind: "reference-position";
+  caller: string;
+  mechanism: "noncomputed-class-property-key-reference";
+  parentParameter: string;
+  modeledExclusions: string[];
+  missingExclusion: "PropertyDefinition.noncomputed-key";
+  location: AstLocation;
+  methodExclusionLocation: AstLocation;
+  propertyKeyExclusionLocation: AstLocation;
 };
 
 export type DependencyResolutionEvidence = {
@@ -379,6 +429,17 @@ export type DependencyNamespaceAmbiguityEvidence = {
   ambiguityLocation: AstLocation;
 };
 
+export type DependencyExplicitSourceEvidence = {
+  kind: "dependency-explicit-source";
+  caller: string;
+  mechanism: "bare-explicit-source-expanded";
+  resultBinding: string;
+  expansionFunction: string;
+  explicitModuleExpression: string;
+  location: AstLocation;
+  expansionLocation: AstLocation;
+};
+
 export type CacheContractEvidence = {
   kind: "cache-contract";
   caller: string;
@@ -393,6 +454,20 @@ export type CacheContractEvidence = {
   location: AstLocation;
   guardLocation: AstLocation;
   fallbackLocation: AstLocation;
+};
+
+export type CacheKeyNormalizationEvidence = {
+  kind: "cache-key-normalization";
+  caller: string;
+  mechanism: "raw-cache-input-after-normalization";
+  normalizedBinding: string;
+  rawInput: string;
+  fallbackExpression: string;
+  guardExpression: string;
+  keyExpression: string;
+  location: AstLocation;
+  guardLocation: AstLocation;
+  keyLocation: AstLocation;
 };
 
 export type PromiseCacheRejectionEvidence = {
@@ -417,6 +492,17 @@ export type CleanupCompletenessEvidence = {
   obligationLocations: AstLocation[];
 };
 
+export type TeardownInterruptionEvidence = {
+  kind: "teardown-interruption";
+  caller: string;
+  mechanism: "teardown-shares-stop-policy";
+  teardownCollection: string;
+  dispatcherExpression: string;
+  location: AstLocation;
+  teardownLocation: AstLocation;
+  dispatcherLocation: AstLocation;
+};
+
 export type AsyncEffectContinuationEvidence = {
   kind: "async-effect-continuation";
   caller: string;
@@ -437,21 +523,28 @@ type AstFlowRecord =
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
   | ErrorControlFlowEvidence
   | ErrorReasonPropagationEvidence
+  | AbortReasonDropEvidence
   | PromiseEventErrorBridgeEvidence
   | OptionPropagationEvidence
+  | DefaultOptionOverrideEvidence
   | OptionFalsyDefaultEvidence
   | RequestSignalForwardingEvidence
   | ResourceLifetimeEvidence
   | TerminalEventListenerEvidence
+  | AbortListenerLifetimeEvidence
   | ScopeResolutionEvidence
   | ScopeNameResolutionEvidence
   | ScopeTraversalEscapeEvidence
+  | ReferencePositionEvidence
   | DependencyResolutionEvidence
   | DependencyCandidateBypassEvidence
   | DependencyNamespaceAmbiguityEvidence
+  | DependencyExplicitSourceEvidence
   | CacheContractEvidence
+  | CacheKeyNormalizationEvidence
   | PromiseCacheRejectionEvidence
   | CleanupCompletenessEvidence
+  | TeardownInterruptionEvidence
   | AsyncEffectContinuationEvidence;
 
 export interface AstExtractionResult {
@@ -526,6 +619,13 @@ export function extractErrorReasonPropagationEvidence(input: AstExtractionInput)
   );
 }
 
+export function extractAbortReasonDropEvidence(input: AstExtractionInput): AbortReasonDropEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is AbortReasonDropEvidence => record.kind === "abort-reason-drop",
+  );
+}
+
 export function extractPromiseEventErrorBridgeEvidence(
   input: AstExtractionInput,
 ): PromiseEventErrorBridgeEvidence[] {
@@ -539,6 +639,13 @@ export function extractOptionPropagationEvidence(input: AstExtractionInput): Opt
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is OptionPropagationEvidence => record.kind === "option-override",
+  );
+}
+
+export function extractDefaultOptionOverrideEvidence(input: AstExtractionInput): DefaultOptionOverrideEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is DefaultOptionOverrideEvidence => record.kind === "default-option-override",
   );
 }
 
@@ -574,6 +681,15 @@ export function extractTerminalEventListenerEvidence(
   );
 }
 
+export function extractAbortListenerLifetimeEvidence(
+  input: AstExtractionInput,
+): AbortListenerLifetimeEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is AbortListenerLifetimeEvidence => record.kind === "abort-listener-lifetime",
+  );
+}
+
 export function extractScopeResolutionEvidence(input: AstExtractionInput): ScopeResolutionEvidence[] {
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
@@ -594,6 +710,13 @@ export function extractScopeTraversalEscapeEvidence(
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ScopeTraversalEscapeEvidence => record.kind === "scope-traversal-escape",
+  );
+}
+
+export function extractReferencePositionEvidence(input: AstExtractionInput): ReferencePositionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ReferencePositionEvidence => record.kind === "reference-position",
   );
 }
 
@@ -621,10 +744,26 @@ export function extractDependencyNamespaceAmbiguityEvidence(
   );
 }
 
+export function extractDependencyExplicitSourceEvidence(
+  input: AstExtractionInput,
+): DependencyExplicitSourceEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is DependencyExplicitSourceEvidence => record.kind === "dependency-explicit-source",
+  );
+}
+
 export function extractCacheContractEvidence(input: AstExtractionInput): CacheContractEvidence[] {
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is CacheContractEvidence => record.kind === "cache-contract",
+  );
+}
+
+export function extractCacheKeyNormalizationEvidence(input: AstExtractionInput): CacheKeyNormalizationEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is CacheKeyNormalizationEvidence => record.kind === "cache-key-normalization",
   );
 }
 
@@ -641,6 +780,13 @@ export function extractCleanupCompletenessEvidence(input: AstExtractionInput): C
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is CleanupCompletenessEvidence => record.kind === "cleanup-contract",
+  );
+}
+
+export function extractTeardownInterruptionEvidence(input: AstExtractionInput): TeardownInterruptionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is TeardownInterruptionEvidence => record.kind === "teardown-interruption",
   );
 }
 
@@ -945,7 +1091,9 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
     }
 
     if (ts.isObjectLiteralExpression(node)) {
-      records.push(...optionPropagationRecords(node, sourceFile, context.caller));
+      const optionOverrides = optionPropagationRecords(node, sourceFile, context.caller);
+      records.push(...optionOverrides);
+      records.push(...defaultOptionOverrideRecords(node, sourceFile, context.caller));
     }
 
     if (ts.isBinaryExpression(node)) {
@@ -1006,19 +1154,221 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   records.push(...cacheContractRecords(sourceFile));
+  records.push(...cacheKeyNormalizationRecords(sourceFile));
   records.push(...promiseCacheRejectionRecords(sourceFile));
   records.push(...cleanupCompletenessRecords(sourceFile));
+  records.push(...teardownInterruptionRecords(sourceFile));
   records.push(...asyncEffectContinuationRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...dependencyNamespaceAmbiguityRecords(sourceFile));
+  records.push(...dependencyExplicitSourceRecords(sourceFile));
   records.push(...promiseEventErrorBridgeRecords(sourceFile));
+  records.push(...abortReasonDropRecords(sourceFile));
   records.push(...requestSignalForwardingRecords(sourceFile));
   records.push(...terminalEventListenerRecords(sourceFile));
+  records.push(...abortListenerLifetimeRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   records.push(...scopeNameResolutionRecords(sourceFile));
   records.push(...scopeTraversalEscapeRecords(sourceFile));
+  records.push(...referencePositionRecords(sourceFile));
   return records;
+}
+
+function cacheKeyNormalizationRecords(sourceFile: ts.SourceFile): CacheKeyNormalizationEvidence[] {
+  const records: CacheKeyNormalizationEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const body = node.body;
+      const caller = functionLikeName(node) ?? enclosingCaller(node);
+      const visitDeclarations = (candidate: ts.Node): void => {
+        if (candidate !== body && isFunctionBoundary(candidate)) return;
+        if (ts.isVariableDeclaration(candidate)
+          && ts.isIdentifier(candidate.name)
+          && candidate.initializer) {
+          const normalization = fallbackNormalization(candidate.initializer, sourceFile);
+          if (normalization && /(?:path|key|url)/iu.test(candidate.name.text)) {
+            const guarded = rawNormalizationGuard(
+              body,
+              normalization.rawInput,
+            );
+            const returned = returnedNormalizedKey(
+              body,
+              candidate.name.text,
+              normalization.rawInput,
+              sourceFile,
+            );
+            if (guarded && returned) {
+              records.push({
+                kind: "cache-key-normalization",
+                caller,
+                mechanism: "raw-cache-input-after-normalization",
+                normalizedBinding: candidate.name.text,
+                rawInput: normalization.rawInput,
+                fallbackExpression: normalization.fallbackExpression,
+                guardExpression: boundedNodeText(guarded.expression, sourceFile),
+                keyExpression: boundedNodeText(returned.initializer, sourceFile),
+                location: locationOf(candidate, sourceFile),
+                guardLocation: locationOf(guarded.expression, sourceFile),
+                keyLocation: locationOf(returned, sourceFile),
+              });
+            }
+          }
+        }
+        ts.forEachChild(candidate, visitDeclarations);
+      };
+      visitDeclarations(node.body);
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.normalizedBinding.localeCompare(right.normalizedBinding));
+}
+
+function fallbackNormalization(
+  expression: ts.Expression,
+  sourceFile: ts.SourceFile,
+): { rawInput: string; fallbackExpression: string } | undefined {
+  const value = unwrapExpression(expression);
+  if (!ts.isBinaryExpression(value)
+    || (value.operatorToken.kind !== ts.SyntaxKind.BarBarToken
+      && value.operatorToken.kind !== ts.SyntaxKind.QuestionQuestionToken)) {
+    return undefined;
+  }
+  const rawPath = memberPath(unwrapExpression(value.left));
+  if (!rawPath || rawPath.length < 2) return undefined;
+  const fallback = unwrapExpression(value.right);
+  if (!ts.isStringLiteralLike(fallback) && !ts.isNoSubstitutionTemplateLiteral(fallback)) return undefined;
+  return {
+    rawInput: rawPath.join("."),
+    fallbackExpression: boundedNodeText(value, sourceFile),
+  };
+}
+
+function rawNormalizationGuard(
+  body: ts.Block,
+  rawInput: string,
+): ts.IfStatement | undefined {
+  let match: ts.IfStatement | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isIfStatement(node) && callReceivesExactMember(node.expression, rawInput)) {
+      match = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+
+  function callReceivesExactMember(node: ts.Node, expected: string): boolean {
+    let found = false;
+    const inspect = (candidate: ts.Node): void => {
+      if (found) return;
+      if (ts.isCallExpression(candidate)
+        && candidate.arguments.some((argument) =>
+          memberPath(unwrapExpression(argument))?.join(".") === expected)) {
+        found = true;
+        return;
+      }
+      ts.forEachChild(candidate, inspect);
+    };
+    inspect(node);
+    return found;
+  }
+}
+
+function returnedNormalizedKey(
+  body: ts.Block,
+  normalizedBinding: string,
+  rawInput: string,
+  sourceFile: ts.SourceFile,
+): ts.PropertyAssignment | undefined {
+  const rawProperty = rawInput.split(".").at(-1);
+  let match: ts.PropertyAssignment | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node) && node.expression) {
+      const returned = unwrapExpression(node.expression);
+      if (ts.isObjectLiteralExpression(returned)) {
+        for (const property of returned.properties) {
+          const initializer = ts.isPropertyAssignment(property)
+            ? unwrapExpression(property.initializer)
+            : undefined;
+          if (!ts.isPropertyAssignment(property)
+            || methodNameText(property.name) !== rawProperty
+            || !initializer
+            || !ts.isIdentifier(initializer)
+            || initializer.text !== normalizedBinding) {
+            continue;
+          }
+          match = property;
+          return;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+}
+
+function teardownInterruptionRecords(sourceFile: ts.SourceFile): TeardownInterruptionEvidence[] {
+  const records: TeardownInterruptionEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body) {
+      const caller = functionLikeName(node);
+      if (caller && /(?:phase|schedule)/iu.test(caller)) {
+        let teardownDeclaration: ts.VariableDeclaration | undefined;
+        const dispatchers: ts.NewExpression[] = [];
+        const inspect = (candidate: ts.Node): void => {
+          if (ts.isVariableDeclaration(candidate)
+            && ts.isIdentifier(candidate.name)
+            && candidate.initializer
+            && directCallName(candidate.initializer) === "buildTeardownToSetupsMap") {
+            teardownDeclaration = candidate;
+          } else if (ts.isNewExpression(candidate)
+            && directExpressionName(candidate.expression) === "Dispatcher") {
+            dispatchers.push(candidate);
+          }
+          ts.forEachChild(candidate, inspect);
+        };
+        inspect(node.body);
+        const unsafeDispatcher = dispatchers.find((dispatcher) =>
+          !dispatcher.arguments?.some((argument) =>
+            /\bignoreMaxFailures\b/u.test(boundedNodeText(argument, sourceFile))));
+        if (teardownDeclaration && ts.isIdentifier(teardownDeclaration.name) && unsafeDispatcher) {
+          records.push({
+            kind: "teardown-interruption",
+            caller,
+            mechanism: "teardown-shares-stop-policy",
+            teardownCollection: teardownDeclaration.name.text,
+            dispatcherExpression: boundedNodeText(unsafeDispatcher, sourceFile),
+            location: locationOf(node, sourceFile),
+            teardownLocation: locationOf(teardownDeclaration, sourceFile),
+            dispatcherLocation: locationOf(unsafeDispatcher, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) => left.location.line - right.location.line);
+}
+
+function directCallName(expression: ts.Expression): string | undefined {
+  const value = unwrapExpression(expression);
+  return ts.isCallExpression(value) ? directExpressionName(value.expression) : undefined;
+}
+
+function directExpressionName(expression: ts.Expression): string | undefined {
+  const value = unwrapExpression(expression);
+  if (ts.isIdentifier(value)) return value.text;
+  if (ts.isPropertyAccessExpression(value)) return value.name.text;
+  return undefined;
 }
 
 const CLEANUP_CALLER_NAMES = new Set([
@@ -1712,6 +2062,118 @@ function identityComparison(candidate: ts.Expression, identity: ts.Expression): 
   return /Error$/u.test(identity.text) ? identity.text : undefined;
 }
 
+function abortReasonDropRecords(sourceFile: ts.SourceFile): AbortReasonDropEvidence[] {
+  const records: AbortReasonDropEvidence[] = [];
+  const visitReturns = (node: ts.Node): void => {
+    if (ts.isReturnStatement(node) && node.expression) {
+      const rejection = unwrapExpression(node.expression);
+      if (ts.isCallExpression(rejection)
+        && rejection.arguments.length === 0
+        && ts.isPropertyAccessExpression(rejection.expression)
+        && ts.isIdentifier(rejection.expression.expression)
+        && rejection.expression.expression.text === "Promise"
+        && rejection.expression.name.text === "reject") {
+        const guard = enclosingCancellationGuard(node);
+        if (guard) {
+          const signal = cancellationSignalContract(node, guard.binding, sourceFile);
+          if (signal) {
+            records.push({
+              kind: "abort-reason-drop",
+              caller: enclosingCaller(node),
+              mechanism: "abort-rejection-without-reason",
+              cancellationBinding: guard.binding,
+              signalExpression: signal.expression,
+              rejectionExpression: boundedNodeText(rejection, sourceFile),
+              location: locationOf(rejection, sourceFile),
+              cancellationLocation: locationOf(signal.assignment, sourceFile),
+              signalLocation: locationOf(signal.signal, sourceFile),
+            });
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visitReturns);
+  };
+  visitReturns(sourceFile);
+  return records.sort((left, right) => left.location.line - right.location.line);
+}
+
+function enclosingCancellationGuard(
+  node: ts.Node,
+): { binding: string; guard: ts.IfStatement } | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (ts.isIfStatement(current) && containsPosition(current.thenStatement, node)) {
+      const condition = unwrapExpression(current.expression);
+      if (ts.isIdentifier(condition) && /(?:cancel|abort)/iu.test(condition.text)) {
+        return { binding: condition.text, guard: current };
+      }
+    }
+    if (isFunctionBoundary(current)) return undefined;
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function cancellationSignalContract(
+  node: ts.Node,
+  cancellationBinding: string,
+  sourceFile: ts.SourceFile,
+): { expression: string; signal: ts.Expression; assignment: ts.BinaryExpression } | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (isFunctionBoundary(current) && current.body) {
+      let result: { expression: string; signal: ts.Expression; assignment: ts.BinaryExpression } | undefined;
+      const inspect = (candidate: ts.Node): void => {
+        if (result) return;
+        if (ts.isCallExpression(candidate)
+          && /(?:consume.*signal|signal.*consume)/iu.test(directExpressionName(candidate.expression) ?? "")) {
+          let signal: ts.Expression | undefined;
+          let assignment: ts.BinaryExpression | undefined;
+          for (const argument of candidate.arguments) {
+            const value = unwrapExpression(argument);
+            if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) {
+              const body = value.body;
+              const inspectCallback = (callbackNode: ts.Node): void => {
+                const left = ts.isBinaryExpression(callbackNode)
+                  ? unwrapExpression(callbackNode.left)
+                  : undefined;
+                if (ts.isBinaryExpression(callbackNode)
+                  && callbackNode.operatorToken.kind === ts.SyntaxKind.EqualsToken
+                  && left
+                  && ts.isIdentifier(left)
+                  && left.text === cancellationBinding
+                  && unwrapExpression(callbackNode.right).kind === ts.SyntaxKind.TrueKeyword) {
+                  assignment = callbackNode;
+                }
+                if (ts.isPropertyAccessExpression(callbackNode)
+                  && callbackNode.name.text === "signal") {
+                  signal = callbackNode;
+                }
+                ts.forEachChild(callbackNode, inspectCallback);
+              };
+              inspectCallback(body);
+            }
+          }
+          if (signal && assignment) {
+            result = {
+              expression: boundedNodeText(signal, sourceFile),
+              signal,
+              assignment,
+            };
+            return;
+          }
+        }
+        ts.forEachChild(candidate, inspect);
+      };
+      inspect(current.body);
+      if (result) return result;
+    }
+    current = current.parent;
+  }
+  return undefined;
+}
+
 function dependencyResolutionRecords(sourceFile: ts.SourceFile): DependencyResolutionEvidence[] {
   const records: DependencyResolutionEvidence[] = [];
   const visitLoops = (node: ts.Node): void => {
@@ -1740,6 +2202,50 @@ function dependencyResolutionRecords(sourceFile: ts.SourceFile): DependencyResol
   };
   visitLoops(sourceFile);
   return records;
+}
+
+function dependencyExplicitSourceRecords(sourceFile: ts.SourceFile): DependencyExplicitSourceEvidence[] {
+  const records: DependencyExplicitSourceEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const caller = functionLikeName(node);
+      if (caller && /(?:import|module).*(?:completion|fix|action)|(?:completion|fix|action).*(?:import|module)/iu.test(caller)) {
+        const visitDeclarations = (candidate: ts.Node): void => {
+          if (candidate !== node.body && isFunctionBoundary(candidate)) return;
+          if (ts.isVariableDeclaration(candidate)
+            && ts.isIdentifier(candidate.name)
+            && /exportInfo/iu.test(candidate.name.text)
+            && candidate.initializer) {
+            const initializer = unwrapExpression(candidate.initializer);
+            if (ts.isCallExpression(initializer)
+              && directExpressionName(initializer.expression) === "getAllReExportingModules") {
+              const explicitModule = initializer.arguments.find((argument) => {
+                const text = boundedNodeText(argument, sourceFile);
+                return /module(?:Symbol)?/iu.test(text);
+              });
+              if (explicitModule) {
+                records.push({
+                  kind: "dependency-explicit-source",
+                  caller,
+                  mechanism: "bare-explicit-source-expanded",
+                  resultBinding: candidate.name.text,
+                  expansionFunction: "getAllReExportingModules",
+                  explicitModuleExpression: boundedNodeText(explicitModule, sourceFile),
+                  location: locationOf(candidate, sourceFile),
+                  expansionLocation: locationOf(initializer, sourceFile),
+                });
+              }
+            }
+          }
+          ts.forEachChild(candidate, visitDeclarations);
+        };
+        visitDeclarations(node.body);
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) => left.location.line - right.location.line);
 }
 
 const DEPENDENCY_RESOLVER_NAME = /(?:resolve|find|get|inject|provider|dependency|binding)/iu;
@@ -2382,6 +2888,96 @@ function unwrapExpression(expression: ts.Expression): ts.Expression {
   return current;
 }
 
+function referencePositionRecords(sourceFile: ts.SourceFile): ReferencePositionEvidence[] {
+  const records: ReferencePositionEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const caller = functionLikeName(node);
+      const parentParameter = node.parameters[1]?.name;
+      if (caller
+        && /(?:is|classify).*(?:ref|reference).*identifier/iu.test(caller)
+        && parentParameter
+        && ts.isIdentifier(parentParameter)
+        && sourceFile.text.includes("PropertyDefinition")) {
+        let methodExclusion: ts.IfStatement | undefined;
+        let propertyKeyExclusion: ts.IfStatement | undefined;
+        let classPropertyExclusion = false;
+        const inspect = (candidate: ts.Node): void => {
+          if (candidate !== node.body && isFunctionBoundary(candidate)) return;
+          if (ts.isIfStatement(candidate)) {
+            const condition = boundedNodeText(candidate.expression, sourceFile);
+            if (statementReturnsFalse(candidate.thenStatement)
+              && /MethodDefinition/u.test(condition)
+              && new RegExp(`!\\s*${parentParameter.text}\\.computed`, "u").test(condition)) {
+              methodExclusion = candidate;
+            }
+            if (statementReturnsFalse(candidate.thenStatement)
+              && /isStaticPropertyKey/u.test(condition)) {
+              propertyKeyExclusion = candidate;
+            }
+            if (/PropertyDefinition/u.test(condition)
+              && new RegExp(`!\\s*${parentParameter.text}\\.computed`, "u").test(condition)
+              && statementContainsReturn(candidate.thenStatement)) {
+              classPropertyExclusion = true;
+            }
+          }
+          ts.forEachChild(candidate, inspect);
+        };
+        inspect(node.body);
+        if (methodExclusion && propertyKeyExclusion && !classPropertyExclusion) {
+          records.push({
+            kind: "reference-position",
+            caller,
+            mechanism: "noncomputed-class-property-key-reference",
+            parentParameter: parentParameter.text,
+            modeledExclusions: [
+              "MethodDefinition.noncomputed-key",
+              "static-property-key",
+            ],
+            missingExclusion: "PropertyDefinition.noncomputed-key",
+            location: locationOf(node, sourceFile),
+            methodExclusionLocation: locationOf(methodExclusion.expression, sourceFile),
+            propertyKeyExclusionLocation: locationOf(propertyKeyExclusion.expression, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) => left.location.line - right.location.line);
+}
+
+function statementReturnsFalse(statement: ts.Statement): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== statement && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node)
+      && node.expression
+      && unwrapExpression(node.expression).kind === ts.SyntaxKind.FalseKeyword) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return found;
+}
+
+function statementContainsReturn(statement: ts.Statement): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== statement && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return found;
+}
+
 function scopeResolutionRecords(sourceFile: ts.SourceFile): ScopeResolutionEvidence[] {
   const text = sourceFile.text;
   const resolverFunctions = new Set<string>();
@@ -2879,6 +3475,126 @@ function resourceLifetimeListener(
   };
 }
 
+function abortListenerLifetimeRecords(sourceFile: ts.SourceFile): AbortListenerLifetimeEvidence[] {
+  const records: AbortListenerLifetimeEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isNewExpression(node)
+      && directExpressionName(node.expression) === "Promise") {
+      const callbackNode = node.arguments?.[0];
+      const callback = callbackNode ? unwrapExpression(callbackNode) : undefined;
+      if (callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+        const resolveParameter = callback.parameters[0]?.name;
+        const rejectParameter = callback.parameters[1]?.name;
+        if (resolveParameter && ts.isIdentifier(resolveParameter)
+          && rejectParameter && ts.isIdentifier(rejectParameter)) {
+          const record = abortListenerLifetimeRecord(
+            node,
+            callback,
+            resolveParameter.text,
+            rejectParameter.text,
+            sourceFile,
+          );
+          if (record) records.push(record);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) => left.location.line - right.location.line);
+}
+
+function abortListenerLifetimeRecord(
+  promise: ts.NewExpression,
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+  resolveIdentifier: string,
+  rejectIdentifier: string,
+  sourceFile: ts.SourceFile,
+): AbortListenerLifetimeEvidence | undefined {
+  let registration: ts.CallExpression | undefined;
+  let target: string | undefined;
+  let handler: ts.Expression | undefined;
+  const settlementCalls: ts.CallExpression[] = [];
+  const inspect = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      const event = node.arguments[0];
+      if (path?.at(-1) === "addEventListener"
+        && event && ts.isStringLiteralLike(event) && event.text === "abort"
+        && node.arguments[1]) {
+        registration = node;
+        target = path.slice(0, -1).join(".");
+        handler = node.arguments[1];
+      }
+      if (ts.isIdentifier(node.expression)
+        && (node.expression.text === resolveIdentifier
+          || node.expression.text === rejectIdentifier)) {
+        settlementCalls.push(node);
+      }
+    }
+    ts.forEachChild(node, inspect);
+  };
+  inspect(callback.body);
+  if (!registration || !target || !handler
+    || !handlerReferencesIdentifier(handler, rejectIdentifier)
+    || !settlementCalls.some((call) =>
+      ts.isIdentifier(call.expression) && call.expression.text === resolveIdentifier)
+    || !settlementCalls.some((call) =>
+      ts.isIdentifier(call.expression) && call.expression.text === rejectIdentifier)
+    || matchingAbortListenerRemoval(callback.body, target, handler, sourceFile)) {
+    return undefined;
+  }
+  return {
+    kind: "abort-listener-lifetime",
+    caller: enclosingCaller(promise),
+    mechanism: "abort-listener-retained-after-settlement",
+    target,
+    eventName: "abort",
+    handlerExpression: boundedNodeText(handler, sourceFile),
+    resolveIdentifier,
+    rejectIdentifier,
+    location: locationOf(registration, sourceFile),
+    handlerLocation: locationOf(handler, sourceFile),
+    settlementLocations: settlementCalls.map((call) => locationOf(call, sourceFile)),
+  };
+}
+
+function handlerReferencesIdentifier(handler: ts.Expression, expected: string): boolean {
+  const value = unwrapExpression(handler);
+  if (ts.isIdentifier(value)) return true;
+  if (!ts.isArrowFunction(value) && !ts.isFunctionExpression(value)) return false;
+  return referencedNames(value.body, new Set([expected])).includes(expected);
+}
+
+function matchingAbortListenerRemoval(
+  body: ts.ConciseBody,
+  target: string,
+  handler: ts.Expression,
+  sourceFile: ts.SourceFile,
+): boolean {
+  const handlerText = boundedNodeText(handler, sourceFile);
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      const event = node.arguments[0];
+      const removedHandler = node.arguments[1];
+      if (path?.at(-1) === "removeEventListener"
+        && path.slice(0, -1).join(".") === target
+        && event && ts.isStringLiteralLike(event) && event.text === "abort"
+        && removedHandler
+        && boundedNodeText(removedHandler, sourceFile) === handlerText) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return found;
+}
+
 function terminalEventListenerRecords(sourceFile: ts.SourceFile): TerminalEventListenerEvidence[] {
   const records: TerminalEventListenerEvidence[] = [];
   const visit = (node: ts.Node): void => {
@@ -3139,6 +3855,103 @@ function optionPropagationRecords(
     });
   }
   return records;
+}
+
+function defaultOptionOverrideRecords(
+  object: ts.ObjectLiteralExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): DefaultOptionOverrideEvidence[] {
+  const records: DefaultOptionOverrideEvidence[] = [];
+  const spreads: Array<{ source: string; location: AstLocation }> = [];
+  for (const property of object.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const spreadSource = memberPath(unwrapExpression(property.expression))?.join(".");
+      if (spreadSource) {
+        spreads.push({
+          source: spreadSource,
+          location: locationOf(property, sourceFile),
+        });
+      }
+      continue;
+    }
+    const spread = spreads.at(-1);
+    const spreadSource = spread?.source;
+    if (!spreadSource
+      || !/(?:options?|config)(?:\.|$)/iu.test(spreadSource)
+      || !ts.isPropertyAssignment(property)) {
+      continue;
+    }
+    const propertyName = methodNameText(property.name);
+    const initializer = unwrapExpression(property.initializer);
+    const defaultExpression = boundedNodeText(initializer, sourceFile);
+    if (!propertyName
+      || ts.isObjectLiteralExpression(initializer)
+      || !/(?:default|baseline)/iu.test(defaultExpression)
+      || memberPath(initializer)?.join(".") === `${spreadSource}.${propertyName}`
+      || preservesSpreadPropertyInArrayMerge(
+        object,
+        initializer,
+        spreadSource,
+        propertyName,
+      )) {
+      continue;
+    }
+    records.push({
+      kind: "default-option-override",
+      caller,
+      mechanism: "default-after-user-options",
+      property: propertyName,
+      spreadSource,
+      defaultExpression,
+      location: locationOf(property, sourceFile),
+      spreadLocation: spread!.location,
+      objectLocation: locationOf(object, sourceFile),
+    });
+  }
+  return records;
+}
+
+function preservesSpreadPropertyInArrayMerge(
+  object: ts.ObjectLiteralExpression,
+  initializer: ts.Expression,
+  spreadSource: string,
+  propertyName: string,
+): boolean {
+  if (!ts.isArrayLiteralExpression(initializer)) return false;
+  const expectedPath = `${spreadSource}.${propertyName}`;
+  const boundary = enclosingFunctionBlock(object);
+
+  return initializer.elements.some((element) => {
+    if (!ts.isSpreadElement(element)) return false;
+    const spreadValue = unwrapExpression(element.expression);
+    if (memberPath(spreadValue)?.join(".") === expectedPath) return true;
+    if (!boundary || !ts.isIdentifier(spreadValue)) return false;
+
+    const declaration = findVariableDeclaration(boundary.body, spreadValue.text);
+    return Boolean(
+      declaration?.initializer
+      && declaration.getStart() < object.getStart()
+      && containsExactMemberPath(declaration.initializer, expectedPath),
+    );
+  });
+}
+
+function containsExactMemberPath(node: ts.Node, expectedPath: string): boolean {
+  let found = false;
+  const visit = (candidate: ts.Node): void => {
+    if (found) return;
+    if ((ts.isIdentifier(candidate)
+      || ts.isPropertyAccessExpression(candidate)
+      || ts.isElementAccessExpression(candidate))
+      && memberPath(candidate)?.join(".") === expectedPath) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(candidate, visit);
+  };
+  visit(node);
+  return found;
 }
 
 function collectTruthyBooleanDefaults(sourceFile: ts.SourceFile): Set<string> {

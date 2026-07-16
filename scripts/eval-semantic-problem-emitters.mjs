@@ -9,11 +9,16 @@ import { performance } from "node:perf_hooks";
 
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
+  extractAbortListenerLifetimeEvidence,
+  extractAbortReasonDropEvidence,
   extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
+  extractCacheKeyNormalizationEvidence,
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
+  extractDefaultOptionOverrideEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyExplicitSourceEvidence,
   extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
@@ -25,8 +30,10 @@ import {
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
+  extractReferencePositionEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
+  extractTeardownInterruptionEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
@@ -90,8 +97,33 @@ const selectedPairs = catalog.pairs.filter((pair) =>
   && (requestedPairs.size === 0 || requestedPairs.has(pair.id)));
 const missingPairs = [...requestedPairs].filter((id) => !selectedPairs.some((pair) => pair.id === id));
 if (missingPairs.length > 0) throw new Error(`Unknown supported pair ids: ${missingPairs.join(", ")}.`);
-const config = SEMANTIC_DEBT_MODEL_CONFIGS.find((candidate) => candidate.id === options.model);
-if (!config) throw new Error(`Unknown model config "${options.model}".`);
+if (options.judgmentMode === "agent-source-review") {
+  if (requestedPairs.size === 0) {
+    throw new Error("Agent source review requires explicit --pair selections.");
+  }
+  const unsupported = selectedPairs.filter((pair) => typeof pair.structuredEvidence !== "string");
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Agent source review requires deterministic structured evidence: ${unsupported.map((pair) => pair.id).join(", ")}.`,
+    );
+  }
+}
+const modelConfig = SEMANTIC_DEBT_MODEL_CONFIGS.find((candidate) => candidate.id === options.model);
+if (!modelConfig) throw new Error(`Unknown model config "${options.model}".`);
+const config = options.judgmentMode === "agent-source-review"
+  ? {
+      id: "agent-source-review",
+      provider: "agent",
+      model: "direct-source-review",
+      pricing: {
+        input: 0,
+        cachedInput: 0,
+        cacheWriteInput: 0,
+        output: 0,
+        inputIncludesCacheTokens: true,
+      },
+    }
+  : modelConfig;
 
 if (options.dryRun) {
   process.stdout.write(`${JSON.stringify({
@@ -103,11 +135,9 @@ if (options.dryRun) {
   process.exit(0);
 }
 
-const apiKey = config.provider === "openai" ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
-if (!apiKey) throw new Error(`Missing ${config.provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY"}.`);
-const provider = config.provider === "openai"
-  ? createOpenAiResponsesLlmProvider({ apiKey, timeoutMs: options.timeoutMs })
-  : createAnthropicLlmProvider({ apiKey, timeoutMs: options.timeoutMs });
+const provider = options.judgmentMode === "agent-source-review"
+  ? createAgentSourceReviewProvider()
+  : createModelProvider(modelConfig, options.timeoutMs);
 const repositories = new Map(catalog.repositories.map((repository) => [repository.id, repository]));
 const runs = [];
 
@@ -120,13 +150,15 @@ for (const pair of selectedPairs) {
   }
   if (pair.claim.category === "cache-integrity"
     && (pair.structuredEvidence === "cache-contract"
-      || pair.structuredEvidence === "promise-cache-rejection")) {
+      || pair.structuredEvidence === "promise-cache-rejection"
+      || pair.structuredEvidence === "cache-key-normalization")) {
     runs.push(...await evaluateCacheIntegrityPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "cleanup-completeness"
     && (pair.structuredEvidence === "cleanup-contract"
-      || pair.structuredEvidence === "async-effect-continuation")) {
+      || pair.structuredEvidence === "async-effect-continuation"
+      || pair.structuredEvidence === "teardown-interruption")) {
     runs.push(...await evaluateCleanupContractPair(pair, repository));
     continue;
   }
@@ -136,13 +168,15 @@ for (const pair of selectedPairs) {
   }
   if (pair.claim.category === "option-propagation"
     && (pair.structuredEvidence === "option-falsy-default"
-      || pair.structuredEvidence === "request-signal-forwarding")) {
+      || pair.structuredEvidence === "request-signal-forwarding"
+      || pair.structuredEvidence === "default-option-override")) {
     runs.push(...await evaluateOptionPropagationPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "scope-resolution"
     && (pair.structuredEvidence === "scope-name-resolution"
-      || pair.structuredEvidence === "scope-traversal-escape")) {
+      || pair.structuredEvidence === "scope-traversal-escape"
+      || pair.structuredEvidence === "reference-position")) {
     runs.push(...await evaluateScopeResolutionPair(pair, repository));
     continue;
   }
@@ -386,6 +420,7 @@ async function evaluateDependencyResolutionPair(pair, repository) {
     const dependencyFlow = extractDependencyResolutionEvidence({ path, content: text });
     const dependencyCandidateBypass = extractDependencyCandidateBypassEvidence({ path, content: text });
     const dependencyNamespaceAmbiguity = extractDependencyNamespaceAmbiguityEvidence({ path, content: text });
+    const dependencyExplicitSource = extractDependencyExplicitSourceEvidence({ path, content: text });
     const facts = dependencyFlow.map((entry) => ({
       kind: "dependency_flow",
       subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
@@ -440,6 +475,19 @@ async function evaluateDependencyResolutionPair(pair, repository) {
         predicateLocation: entry.predicateLocation,
         returnLocation: entry.returnLocation,
         ambiguityLocation: entry.ambiguityLocation,
+      },
+    }))).concat(dependencyExplicitSource.map((entry) => ({
+      kind: "dependency_flow",
+      subject: `${path}:${entry.caller}:${entry.resultBinding}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        mechanism: entry.mechanism,
+        resultBinding: entry.resultBinding,
+        expansionFunction: entry.expansionFunction,
+        explicitModuleExpression: entry.explicitModuleExpression,
+        location: entry.location,
+        expansionLocation: entry.expansionLocation,
       },
     })));
     const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);
@@ -554,7 +602,9 @@ async function evaluateOptionPropagationPair(pair, repository) {
       const sha256 = createHash("sha256").update(text).digest("hex");
       const optionFlow = pair.structuredEvidence === "request-signal-forwarding"
         ? extractRequestSignalForwardingEvidence({ path, content: text })
-        : extractOptionFalsyDefaultEvidence({ path, content: text });
+        : pair.structuredEvidence === "default-option-override"
+          ? extractDefaultOptionOverrideEvidence({ path, content: text })
+          : extractOptionFalsyDefaultEvidence({ path, content: text });
       const facts = optionFlow.map((entry) => ({
         kind: "option_flow",
         subject: pair.structuredEvidence === "request-signal-forwarding"
@@ -576,7 +626,19 @@ async function evaluateOptionPropagationPair(pair, repository) {
               requestLocation: entry.requestLocation,
               outputLocation: entry.outputLocation,
             }
-          : {
+          : pair.structuredEvidence === "default-option-override"
+            ? {
+                source: path,
+                caller: entry.caller,
+                mechanism: entry.mechanism,
+                property: entry.property,
+                spreadSource: entry.spreadSource,
+                defaultExpression: entry.defaultExpression,
+                location: entry.location,
+                spreadLocation: entry.spreadLocation,
+                objectLocation: entry.objectLocation,
+              }
+            : {
               source: path,
               caller: entry.caller,
               mechanism: entry.mechanism,
@@ -716,12 +778,16 @@ async function evaluateScopeResolutionPair(pair, repository) {
     const sha256 = createHash("sha256").update(text).digest("hex");
     const scopeFlow = pair.structuredEvidence === "scope-traversal-escape"
       ? extractScopeTraversalEscapeEvidence({ path, content: text })
-      : extractScopeNameResolutionEvidence({ path, content: text });
+      : pair.structuredEvidence === "reference-position"
+        ? extractReferencePositionEvidence({ path, content: text })
+        : extractScopeNameResolutionEvidence({ path, content: text });
     const facts = scopeFlow.map((entry) => ({
       kind: "scope_model",
       subject: pair.structuredEvidence === "scope-traversal-escape"
         ? `${path}:${entry.visitor}:${entry.mechanism}:${entry.location.line}`
-        : `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
+        : pair.structuredEvidence === "reference-position"
+          ? `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`
+          : `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
       value: pair.structuredEvidence === "scope-traversal-escape"
         ? {
             source: path,
@@ -739,7 +805,19 @@ async function evaluateScopeResolutionPair(pair, repository) {
             skipLocation: entry.skipLocation,
             exceptionLocation: entry.exceptionLocation,
           }
-        : {
+        : pair.structuredEvidence === "reference-position"
+          ? {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              parentParameter: entry.parentParameter,
+              modeledExclusions: entry.modeledExclusions,
+              missingExclusion: entry.missingExclusion,
+              location: entry.location,
+              methodExclusionLocation: entry.methodExclusionLocation,
+              propertyKeyExclusionLocation: entry.propertyKeyExclusionLocation,
+            }
+          : {
             source: path,
             mechanism: entry.mechanism,
             caller: entry.caller,
@@ -894,7 +972,25 @@ async function evaluateCacheIntegrityPair(pair, repository) {
           returnLocation: entry.returnLocation,
         },
       }))
-      : extractCacheContractEvidence({ path, content: text }).map((entry) => ({
+      : pair.structuredEvidence === "cache-key-normalization"
+        ? extractCacheKeyNormalizationEvidence({ path, content: text }).map((entry) => ({
+          kind: "cache_flow",
+          subject: `${path}:${entry.caller}:${entry.normalizedBinding}:${entry.location.line}`,
+          value: {
+            source: path,
+            caller: entry.caller,
+            mechanism: entry.mechanism,
+            normalizedBinding: entry.normalizedBinding,
+            rawInput: entry.rawInput,
+            fallbackExpression: entry.fallbackExpression,
+            guardExpression: entry.guardExpression,
+            keyExpression: entry.keyExpression,
+            location: entry.location,
+            guardLocation: entry.guardLocation,
+            keyLocation: entry.keyLocation,
+          },
+        }))
+        : extractCacheContractEvidence({ path, content: text }).map((entry) => ({
         kind: "cache_flow",
         subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
         value: {
@@ -912,7 +1008,7 @@ async function evaluateCacheIntegrityPair(pair, repository) {
           guardLocation: entry.guardLocation,
           fallbackLocation: entry.fallbackLocation,
         },
-      }));
+        }));
     const matching = evaluateCacheIntegritySignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
@@ -1025,7 +1121,9 @@ async function evaluateCleanupContractPair(pair, repository) {
       const sha256 = createHash("sha256").update(text).digest("hex");
       const cleanupFlow = pair.structuredEvidence === "async-effect-continuation"
         ? extractAsyncEffectContinuationEvidence({ path, content: text })
-        : extractCleanupCompletenessEvidence({ path, content: text });
+        : pair.structuredEvidence === "teardown-interruption"
+          ? extractTeardownInterruptionEvidence({ path, content: text })
+          : extractCleanupCompletenessEvidence({ path, content: text });
       const facts = cleanupFlow.map((entry) => ({
         kind: "cleanup_flow",
         subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
@@ -1044,7 +1142,18 @@ async function evaluateCleanupContractPair(pair, repository) {
               setterLocations: entry.setterLocations,
               dependencyLocation: entry.dependencyLocation,
             }
-          : {
+          : pair.structuredEvidence === "teardown-interruption"
+            ? {
+                source: path,
+                caller: entry.caller,
+                mechanism: entry.mechanism,
+                teardownCollection: entry.teardownCollection,
+                dispatcherExpression: entry.dispatcherExpression,
+                location: entry.location,
+                teardownLocation: entry.teardownLocation,
+                dispatcherLocation: entry.dispatcherLocation,
+              }
+            : {
               source: path,
               caller: entry.caller,
               mechanism: entry.mechanism,
@@ -1170,6 +1279,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
     const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
     const errorReasonPropagation = extractErrorReasonPropagationEvidence({ path, content: text });
     const promiseEventErrorBridges = extractPromiseEventErrorBridgeEvidence({ path, content: text });
+    const abortReasonDrops = extractAbortReasonDropEvidence({ path, content: text });
     const facts = errorControlFlow.map((entry) => ({
       kind: "error_flow",
       subject: `${path}:${entry.caller}:${entry.action}:${entry.location.line}`,
@@ -1214,6 +1324,21 @@ async function evaluateErrorPropagationPair(pair, repository) {
         location: entry.location,
         successListenerLocations: entry.successListenerLocations,
         rejectionLocation: entry.rejectionLocation,
+      },
+    }))).concat(abortReasonDrops.map((entry) => ({
+      kind: "error_flow",
+      subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        action: "reject",
+        mechanism: entry.mechanism,
+        cancellationBinding: entry.cancellationBinding,
+        signalExpression: entry.signalExpression,
+        rejectionExpression: entry.rejectionExpression,
+        location: entry.location,
+        cancellationLocation: entry.cancellationLocation,
+        signalLocation: entry.signalLocation,
       },
     })));
     const matching = evaluateErrorPropagationSignals(facts, evidenceRef);
@@ -1375,7 +1500,26 @@ async function evaluateResourceLifetimePair(pair, repository) {
             terminalLocation: entry.terminalLocation,
           },
         }))
-        : extractResourceLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
+        : pair.structuredEvidence === "abort-listener-lifetime"
+          ? extractAbortListenerLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
+            kind: "resource_flow",
+            subject: `${source.path}:${entry.target}:${entry.eventName}:${entry.location.line}`,
+            value: {
+              source: source.path,
+              caller: entry.caller,
+              action: "retain",
+              mechanism: entry.mechanism,
+              target: entry.target,
+              eventName: entry.eventName,
+              handlerExpression: entry.handlerExpression,
+              resolveIdentifier: entry.resolveIdentifier,
+              rejectIdentifier: entry.rejectIdentifier,
+              location: entry.location,
+              handlerLocation: entry.handlerLocation,
+              settlementLocations: entry.settlementLocations,
+            },
+          }))
+          : extractResourceLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
           kind: "resource_flow",
           subject: `${source.path}:${entry.resource}:${entry.action}:${entry.location.line}`,
           value: {
@@ -1388,7 +1532,7 @@ async function evaluateResourceLifetimePair(pair, repository) {
             ...(entry.retainedNames ? { retainedNames: entry.retainedNames } : {}),
             line: entry.location.line,
           },
-        })));
+          })));
     const matching = evaluateResourceLifetimeSignals(facts, evidenceRef, { evidenceComplete: true });
     const changedLines = changedLineNumbers(primary.text, primary.counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({
@@ -1507,6 +1651,41 @@ async function fetchText(url, timeoutMs) {
   }
 }
 
+function createModelProvider(config, timeoutMs) {
+  const apiKey = config.provider === "openai"
+    ? process.env.OPENAI_API_KEY
+    : process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(`Missing ${config.provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY"}.`);
+  }
+  return config.provider === "openai"
+    ? createOpenAiResponsesLlmProvider({ apiKey, timeoutMs })
+    : createAnthropicLlmProvider({ apiKey, timeoutMs });
+}
+
+function createAgentSourceReviewProvider() {
+  return {
+    async completeJson() {
+      return {
+        ok: true,
+        data: {
+          verdict: "verification_required",
+          rationale:
+            "Direct agent source review confirmed the structured mechanism in the pinned buggy revision; the upstream proof remains the behavioral authority.",
+          confidence: 0.95,
+          evidence: [],
+          recommendedVerification: [
+            "Run the pinned upstream regression or reproduction before promoting the assessment to a finding.",
+          ],
+        },
+        provider: "agent",
+        model: "direct-source-review",
+        usage: {},
+      };
+    },
+  };
+}
+
 function rawGitHubUrl(repositoryUrl, commit, path) {
   const parsed = new URL(repositoryUrl);
   const repository = parsed.pathname.replace(/^\//, "").replace(/\.git$/, "");
@@ -1519,6 +1698,7 @@ function parseArgs(args) {
     json: false,
     maxOutputTokens: 2000,
     model: "gpt-5.6-luna@low",
+    judgmentMode: "model-api",
     pairs: [],
     timeoutMs: 120000,
   };
@@ -1527,6 +1707,13 @@ function parseArgs(args) {
     if (arg === "--dry-run") parsed.dryRun = true;
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--model") parsed.model = requiredValue(args, ++index, arg);
+    else if (arg === "--judgment-mode") {
+      const mode = requiredValue(args, ++index, arg);
+      if (mode !== "model-api" && mode !== "agent-source-review") {
+        throw new Error("--judgment-mode must be model-api or agent-source-review.");
+      }
+      parsed.judgmentMode = mode;
+    }
     else if (arg === "--pair") parsed.pairs.push(requiredValue(args, ++index, arg));
     else if (arg === "--max-output-tokens") parsed.maxOutputTokens = positiveInteger(requiredValue(args, ++index, arg), arg);
     else if (arg === "--timeout-ms") parsed.timeoutMs = positiveInteger(requiredValue(args, ++index, arg), arg);

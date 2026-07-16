@@ -34,6 +34,17 @@ type DerivedRequestSignalFlow = {
   signalLine: number;
 };
 
+type DefaultOptionOverrideFlow = {
+  path: string;
+  caller: string;
+  property: string;
+  spreadSource: string;
+  defaultExpression: string;
+  line: number;
+  spreadLine: number;
+  objectLine: number;
+};
+
 export function evaluateOptionPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -49,9 +60,62 @@ export function evaluateOptionPropagationSignals(
     .filter((flow): flow is DerivedRequestSignalFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => derivedRequestSignalAssessment(flow, evidenceRef));
-  return [...falsyDefaults, ...derivedSignals].sort((left, right) =>
+  const defaultOverrides = optionFacts
+    .map(parseDefaultOptionOverride)
+    .filter((flow): flow is DefaultOptionOverrideFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => defaultOptionOverrideAssessment(flow, evidenceRef));
+  return [...falsyDefaults, ...derivedSignals, ...defaultOverrides].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function defaultOptionOverrideAssessment(
+  flow: DefaultOptionOverrideFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    property: flow.property,
+    spreadSource: flow.spreadSource,
+    defaultExpression: flow.defaultExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_OPTION_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+    impact: "medium",
+    title: `Possible user option override in ${flow.path}`,
+    description:
+      `${flow.caller} spreads ${flow.spreadSource}, then assigns ${flow.property} from ${flow.defaultExpression}. Object spread precedence makes the default replace a caller-supplied ${flow.property} value.`,
+    subjects: [flow.path, flow.caller, `${flow.spreadSource}.${flow.property}`],
+    files: [flow.path],
+    ruleId: SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+    suggestedAction:
+      `Set a non-default ${flow.property} value in ${flow.spreadSource} and verify it reaches the downstream API; place defaults before caller options when the caller is authoritative.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.94,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a default- or baseline-named expression assigns the same property after a user option/config spread; whether callers are contractually allowed to override the property remains to be verified.",
+    },
+    details: {
+      problemClass: "option-propagation",
+      structuredMechanism: "default-after-user-options",
+      caller: flow.caller,
+      property: flow.property,
+      spreadSource: flow.spreadSource,
+      defaultExpression: flow.defaultExpression,
+      sourceEvidence: [...new Set([flow.objectLine, flow.spreadLine, flow.line])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function falsyOptionDefaultAssessment(
@@ -217,6 +281,32 @@ function parseDerivedRequestSignal(fact: EvidenceFactLike): DerivedRequestSignal
     requestLine,
     outputLine,
     signalLine,
+  };
+}
+
+function parseDefaultOptionOverride(fact: EvidenceFactLike): DefaultOptionOverrideFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "default-after-user-options"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.property !== "string"
+    || typeof value.spreadSource !== "string"
+    || typeof value.defaultExpression !== "string") {
+    return undefined;
+  }
+  const line = locationLineOf(value.location);
+  const spreadLine = locationLineOf(value.spreadLocation);
+  const objectLine = locationLineOf(value.objectLocation);
+  if (!line || !spreadLine || !objectLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    property: value.property,
+    spreadSource: value.spreadSource,
+    defaultExpression: value.defaultExpression,
+    line,
+    spreadLine,
+    objectLine,
   };
 }
 

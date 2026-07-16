@@ -35,6 +35,18 @@ type TerminalListenerFlow = {
   registrationLine: number;
 };
 
+type AbortListenerFlow = {
+  path: string;
+  caller: string;
+  target: string;
+  handlerExpression: string;
+  resolveIdentifier: string;
+  rejectIdentifier: string;
+  registrationLine: number;
+  handlerLine: number;
+  settlementLines: number[];
+};
+
 export function evaluateResourceLifetimeSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -47,7 +59,14 @@ export function evaluateResourceLifetimeSignals(
     .sort((left, right) =>
       left.path.localeCompare(right.path) || left.registrationLine - right.registrationLine)
     .map((flow) => terminalListenerAssessment(flow, evidenceRef));
-  if (!options.evidenceComplete) return terminalListenerAssessments;
+  const abortListenerAssessments = resourceFacts
+    .map(parseAbortListenerFlow)
+    .filter((flow): flow is AbortListenerFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) =>
+      left.path.localeCompare(right.path) || left.registrationLine - right.registrationLine)
+    .map((flow) => abortListenerAssessment(flow, evidenceRef));
+  const localAssessments = [...terminalListenerAssessments, ...abortListenerAssessments];
+  if (!options.evidenceComplete) return localAssessments;
   const flows = resourceFacts
     .map(parseResourceFlow)
     .filter((flow): flow is ResourceFlow => flow !== undefined && !isNonProductionPath(flow.path));
@@ -65,9 +84,68 @@ export function evaluateResourceLifetimeSignals(
   const crossFileAssessments = [...retainedByResource.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, retained]) => resourceLifetimeAssessment(retained[0]!.resource, retained, evidenceRef));
-  return [...crossFileAssessments, ...terminalListenerAssessments].sort((left, right) =>
+  return [...crossFileAssessments, ...localAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function abortListenerAssessment(
+  flow: AbortListenerFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    target: flow.target,
+    handlerExpression: flow.handlerExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_RESOURCE_LIFETIME_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    impact: "medium",
+    title: `Possible abort listener retention in ${flow.path}`,
+    description:
+      `${flow.caller} attaches ${flow.handlerExpression} to ${flow.target}.abort while the surrounding Promise can settle through ${flow.resolveIdentifier} or ${flow.rejectIdentifier}, but no matching removal is visible. Normal settlement can leave the signal retaining the Promise rejection closure until the signal is collected or aborted.`,
+    subjects: [flow.path, flow.caller, flow.target],
+    files: [flow.path],
+    ruleId: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    suggestedAction:
+      `Resolve and reject the wrapped operation without aborting, then inspect ${flow.target}'s listeners; remove the abort handler on every settlement path while preserving once-only abort behavior.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.92,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves an abort listener closes over the Promise reject channel, visible normal resolve/reject paths exist, and no matching listener removal appears in the Promise executor; retained lifetime depends on signal ownership.",
+    },
+    details: {
+      problemClass: "resource-lifetime",
+      structuredMechanism: "abort-listener-retained-after-settlement",
+      caller: flow.caller,
+      target: flow.target,
+      handlerExpression: flow.handlerExpression,
+      sourceEvidence: [...new Set([
+        flow.registrationLine,
+        flow.handlerLine,
+        ...flow.settlementLines,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+      retentionEvidence: [{
+        path: flow.path,
+        caller: flow.caller,
+        target: flow.target,
+        eventName: "abort",
+        handlerExpression: flow.handlerExpression,
+        line: flow.registrationLine,
+      }],
+      releaseMatch: "absent-in-source",
+    },
+  };
 }
 
 function resourceLifetimeAssessment(
@@ -243,6 +321,39 @@ function parseTerminalListenerFlow(fact: EvidenceFactLike): TerminalListenerFlow
     registrationLine,
     handlerLine,
     terminalLine,
+  };
+}
+
+function parseAbortListenerFlow(fact: EvidenceFactLike): AbortListenerFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "abort-listener-retained-after-settlement"
+    || value.action !== "retain"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.target !== "string"
+    || value.eventName !== "abort"
+    || typeof value.handlerExpression !== "string"
+    || typeof value.resolveIdentifier !== "string"
+    || typeof value.rejectIdentifier !== "string"
+    || !Array.isArray(value.settlementLocations)) {
+    return undefined;
+  }
+  const registrationLine = locationLineOf(value.location);
+  const handlerLine = locationLineOf(value.handlerLocation);
+  const settlementLines = value.settlementLocations
+    .map(locationLineOf)
+    .filter((line): line is number => line !== undefined);
+  if (!registrationLine || !handlerLine || settlementLines.length < 2) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    target: value.target,
+    handlerExpression: value.handlerExpression,
+    resolveIdentifier: value.resolveIdentifier,
+    rejectIdentifier: value.rejectIdentifier,
+    registrationLine,
+    handlerLine,
+    settlementLines,
   };
 }
 

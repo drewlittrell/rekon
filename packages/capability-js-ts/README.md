@@ -72,14 +72,17 @@ Ordinary unused locals and public declarations remain outside this signal.
   Cache-flow facts identify `getFactoryWithDefault` callbacks whose return
   branch depends on an outer function parameter omitted from the cache key.
   They also identify lazy Promise member caches that retain an async load
-  without visible rejection eviction. Neither shape infers call order or
-  runtime impact. Cleanup-flow facts identify fail-fast aggregate or sequential
-  waits inside explicit lifecycle functions; they do not prove that an
-  obligation rejects at runtime. Dependency-flow facts identify either a
+  without visible rejection eviction, and cache keys whose guard reads a raw
+  optional input after a fallback-normalized binding is established. These
+  shapes do not infer call order or runtime impact. Cleanup-flow facts identify
+  fail-fast aggregate or sequential waits inside explicit lifecycle functions,
+  plus teardown-aware phase schedulers that use a default stop policy; they do
+  not prove runtime interruption. Dependency-flow facts identify either a
   conditionally overwritten loop selection, an iterated provider candidate
   bypassed by a generic lookup, or a first-match lookup across multiple
-  reference namespaces despite a visible ambiguity contract. They do not
-  establish intended precedence or namespace semantics.
+  reference namespaces despite a visible ambiguity contract. They also record
+  explicit import sources passed directly through all-re-export expansion.
+  They do not establish intended precedence or namespace semantics.
 
 ## Lifecycle Fit
 
@@ -91,16 +94,22 @@ projection, evaluation, resolver fallback, and docs.
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
 `extractCacheContractEvidence()`, `extractPromiseCacheRejectionEvidence()`,
+`extractCacheKeyNormalizationEvidence()`,
 `extractCleanupCompletenessEvidence()`,
+`extractTeardownInterruptionEvidence()`,
 `extractAsyncEffectContinuationEvidence()`,
 `extractDependencyCandidateBypassEvidence()`,
+`extractDependencyExplicitSourceEvidence()`,
 `extractDependencyNamespaceAmbiguityEvidence()`,
 `extractDependencyResolutionEvidence()`,
+`extractAbortReasonDropEvidence()`,
 `extractErrorControlFlowEvidence()`,
 `extractErrorReasonPropagationEvidence()`,
 `extractPromiseEventErrorBridgeEvidence()`,
+`extractDefaultOptionOverrideEvidence()`,
 `extractOptionFalsyDefaultEvidence()`, `extractOptionPropagationEvidence()`,
 `extractRequestSignalForwardingEvidence()`,
+`extractReferencePositionEvidence()`,
 `extractScopeNameResolutionEvidence()`, `extractScopeResolutionEvidence()`, and
 `extractScopeTraversalEscapeEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
@@ -108,7 +117,8 @@ pipeline.
 `extractResourceLifetimeEvidence()` exposes the retain/release observations
 joined by policy across a complete EvidenceGraph.
 `extractTerminalEventListenerEvidence()` exposes source-local terminal XHR
-listener observations.
+listener observations. `extractAbortListenerLifetimeEvidence()` exposes abort
+listeners that remain installed across visible Promise settlement paths.
 
 ## Import Boundary
 

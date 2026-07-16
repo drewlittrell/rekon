@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Expanded every semantic problem class from three to four independent public
+  defect pairs. New structured evidence covers normalized cache-key guards,
+  teardown scheduling under early stop, explicit ambient-module expansion,
+  abort-reason loss, defaults after user option spreads, abort-listener
+  settlement cleanup, and class-property reference positions. The
+  credential-free `agent-source-review` eval mode requires explicit structured
+  pairs and retains no source. All seven classes remain below the five-pair
+  sufficiency threshold.
 - Made public defect-pair setup materialize focused commit snapshots by default
   instead of complete before/after worktrees. Full worktrees remain available
   through `--full`; focused scans now include declared evidence paths, and CLI
@@ -67,9 +75,7 @@ All notable changes to Rekon are documented here.
   `Promise.all` or `Promise.allSettled` continuation updates state without a
   returned cleanup. The public `extractAsyncEffectContinuationEvidence()`
   helper exposes that observation, and the pinned Automerge pair validates that
-  a superseded effect cannot overwrite newer state after cleanup is added. The
-  source-free semantic baseline now passes twenty-one pairs. All seven semantic
-  classes have three independent positive pairs.
+  a superseded effect cannot overwrite newer state after cleanup is added.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.

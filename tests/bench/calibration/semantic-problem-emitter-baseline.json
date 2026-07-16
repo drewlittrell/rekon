@@ -1,13 +1,13 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-16T20:39:07Z",
+  "generatedAt": "2026-07-16T22:11:38Z",
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 21,
-    "caseCount": 52,
+    "pairCount": 28,
+    "caseCount": 66,
     "sourceRetention": "none",
-    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+error-bridge-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v2+cleanup-flow-anchor-v2",
+    "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+error-bridge-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v3+cleanup-flow-anchor-v3",
     "minimumChangedLineCoverage": 0.2,
     "minimumUsefulnessAdjudications": 5,
     "semanticPromptVersion": "semantic-file-understanding-v4",
@@ -15,7 +15,7 @@
     "judgmentCoercionVersion": "assessment-judgment-v2",
     "judgmentCoverage": {
       "modelApiPairs": 10,
-      "agentSourceReviewPairs": 11
+      "agentSourceReviewPairs": 18
     }
   },
   "model": {
@@ -26,7 +26,7 @@
     "appliesToPairs": 10
   },
   "summary": {
-    "passedPairs": 21,
+    "passedPairs": 28,
     "failedPairs": 0,
     "errors": 0,
     "usageScope": "model-api-pairs-only",
@@ -43,49 +43,49 @@
     {
       "ruleId": "semantic.cacheIntegrity",
       "problemClass": "cache-integrity",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.cleanupCompleteness",
       "problemClass": "cleanup-completeness",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.dependencyResolution",
       "problemClass": "dependency-resolution",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.errorPropagation",
       "problemClass": "error-propagation",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.optionPropagation",
       "problemClass": "option-propagation",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.resourceLifetime",
       "problemClass": "resource-lifetime",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
     {
       "ruleId": "semantic.scopeResolution",
       "problemClass": "scope-resolution",
-      "positivePairs": 3,
+      "positivePairs": 4,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     }
@@ -343,6 +343,97 @@
     },
     {
       "pairId": "babel-switch-discriminant-shadowing",
+      "problemClass": "scope-resolution",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "undici-cache-key-path-normalization",
+      "problemClass": "cache-integrity",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "playwright-max-failures-teardown",
+      "problemClass": "cleanup-completeness",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "typescript-ambient-import-source-expansion",
+      "problemClass": "dependency-resolution",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "tanstack-query-cancel-reason-propagation",
+      "problemClass": "error-propagation",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "vite-rolldown-transform-target-precedence",
+      "problemClass": "option-propagation",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "vitest-abort-listener-settlement-retention",
+      "problemClass": "resource-lifetime",
+      "judgmentMode": "agent-source-review",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "vitest-class-property-key-reference",
       "problemClass": "scope-resolution",
       "judgmentMode": "agent-source-review",
       "requiredBuggyPaths": 1,

@@ -32,6 +32,16 @@ type AsyncEffectFlow = {
   dependencyLine: number;
 };
 
+type TeardownInterruptionFlow = {
+  path: string;
+  caller: string;
+  teardownCollection: string;
+  dispatcherExpression: string;
+  locationLine: number;
+  teardownLine: number;
+  dispatcherLine: number;
+};
+
 const CLEANUP_CALLER_NAMES = new Set([
   "cleanup",
   "close",
@@ -58,9 +68,66 @@ export function evaluateCleanupCompletenessSignals(
     .map(parseAsyncEffectFlow)
     .filter((flow): flow is AsyncEffectFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => asyncEffectAssessment(flow, evidenceRef));
-  return [...lifecycleAssessments, ...asyncEffectAssessments].sort((left, right) =>
+  const teardownAssessments = cleanupFacts
+    .map(parseTeardownInterruptionFlow)
+    .filter((flow): flow is TeardownInterruptionFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => teardownInterruptionAssessment(flow, evidenceRef));
+  return [...lifecycleAssessments, ...asyncEffectAssessments, ...teardownAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function teardownInterruptionAssessment(
+  flow: TeardownInterruptionFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    teardownCollection: flow.teardownCollection,
+    dispatcherExpression: flow.dispatcherExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    impact: "high",
+    title: `Possible teardown interruption in ${flow.path}`,
+    description:
+      `${flow.caller} identifies teardown relationships in ${flow.teardownCollection}, but schedules the resulting phases through ${flow.dispatcherExpression} without a visible teardown-specific stop-policy exemption. A global early-stop condition can therefore skip cleanup projects along with ordinary work.`,
+    subjects: [flow.path, flow.caller, flow.teardownCollection],
+    files: [flow.path],
+    ruleId: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    suggestedAction:
+      "Exercise the scheduler's early-stop threshold with setup, failing work, and teardown projects, then isolate teardown work in a phase whose stop policy preserves cleanup.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.88,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves teardown-aware phase construction and a default dispatcher path with no visible interruption exemption; the dispatcher's concrete stop behavior remains to be verified.",
+    },
+    details: {
+      problemClass: "cleanup-completeness",
+      structuredMechanism: "teardown-shares-stop-policy",
+      caller: flow.caller,
+      teardownCollection: flow.teardownCollection,
+      dispatcherExpression: flow.dispatcherExpression,
+      sourceEvidence: uniqueLines([
+        flow.locationLine,
+        flow.teardownLine,
+        flow.dispatcherLine,
+      ]).map((line) => ({
+        path: flow.path,
+        lineStart: line,
+        lineEnd: line,
+      })),
+    },
+  };
 }
 
 function cleanupCompletenessAssessment(flow: CleanupFlow, evidenceRef: ArtifactRef): Assessment {
@@ -233,6 +300,32 @@ function parseAsyncEffectFlow(fact: EvidenceFactLike): AsyncEffectFlow | undefin
     continuationLine,
     setterLines,
     dependencyLine,
+  };
+}
+
+function parseTeardownInterruptionFlow(
+  fact: EvidenceFactLike,
+): TeardownInterruptionFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "teardown-shares-stop-policy"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.teardownCollection !== "string"
+    || typeof value.dispatcherExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const teardownLine = locationLineOf(value.teardownLocation);
+  const dispatcherLine = locationLineOf(value.dispatcherLocation);
+  if (!locationLine || !teardownLine || !dispatcherLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    teardownCollection: value.teardownCollection,
+    dispatcherExpression: value.dispatcherExpression,
+    locationLine,
+    teardownLine,
+    dispatcherLine,
   };
 }
 

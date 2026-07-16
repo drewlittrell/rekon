@@ -114,6 +114,24 @@
       "directory": "openclaw",
       "url": "https://github.com/openclaw/openclaw.git",
       "license": "MIT"
+    },
+    {
+      "id": "undici",
+      "directory": "undici",
+      "url": "https://github.com/nodejs/undici.git",
+      "license": "MIT"
+    },
+    {
+      "id": "typescript",
+      "directory": "typescript",
+      "url": "https://github.com/microsoft/TypeScript.git",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "tanstack-query",
+      "directory": "tanstack-query",
+      "url": "https://github.com/TanStack/query.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -572,6 +590,135 @@
       "structuredEvidence": "dependency-namespace-ambiguity",
       "affectedPaths": ["extensions/browser/src/browser/target-id.ts"],
       "testPaths": ["extensions/browser/src/browser/target-id.test.ts"]
+    },
+    {
+      "id": "undici-cache-key-path-normalization",
+      "repository": "undici",
+      "buggyCommit": "ec60a7cce5b62ae9c87436e3ae73dfc9bbf5fdec",
+      "fixedCommit": "f230cf2067e4070104d6b250efedf013c5a0a380",
+      "upstream": {
+        "fixUrl": "https://github.com/nodejs/undici/pull/5081",
+        "proofUrls": ["https://github.com/nodejs/undici/issues/4209"],
+        "summary": "Cache-key construction normalized a missing request path to slash but still passed the raw optional path into the query guard."
+      },
+      "claim": {
+        "category": "cache-integrity",
+        "proof": "upstream-regression-test",
+        "summary": "A request with query parameters and no explicit path could throw before cache lookup or omit the query from the normalized cache key."
+      },
+      "structuredEvidence": "cache-key-normalization",
+      "affectedPaths": ["lib/util/cache.js"],
+      "testPaths": ["test/cache-interceptor/issue-4209.js"]
+    },
+    {
+      "id": "playwright-max-failures-teardown",
+      "repository": "playwright",
+      "buggyCommit": "0d5a0a81d515ca1063d668ee65b8f8376294cf22",
+      "fixedCommit": "414dab273268c89616c5f23bdac5347924fbf4e6",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/playwright/pull/41737",
+        "proofUrls": ["https://github.com/microsoft/playwright/issues/41713"],
+        "summary": "Teardown projects shared the ordinary phase stop policy, so reaching maxFailures prevented cleanup projects from running."
+      },
+      "claim": {
+        "category": "cleanup-completeness",
+        "proof": "upstream-regression-test",
+        "summary": "Early test-run termination could skip teardown projects, including database and environment cleanup."
+      },
+      "structuredEvidence": "teardown-interruption",
+      "affectedPaths": ["packages/playwright/src/runner/tasks.ts"],
+      "testPaths": ["tests/playwright-test/max-failures.spec.ts"]
+    },
+    {
+      "id": "typescript-ambient-import-source-expansion",
+      "repository": "typescript",
+      "buggyCommit": "e649b08c0d10485c592b7968508a0152f6355a8b",
+      "fixedCommit": "c638208ececfc55c99fce0f60f3f57dda0264bc8",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/TypeScript/pull/41955",
+        "summary": "Import completion expanded an explicitly selected bare ambient module through all re-export candidates instead of preserving its module source."
+      },
+      "claim": {
+        "category": "dependency-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "Auto-import could choose a re-exporting module specifier instead of the requested ambient module."
+      },
+      "structuredEvidence": "dependency-explicit-source",
+      "affectedPaths": ["src/services/codefixes/importFixes.ts"],
+      "testPaths": ["tests/cases/fourslash/completionsImport_ambient.ts"]
+    },
+    {
+      "id": "tanstack-query-cancel-reason-propagation",
+      "repository": "tanstack-query",
+      "buggyCommit": "55afb3e6fb631d684e9448b8265c68a4185c76b3",
+      "fixedCommit": "4f818c80ee0660ce85154c068e911f889be2c745",
+      "upstream": {
+        "fixUrl": "https://github.com/TanStack/query/pull/10476",
+        "summary": "Infinite query cancellation rejected with no value after the consumed signal marked the fetch cancelled."
+      },
+      "claim": {
+        "category": "error-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "Cancellation callbacks and error boundaries could receive undefined instead of the AbortSignal reason."
+      },
+      "structuredEvidence": "abort-reason-drop",
+      "affectedPaths": ["packages/query-core/src/infiniteQueryBehavior.ts"],
+      "testPaths": ["packages/query-core/src/__tests__/infiniteQueryBehavior.test.tsx"]
+    },
+    {
+      "id": "vite-rolldown-transform-target-precedence",
+      "repository": "vite",
+      "buggyCommit": "943751801f70057ae94f9092e349c8f3fd9ccdf2",
+      "fixedCommit": "735a7668b71eb0d49308354964683db913df76da",
+      "upstream": {
+        "fixUrl": "https://github.com/vitejs/vite/pull/22273",
+        "proofUrls": ["https://github.com/vitejs/vite/issues/22272"],
+        "summary": "A baseline transform target was assigned after user Rolldown transform options and silently replaced the configured target."
+      },
+      "claim": {
+        "category": "option-propagation",
+        "proof": "upstream-issue",
+        "summary": "Dependency optimization ignored a caller-provided Rolldown transform target because object spread precedence favored the default."
+      },
+      "structuredEvidence": "default-option-override",
+      "affectedPaths": ["packages/vite/src/node/optimizer/index.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "vitest-abort-listener-settlement-retention",
+      "repository": "vitest",
+      "buggyCommit": "d77e93659d1703f9d96b58373b38738bf190289e",
+      "fixedCommit": "3f241a8997d970114b48bcc8c1b92f2c2f7a79ca",
+      "upstream": {
+        "fixUrl": "https://github.com/vitest-dev/vitest/pull/10265",
+        "summary": "withCancel attached an abort listener that retained the Promise rejection closure after normal resolve or reject settlement."
+      },
+      "claim": {
+        "category": "resource-lifetime",
+        "proof": "upstream-reproduction",
+        "summary": "Completed tests and hooks could leave abort listeners and captured Promise state attached to a longer-lived signal."
+      },
+      "structuredEvidence": "abort-listener-lifetime",
+      "affectedPaths": ["packages/runner/src/context.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "vitest-class-property-key-reference",
+      "repository": "vitest",
+      "buggyCommit": "2fdcab875585a4ed8405aaf66926a1741d71e3e6",
+      "fixedCommit": "e2025207dfd556f2024d7c6b51a51c2afd62fcee",
+      "upstream": {
+        "fixUrl": "https://github.com/vitest-dev/vitest/pull/10094",
+        "summary": "The mock import walker classified noncomputed class property keys as identifier references while class field initializers remained genuine reference positions."
+      },
+      "claim": {
+        "category": "scope-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "A class property key matching an imported binding could be hoisted and corrupt the transformed class."
+      },
+      "structuredEvidence": "reference-position",
+      "affectedPaths": ["packages/mocker/src/node/esmWalker.ts"],
+      "testPaths": ["test/core/test/injector-mock.test.ts"]
     }
   ]
 }

@@ -77,37 +77,51 @@ export {
   type ErrorControlFlowEvidence,
   type PromiseEventErrorBridgeEvidence,
   type ErrorReasonPropagationEvidence,
+  type AbortReasonDropEvidence,
   type ErrorIdentityMapping,
   type CacheContractEvidence,
+  type CacheKeyNormalizationEvidence,
   type PromiseCacheRejectionEvidence,
   type CleanupCompletenessEvidence,
+  type TeardownInterruptionEvidence,
   type AsyncEffectContinuationEvidence,
   type DependencyCandidateBypassEvidence,
+  type DependencyExplicitSourceEvidence,
   type DependencyNamespaceAmbiguityEvidence,
   type DependencyResolutionEvidence,
+  type DefaultOptionOverrideEvidence,
   type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
   type RequestSignalForwardingEvidence,
+  type AbortListenerLifetimeEvidence,
   type ResourceLifetimeEvidence,
   type TerminalEventListenerEvidence,
+  type ReferencePositionEvidence,
   type ScopeNameResolutionEvidence,
   type ScopeResolutionEvidence,
   type ScopeTraversalEscapeEvidence,
   extractErrorControlFlowEvidence,
   extractPromiseEventErrorBridgeEvidence,
   extractErrorReasonPropagationEvidence,
+  extractAbortReasonDropEvidence,
   extractCacheContractEvidence,
+  extractCacheKeyNormalizationEvidence,
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
+  extractTeardownInterruptionEvidence,
   extractAsyncEffectContinuationEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyExplicitSourceEvidence,
   extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
+  extractDefaultOptionOverrideEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractRequestSignalForwardingEvidence,
+  extractAbortListenerLifetimeEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
+  extractReferencePositionEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
@@ -1246,6 +1260,23 @@ function factsFromAstResult(
       }, path, flow.location.line));
       continue;
     }
+    if (flow.kind === "abort-reason-drop") {
+      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        action: "reject" as const,
+        mechanism: flow.mechanism,
+        cancellationBinding: flow.cancellationBinding,
+        signalExpression: flow.signalExpression,
+        rejectionExpression: flow.rejectionExpression,
+        location: flow.location,
+        cancellationLocation: flow.cancellationLocation,
+        signalLocation: flow.signalLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
     if (flow.kind === "promise-event-error-bridge") {
       facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}:${flow.location.column}`, {
         source: path,
@@ -1280,6 +1311,22 @@ function factsFromAstResult(
         ...(flow.callbackOwner ? { callbackOwner: flow.callbackOwner } : {}),
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "default-option-override") {
+      facts.push(fact("option_flow", `${path}:${flow.caller}:${flow.property}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        property: flow.property,
+        spreadSource: flow.spreadSource,
+        defaultExpression: flow.defaultExpression,
+        location: flow.location,
+        spreadLocation: flow.spreadLocation,
+        objectLocation: flow.objectLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));
@@ -1360,6 +1407,25 @@ function factsFromAstResult(
       }, path, flow.location.line));
       continue;
     }
+    if (flow.kind === "abort-listener-lifetime") {
+      facts.push(fact("resource_flow", `${path}:${flow.target}:${flow.eventName}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        action: "retain" as const,
+        mechanism: flow.mechanism,
+        target: flow.target,
+        eventName: flow.eventName,
+        handlerExpression: flow.handlerExpression,
+        resolveIdentifier: flow.resolveIdentifier,
+        rejectIdentifier: flow.rejectIdentifier,
+        location: flow.location,
+        handlerLocation: flow.handlerLocation,
+        settlementLocations: flow.settlementLocations,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
     if (flow.kind === "cache-contract") {
       facts.push(fact("cache_flow", `${path}:${flow.caller}:${flow.cacheBinding}:${flow.location.line}`, {
         source: path,
@@ -1375,6 +1441,24 @@ function factsFromAstResult(
         location: flow.location,
         guardLocation: flow.guardLocation,
         fallbackLocation: flow.fallbackLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "cache-key-normalization") {
+      facts.push(fact("cache_flow", `${path}:${flow.caller}:${flow.normalizedBinding}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        normalizedBinding: flow.normalizedBinding,
+        rawInput: flow.rawInput,
+        fallbackExpression: flow.fallbackExpression,
+        guardExpression: flow.guardExpression,
+        keyExpression: flow.keyExpression,
+        location: flow.location,
+        guardLocation: flow.guardLocation,
+        keyLocation: flow.keyLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));
@@ -1405,6 +1489,21 @@ function factsFromAstResult(
         obligations: flow.obligations,
         location: flow.location,
         obligationLocations: flow.obligationLocations,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "teardown-interruption") {
+      facts.push(fact("cleanup_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        teardownCollection: flow.teardownCollection,
+        dispatcherExpression: flow.dispatcherExpression,
+        location: flow.location,
+        teardownLocation: flow.teardownLocation,
+        dispatcherLocation: flow.dispatcherLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));
@@ -1488,6 +1587,22 @@ function factsFromAstResult(
       }, path, flow.location.line));
       continue;
     }
+    if (flow.kind === "reference-position") {
+      facts.push(fact("scope_model", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        parentParameter: flow.parentParameter,
+        modeledExclusions: flow.modeledExclusions,
+        missingExclusion: flow.missingExclusion,
+        location: flow.location,
+        methodExclusionLocation: flow.methodExclusionLocation,
+        propertyKeyExclusionLocation: flow.propertyKeyExclusionLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
     if (flow.kind === "dependency-selection") {
       facts.push(fact("dependency_flow", `${path}:${flow.caller}:${flow.selectedBinding}:${flow.selectionLocation.line}`, {
         source: path,
@@ -1549,6 +1664,21 @@ function factsFromAstResult(
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.selectionLocation.line));
+      continue;
+    }
+    if (flow.kind === "dependency-explicit-source") {
+      facts.push(fact("dependency_flow", `${path}:${flow.caller}:${flow.resultBinding}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        resultBinding: flow.resultBinding,
+        expansionFunction: flow.expansionFunction,
+        explicitModuleExpression: flow.explicitModuleExpression,
+        location: flow.location,
+        expansionLocation: flow.expansionLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
       continue;
     }
     const binding = allImportBindings.get(flow.root);

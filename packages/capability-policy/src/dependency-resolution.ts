@@ -52,6 +52,16 @@ type DependencyNamespaceAmbiguityFlow = {
   ambiguityLine: number;
 };
 
+type DependencyExplicitSourceFlow = {
+  path: string;
+  caller: string;
+  resultBinding: string;
+  expansionFunction: string;
+  explicitModuleExpression: string;
+  locationLine: number;
+  expansionLine: number;
+};
+
 export function evaluateDependencyResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -73,9 +83,62 @@ export function evaluateDependencyResolutionSignals(
       flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.selectionLine - right.selectionLine)
     .map((flow) => dependencyNamespaceAmbiguityAssessment(flow, evidenceRef));
-  return [...overwriteAssessments, ...bypassAssessments, ...ambiguityAssessments].sort((left, right) =>
+  const explicitSourceAssessments = dependencyFacts
+    .map(parseDependencyExplicitSourceFlow)
+    .filter((flow): flow is DependencyExplicitSourceFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
+    .map((flow) => dependencyExplicitSourceAssessment(flow, evidenceRef));
+  return [...overwriteAssessments, ...bypassAssessments, ...ambiguityAssessments, ...explicitSourceAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function dependencyExplicitSourceAssessment(
+  flow: DependencyExplicitSourceFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    resultBinding: flow.resultBinding,
+    explicitModuleExpression: flow.explicitModuleExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    impact: "medium",
+    title: `Possible explicit-module expansion in ${flow.path}`,
+    description:
+      `${flow.caller} receives the explicit module ${flow.explicitModuleExpression}, but builds ${flow.resultBinding} by calling ${flow.expansionFunction} without a visible bare-specifier boundary. Re-export candidates can therefore replace the caller-selected ambient or package module.`,
+    subjects: [flow.path, flow.caller, flow.explicitModuleExpression],
+    files: [flow.path],
+    ruleId: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Exercise completion or import fixing for a bare ambient module that is also re-exported, then preserve the explicit module source while retaining re-export expansion for path-based discovery.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.86,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves an import-completion path passes an explicit module through the all-re-export expansion helper; concrete module ranking remains to be verified.",
+    },
+    details: {
+      problemClass: "dependency-resolution",
+      structuredMechanism: "bare-explicit-source-expanded",
+      caller: flow.caller,
+      resultBinding: flow.resultBinding,
+      expansionFunction: flow.expansionFunction,
+      explicitModuleExpression: flow.explicitModuleExpression,
+      sourceEvidence: [...new Set([flow.locationLine, flow.expansionLine])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function dependencyNamespaceAmbiguityAssessment(
@@ -336,6 +399,31 @@ function parseDependencyNamespaceAmbiguityFlow(
     predicateLine: value.predicateLocation.line,
     returnLine: value.returnLocation.line,
     ambiguityLine: value.ambiguityLocation.line,
+  };
+}
+
+function parseDependencyExplicitSourceFlow(
+  fact: EvidenceFactLike,
+): DependencyExplicitSourceFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "bare-explicit-source-expanded"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.resultBinding !== "string"
+    || value.expansionFunction !== "getAllReExportingModules"
+    || typeof value.explicitModuleExpression !== "string"
+    || !isLocation(value.location)
+    || !isLocation(value.expansionLocation)) {
+    return undefined;
+  }
+  return {
+    path: value.source,
+    caller: value.caller,
+    resultBinding: value.resultBinding,
+    expansionFunction: value.expansionFunction,
+    explicitModuleExpression: value.explicitModuleExpression,
+    locationLine: value.location.line,
+    expansionLine: value.expansionLocation.line,
   };
 }
 

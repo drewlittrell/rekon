@@ -327,6 +327,42 @@ test("scope-resolution defect identity accepts an omitted traversal exception wh
   }), false);
 });
 
+test("defect identity accepts bounded absence evidence for teardown and reference positions", () => {
+  const teardown = {
+    details: {
+      structuredMechanism: "teardown-shares-stop-policy",
+      sourceEvidence: [{ lineStart: 10 }, { lineStart: 20 }],
+    },
+  };
+  const referencePosition = {
+    details: {
+      structuredMechanism: "noncomputed-class-property-key-reference",
+      sourceEvidence: [{ lineStart: 30 }, { lineStart: 40 }],
+    },
+  };
+
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: teardown,
+    changedLines: new Set(),
+    problemClass: "cleanup-completeness",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: referencePosition,
+    changedLines: new Set(),
+    problemClass: "scope-resolution",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { ...teardown.details, sourceEvidence: [{ lineStart: 10 }] } },
+    changedLines: new Set(),
+    problemClass: "cleanup-completeness",
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: referencePosition,
+    changedLines: new Set(),
+    problemClass: "dependency-resolution",
+  }), false);
+});
+
 test("paired emission requires defect evidence in every affected buggy path", () => {
   const pair = {
     id: "cleanup-pair",

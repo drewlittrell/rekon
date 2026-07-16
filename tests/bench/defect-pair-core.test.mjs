@@ -45,11 +45,11 @@ function finding(overrides = {}) {
   };
 }
 
-test("public defect-pair catalog pins twenty-three authoritative before/after cases", () => {
+test("public defect-pair catalog pins thirty authoritative before/after cases", () => {
   assert.equal(validateDefectPairCatalog(catalog), catalog);
-  assert.equal(catalog.repositories.length, 19);
-  assert.equal(catalog.pairs.length, 23);
-  assert.equal(new Set(catalog.pairs.map((entry) => entry.id)).size, 23);
+  assert.equal(catalog.repositories.length, 22);
+  assert.equal(catalog.pairs.length, 30);
+  assert.equal(new Set(catalog.pairs.map((entry) => entry.id)).size, 30);
   assert.ok(catalog.pairs.every((entry) => entry.upstream.fixUrl.includes("/pull/")));
   assert.ok(catalog.pairs.every((entry) => entry.affectedPaths.length > 0));
 });

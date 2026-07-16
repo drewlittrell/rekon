@@ -248,30 +248,41 @@ both retained connection state and request closures attached to reusable socket
 listeners, plus terminal XHR listeners that remain attached after completion.
 Cache-integrity coverage includes both compiled-output integrity and a
 parameter-sensitive cross-call cache contract, plus rejected Promises retained
-by lazy member caches. Cleanup-completeness coverage includes semantic
+by lazy member caches and raw guards that disagree with normalized key inputs.
+Cleanup-completeness coverage includes semantic
 shutdown-hook analysis, structured lifecycle wait contracts, and
 dependency-bearing React effects whose Promise aggregate continuation updates
-state without returned cleanup.
+state without returned cleanup, plus teardown phases exposed to early-stop
+policy.
 Dependency-resolution coverage includes conditional candidate overwrite,
 iterated candidate bypass through a generic token lookup, and first-match
 selection across multiple reference namespaces despite a visible ambiguity
-contract.
+contract, plus explicit bare module sources expanded through re-exports.
 Option-propagation coverage includes callback-backed spread overrides and
-logical-OR defaulting that coerces explicit false values.
+logical-OR defaulting that coerces explicit false values, derived abort signals,
+and defaults assigned after user option spreads.
 Scope-resolution coverage includes missing lexical boundaries, name-only
 binding ownership that cannot distinguish shadowed reference occurrences, and
-scope-skipping renamers that omit parent-evaluated switch discriminants.
+scope-skipping renamers that omit parent-evaluated switch discriminants, plus
+class-property key reference classification. Error propagation includes empty
+abort rejections, and resource lifetime includes abort listeners retained after
+normal Promise settlement.
 
 ```bash
 npm run eval:semantic-problem-emitters
 npm run eval:semantic-problem-emitters -- --pair nest-import-first-match
+node scripts/eval-semantic-problem-emitters.mjs \
+  --judgment-mode agent-source-review \
+  --pair undici-cache-key-path-normalization
 ```
 
 The runner fetches affected files directly from pinned public revisions and
 retains no source, prompts, excerpts, or model prose. Model-backed runs send
 fix-related candidates through the production assessment judge. The checked-in
 baseline may instead record direct source review while emitters are being
-calibrated. Both modes require every affected buggy path to be retained and
+calibrated. Agent source review is credential-free, requires explicit
+structured-evidence `--pair` selections, and does not replace later model API
+comparison. Both modes require every affected buggy path to be retained and
 fixed defects to be cleared. Defect
 identity normally uses changed-line evidence density so one contextual citation
 cannot turn an unrelated same-class candidate into the repaired defect. The
@@ -312,7 +323,7 @@ aggregate continuation can update state after a newer effect supersedes it.
 The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
 also records positive-pair counts against the five-adjudication minimum. All
-seven semantic classes have three independent positive pairs and remain
+seven semantic classes have four independent positive pairs and remain
 `insufficient-evidence`. Token and cost totals apply only to the ten pairs
 previously run through the model API.
 

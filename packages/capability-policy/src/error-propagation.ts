@@ -45,6 +45,17 @@ type PromiseEventErrorBridgeFlow = {
   rejectionLine: number;
 };
 
+type AbortReasonDropFlow = {
+  path: string;
+  caller: string;
+  cancellationBinding: string;
+  signalExpression: string;
+  rejectionExpression: string;
+  locationLine: number;
+  cancellationLine: number;
+  signalLine: number;
+};
+
 export function evaluateErrorPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -66,13 +77,70 @@ export function evaluateErrorPropagationSignals(
     .filter((flow): flow is PromiseEventErrorBridgeFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => unforwardedEmitterErrorAssessment(flow, evidenceRef));
+  const abortReasonAssessments = errorFacts
+    .map(parseAbortReasonDropFlow)
+    .filter((flow): flow is AbortReasonDropFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
+    .map((flow) => abortReasonDropAssessment(flow, evidenceRef));
   return [
     ...mergedIdentityAssessments,
     ...hiddenReasonAssessments,
     ...unforwardedEmitterAssessments,
+    ...abortReasonAssessments,
   ].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function abortReasonDropAssessment(
+  flow: AbortReasonDropFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    cancellationBinding: flow.cancellationBinding,
+    signalExpression: flow.signalExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_ERROR_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    impact: "medium",
+    title: `Possible dropped abort reason in ${flow.path}`,
+    description:
+      `${flow.caller} rejects with ${flow.rejectionExpression} after ${flow.cancellationBinding} is set from ${flow.signalExpression}, but the rejection carries no reason. Cancellation consumers can receive undefined instead of the signal's causal error.`,
+    subjects: [flow.path, flow.caller, flow.signalExpression],
+    files: [flow.path],
+    ruleId: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    suggestedAction:
+      `Abort with a distinctive reason and verify the rejection preserves it; pass ${flow.signalExpression}.reason through the Promise rejection path.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.93,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a signal-backed cancellation flag reaches a zero-argument Promise rejection; downstream handling of undefined remains to be verified.",
+    },
+    details: {
+      problemClass: "error-propagation",
+      structuredMechanism: "abort-rejection-without-reason",
+      caller: flow.caller,
+      cancellationBinding: flow.cancellationBinding,
+      signalExpression: flow.signalExpression,
+      rejectionExpression: flow.rejectionExpression,
+      sourceEvidence: [...new Set([
+        flow.cancellationLine,
+        flow.signalLine,
+        flow.locationLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function hasMergedIdentityConsequence(flow: ErrorFlow): boolean {
@@ -322,6 +390,33 @@ function parsePromiseEventErrorBridgeFlow(
     locationLine,
     successListenerLines,
     rejectionLine,
+  };
+}
+
+function parseAbortReasonDropFlow(fact: EvidenceFactLike): AbortReasonDropFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "abort-rejection-without-reason"
+    || value.action !== "reject"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.cancellationBinding !== "string"
+    || typeof value.signalExpression !== "string"
+    || typeof value.rejectionExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const cancellationLine = locationLineOf(value.cancellationLocation);
+  const signalLine = locationLineOf(value.signalLocation);
+  if (!locationLine || !cancellationLine || !signalLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    cancellationBinding: value.cancellationBinding,
+    signalExpression: value.signalExpression,
+    rejectionExpression: value.rejectionExpression,
+    locationLine,
+    cancellationLine,
+    signalLine,
   };
 }
 

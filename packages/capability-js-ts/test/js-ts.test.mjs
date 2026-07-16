@@ -5,10 +5,15 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 
 import capability, {
+  extractAbortListenerLifetimeEvidence,
+  extractAbortReasonDropEvidence,
   extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
+  extractCacheKeyNormalizationEvidence,
   extractCleanupCompletenessEvidence,
+  extractDefaultOptionOverrideEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyExplicitSourceEvidence,
   extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
@@ -20,9 +25,11 @@ import capability, {
   extractRequestSignalForwardingEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
+  extractReferencePositionEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
+  extractTeardownInterruptionEvidence,
   jsTsProvider,
 } from "../dist/index.js";
 
@@ -2298,4 +2305,234 @@ test("extract is deterministic run-to-run on the simple-js-ts example fixture", 
 
   assert.ok(first.length > 0, "example fixture should produce facts");
   assert.deepEqual(second, first);
+});
+
+test("cache-key normalization evidence distinguishes raw and normalized guards", () => {
+  const buggy = `
+    function makeCacheKey(opts) {
+      let fullPath = opts.path || "/";
+      if (opts.query && !hasQuery(opts.path))
+        fullPath = serialize(fullPath, opts.query);
+      return { path: fullPath };
+    }
+  `;
+  const fixed = buggy.replace("hasQuery(opts.path)", "hasQuery(fullPath)");
+  const unrelated = `
+    function route(opts) {
+      const fullPath = opts.path || "/";
+      if (hasQuery(opts.path)) return opts.path;
+      return fullPath;
+    }
+  `;
+
+  const evidence = extractCacheKeyNormalizationEvidence({ path: "src/cache.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "raw-cache-input-after-normalization");
+  assert.equal(evidence[0].rawInput, "opts.path");
+  assert.deepEqual(extractCacheKeyNormalizationEvidence({ path: "src/cache.ts", content: fixed }), []);
+  assert.deepEqual(extractCacheKeyNormalizationEvidence({ path: "src/route.ts", content: unrelated }), []);
+});
+
+test("teardown interruption evidence requires teardown-aware phases with a default dispatcher", () => {
+  const buggy = `
+    function createPhasesTask() {
+      const teardownToSetups = buildTeardownToSetupsMap(allProjects);
+      const phase = { dispatcher: new Dispatcher(testRun), projects: [] };
+      return { teardownToSetups, phase };
+    }
+  `;
+  const fixed = buggy.replace(
+    "new Dispatcher(testRun)",
+    "new Dispatcher(testRun, { ignoreMaxFailures: true })",
+  );
+  const unrelated = `
+    function createPhasesTask() {
+      const phase = { dispatcher: new Dispatcher(testRun), projects: [] };
+      return phase;
+    }
+  `;
+
+  const evidence = extractTeardownInterruptionEvidence({ path: "src/tasks.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "teardown-shares-stop-policy");
+  assert.deepEqual(extractTeardownInterruptionEvidence({ path: "src/tasks.ts", content: fixed }), []);
+  assert.deepEqual(extractTeardownInterruptionEvidence({ path: "src/tasks.ts", content: unrelated }), []);
+});
+
+test("explicit dependency source evidence clears when bare modules bypass re-export expansion", () => {
+  const buggy = `
+    function getImportCompletionAction(exportedSymbol, moduleSymbol, sourceFile) {
+      const exportInfos = getAllReExportingModules(sourceFile, exportedSymbol, moduleSymbol);
+      return first(exportInfos);
+    }
+  `;
+  const fixed = `
+    function getImportCompletionAction(exportedSymbol, moduleSymbol, sourceFile) {
+      const exportInfos = pathIsBareSpecifier(moduleSymbol.name)
+        ? [getSymbolExportInfoForSymbol(exportedSymbol, moduleSymbol)]
+        : getAllReExportingModules(sourceFile, exportedSymbol, moduleSymbol);
+      return first(exportInfos);
+    }
+  `;
+  const unrelated = `
+    function collectExports(exportedSymbol, moduleSymbol, sourceFile) {
+      const exportInfos = getAllReExportingModules(sourceFile, exportedSymbol, moduleSymbol);
+      return exportInfos;
+    }
+  `;
+
+  const evidence = extractDependencyExplicitSourceEvidence({ path: "src/imports.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "bare-explicit-source-expanded");
+  assert.deepEqual(extractDependencyExplicitSourceEvidence({ path: "src/imports.ts", content: fixed }), []);
+  assert.deepEqual(extractDependencyExplicitSourceEvidence({ path: "src/imports.ts", content: unrelated }), []);
+});
+
+test("abort reason evidence requires a signal-backed cancellation flag and empty rejection", () => {
+  const buggy = `
+    function fetch() {
+      let cancelled = false;
+      addConsumeAwareSignal(value, () => context.signal, () => (cancelled = true));
+      async function fetchPage() {
+        if (cancelled) return Promise.reject();
+        return load();
+      }
+      return fetchPage();
+    }
+  `;
+  const fixed = buggy.replace("Promise.reject()", "Promise.reject(context.signal.reason)");
+  const unrelated = `
+    function fetch() {
+      let cancelled = false;
+      async function fetchPage() {
+        if (cancelled) return Promise.reject();
+        return load();
+      }
+      return fetchPage();
+    }
+  `;
+
+  const evidence = extractAbortReasonDropEvidence({ path: "src/query.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].signalExpression, "context.signal");
+  assert.deepEqual(extractAbortReasonDropEvidence({ path: "src/query.ts", content: fixed }), []);
+  assert.deepEqual(extractAbortReasonDropEvidence({ path: "src/query.ts", content: unrelated }), []);
+});
+
+test("default option evidence follows object spread precedence", () => {
+  const buggy = `
+    function build() {
+      return run({
+        transform: {
+          ...rolldownOptions.transform,
+          target: ESBUILD_BASELINE_TARGET,
+        },
+      });
+    }
+  `;
+  const fixed = `
+    function build() {
+      return run({
+        transform: {
+          target: ESBUILD_BASELINE_TARGET,
+          ...rolldownOptions.transform,
+        },
+      });
+    }
+  `;
+  const unrelated = `
+    function build() {
+      return run({ ...internalState, target: ESBUILD_BASELINE_TARGET });
+    }
+  `;
+  const preservingMerge = `
+    function writeConfig(existingConfig) {
+      const existingCapabilities = existingConfig.capabilities.filter(Boolean);
+      return {
+        ...existingConfig,
+        capabilities: [
+          ...existingCapabilities,
+          ...DEFAULT_CAPABILITIES,
+        ],
+      };
+    }
+  `;
+
+  const evidence = extractDefaultOptionOverrideEvidence({ path: "src/options.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].property, "target");
+  assert.deepEqual(extractDefaultOptionOverrideEvidence({ path: "src/options.ts", content: fixed }), []);
+  assert.deepEqual(extractDefaultOptionOverrideEvidence({ path: "src/options.ts", content: unrelated }), []);
+  assert.deepEqual(
+    extractDefaultOptionOverrideEvidence({ path: "src/options.ts", content: preservingMerge }),
+    [],
+  );
+});
+
+test("abort listener lifetime evidence clears on matching removal", () => {
+  const buggy = `
+    function withCancel(fn, signal) {
+      return new Promise((resolve, reject) => {
+        const onAbort = () => reject(signal.reason);
+        signal.addEventListener("abort", onAbort, { once: true });
+        try {
+          fn().then(resolve, reject);
+          resolve("sync");
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+  `;
+  const fixed = buggy.replace(
+    'signal.addEventListener("abort", onAbort, { once: true });',
+    'signal.addEventListener("abort", onAbort, { once: true });\\n        signal.removeEventListener("abort", onAbort);',
+  );
+  const unrelated = `
+    function wait(signal) {
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      });
+    }
+  `;
+
+  const evidence = extractAbortListenerLifetimeEvidence({ path: "src/context.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "abort-listener-retained-after-settlement");
+  assert.deepEqual(extractAbortListenerLifetimeEvidence({ path: "src/context.ts", content: fixed }), []);
+  assert.deepEqual(extractAbortListenerLifetimeEvidence({ path: "src/context.ts", content: unrelated }), []);
+});
+
+test("reference-position evidence distinguishes class property keys from values", () => {
+  const buggy = `
+    const kind = "PropertyDefinition";
+    function isRefIdentifier(id, parent) {
+      if (parent.type === "MethodDefinition" && !parent.computed) return false;
+      if (isStaticPropertyKey(id, parent)) return false;
+      return true;
+    }
+  `;
+  const fixed = `
+    const kind = "PropertyDefinition";
+    function isRefIdentifier(id, parent) {
+      if (parent.type === "MethodDefinition" && !parent.computed) return false;
+      if (parent.type === "PropertyDefinition" && !parent.computed) return id === parent.value;
+      if (isStaticPropertyKey(id, parent)) return false;
+      return true;
+    }
+  `;
+  const unrelated = `
+    const kind = "PropertyDefinition";
+    function classifyNode(id, parent) {
+      if (parent.type === "MethodDefinition" && !parent.computed) return false;
+      if (isStaticPropertyKey(id, parent)) return false;
+      return true;
+    }
+  `;
+
+  const evidence = extractReferencePositionEvidence({ path: "src/walker.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].missingExclusion, "PropertyDefinition.noncomputed-key");
+  assert.deepEqual(extractReferencePositionEvidence({ path: "src/walker.ts", content: fixed }), []);
+  assert.deepEqual(extractReferencePositionEvidence({ path: "src/walker.ts", content: unrelated }), []);
 });

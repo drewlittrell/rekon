@@ -38,6 +38,17 @@ type ScopeTraversalEscapeFlow = {
   exceptionLine: number;
 };
 
+type ReferencePositionFlow = {
+  path: string;
+  caller: string;
+  parentParameter: string;
+  modeledExclusions: string[];
+  missingExclusion: string;
+  locationLine: number;
+  methodExclusionLine: number;
+  propertyKeyExclusionLine: number;
+};
+
 export function evaluateScopeResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -53,9 +64,65 @@ export function evaluateScopeResolutionSignals(
     .filter((flow): flow is ScopeTraversalEscapeFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => scopeTraversalEscapeAssessment(flow, evidenceRef));
-  return [...nameOnlyAssessments, ...traversalAssessments].sort((left, right) =>
+  const referencePositionAssessments = scopeFacts
+    .map(parseReferencePositionFlow)
+    .filter((flow): flow is ReferencePositionFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => referencePositionAssessment(flow, evidenceRef));
+  return [...nameOnlyAssessments, ...traversalAssessments, ...referencePositionAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function referencePositionAssessment(
+  flow: ReferencePositionFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    modeledExclusions: flow.modeledExclusions,
+    missingExclusion: flow.missingExclusion,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_SCOPE_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    impact: "high",
+    title: `Possible class-property key misclassification in ${flow.path}`,
+    description:
+      `${flow.caller} excludes ${flow.modeledExclusions.join(" and ")} from identifier references, but has no visible ${flow.missingExclusion} rule. A noncomputed class property key can therefore be treated as a value reference while its initializer remains a real reference position.`,
+    subjects: [flow.path, flow.caller, flow.missingExclusion],
+    files: [flow.path],
+    ruleId: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Exercise class fields whose noncomputed key matches an imported binding and whose initializer references the same binding, then exclude only the key while preserving initializer traversal.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.9,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves an identifier-reference classifier models adjacent noncomputed key positions but omits PropertyDefinition keys; transform output remains to be verified.",
+    },
+    details: {
+      problemClass: "scope-resolution",
+      structuredMechanism: "noncomputed-class-property-key-reference",
+      caller: flow.caller,
+      parentParameter: flow.parentParameter,
+      modeledExclusions: flow.modeledExclusions,
+      missingExclusion: flow.missingExclusion,
+      sourceEvidence: [...new Set([
+        flow.locationLine,
+        flow.methodExclusionLine,
+        flow.propertyKeyExclusionLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function nameOnlyScopeAssessment(
@@ -248,6 +315,33 @@ function parseScopeTraversalEscapeFlow(
     bindingCheckLine,
     skipLine,
     exceptionLine,
+  };
+}
+
+function parseReferencePositionFlow(fact: EvidenceFactLike): ReferencePositionFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "noncomputed-class-property-key-reference"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.parentParameter !== "string"
+    || !Array.isArray(value.modeledExclusions)
+    || value.modeledExclusions.some((entry) => typeof entry !== "string")
+    || value.missingExclusion !== "PropertyDefinition.noncomputed-key") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const methodExclusionLine = locationLineOf(value.methodExclusionLocation);
+  const propertyKeyExclusionLine = locationLineOf(value.propertyKeyExclusionLocation);
+  if (!locationLine || !methodExclusionLine || !propertyKeyExclusionLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    parentParameter: value.parentParameter,
+    modeledExclusions: value.modeledExclusions as string[],
+    missingExclusion: value.missingExclusion,
+    locationLine,
+    methodExclusionLine,
+    propertyKeyExclusionLine,
   };
 }
 

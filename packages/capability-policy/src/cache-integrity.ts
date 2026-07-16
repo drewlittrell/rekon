@@ -37,6 +37,19 @@ type PromiseCacheFlow = {
   returnLine: number;
 };
 
+type NormalizedCacheFlow = {
+  path: string;
+  caller: string;
+  normalizedBinding: string;
+  rawInput: string;
+  fallbackExpression: string;
+  guardExpression: string;
+  keyExpression: string;
+  locationLine: number;
+  guardLine: number;
+  keyLine: number;
+};
+
 export function evaluateCacheIntegritySignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -52,9 +65,66 @@ export function evaluateCacheIntegritySignals(
     .filter((flow): flow is PromiseCacheFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => rejectedPromiseCacheAssessment(flow, evidenceRef));
-  return [...incompleteKeyAssessments, ...rejectedPromiseAssessments].sort((left, right) =>
+  const normalizationAssessments = cacheFacts
+    .map(parseNormalizedCacheFlow)
+    .filter((flow): flow is NormalizedCacheFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
+    .map((flow) => normalizedCacheGuardAssessment(flow, evidenceRef));
+  return [...incompleteKeyAssessments, ...rejectedPromiseAssessments, ...normalizationAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function normalizedCacheGuardAssessment(
+  flow: NormalizedCacheFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    normalizedBinding: flow.normalizedBinding,
+    rawInput: flow.rawInput,
+    guardExpression: flow.guardExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_CACHE_INTEGRITY_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    impact: "high",
+    title: `Possible cache-key normalization mismatch in ${flow.path}`,
+    description:
+      `${flow.caller} normalizes ${flow.rawInput} into ${flow.normalizedBinding} with ${flow.fallbackExpression}, but ${flow.guardExpression} still inspects the raw input before the cache key uses ${flow.keyExpression}. Missing or equivalent inputs can therefore throw or serialize to a different key than the normalized value.`,
+    subjects: [flow.path, flow.caller, flow.rawInput, flow.normalizedBinding],
+    files: [flow.path],
+    ruleId: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    suggestedAction:
+      `Exercise missing and query-bearing ${flow.rawInput} values, then use ${flow.normalizedBinding} consistently for guards, serialization, and the final cache key.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.91,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a fallback-normalized cache-key component, a guard that reads the pre-normalized member, and final key construction from the normalized binding; concrete caller inputs remain to be verified.",
+    },
+    details: {
+      problemClass: "cache-integrity",
+      structuredMechanism: "raw-cache-input-after-normalization",
+      caller: flow.caller,
+      normalizedBinding: flow.normalizedBinding,
+      rawInput: flow.rawInput,
+      fallbackExpression: flow.fallbackExpression,
+      guardExpression: flow.guardExpression,
+      keyExpression: flow.keyExpression,
+      sourceEvidence: [
+        { path: flow.path, lineStart: flow.locationLine, lineEnd: flow.locationLine },
+        { path: flow.path, lineStart: flow.guardLine, lineEnd: flow.guardLine },
+        { path: flow.path, lineStart: flow.keyLine, lineEnd: flow.keyLine },
+      ],
+    },
+  };
 }
 
 function cacheIntegrityAssessment(flow: CacheFlow, evidenceRef: ArtifactRef): Assessment {
@@ -223,6 +293,36 @@ function parsePromiseCacheFlow(fact: EvidenceFactLike): PromiseCacheFlow | undef
     locationLine,
     guardLine,
     returnLine,
+  };
+}
+
+function parseNormalizedCacheFlow(fact: EvidenceFactLike): NormalizedCacheFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "raw-cache-input-after-normalization"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.normalizedBinding !== "string"
+    || typeof value.rawInput !== "string"
+    || typeof value.fallbackExpression !== "string"
+    || typeof value.guardExpression !== "string"
+    || typeof value.keyExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const guardLine = locationLineOf(value.guardLocation);
+  const keyLine = locationLineOf(value.keyLocation);
+  if (!locationLine || !guardLine || !keyLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    normalizedBinding: value.normalizedBinding,
+    rawInput: value.rawInput,
+    fallbackExpression: value.fallbackExpression,
+    guardExpression: value.guardExpression,
+    keyExpression: value.keyExpression,
+    locationLine,
+    guardLine,
+    keyLine,
   };
 }
 
