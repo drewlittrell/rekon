@@ -86,6 +86,7 @@ export {
   type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
+  type TerminalEventListenerEvidence,
   type ScopeNameResolutionEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
@@ -99,6 +100,7 @@ export {
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
 } from "./ast-extractor.js";
@@ -1305,6 +1307,26 @@ function factsFromAstResult(
         ...(flow.retainedNames ? { retainedNames: flow.retainedNames } : {}),
         line: flow.location.line,
         column: flow.location.column,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "terminal-event-listener") {
+      facts.push(fact("resource_flow", `${path}:${flow.target}:${flow.eventName}:${flow.handlerName}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        action: "retain" as const,
+        mechanism: flow.mechanism,
+        target: flow.target,
+        eventName: flow.eventName,
+        handlerName: flow.handlerName,
+        terminalCondition: flow.terminalCondition,
+        terminalProperty: flow.terminalProperty,
+        terminalValue: flow.terminalValue,
+        location: flow.location,
+        handlerLocation: flow.handlerLocation,
+        terminalLocation: flow.terminalLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

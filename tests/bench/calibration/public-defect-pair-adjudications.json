@@ -126,6 +126,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms that the Fastly store assigned an async load directly to a Promise-named member and returned that member to later callers without clearing it after rejection. Rekon emits semantic.cacheIntegrity on that retained rejected Promise and clears after the fixed revision identity-guards a rejection handler that resets the active cache entry; upstream tests verify retry after transient failure and reuse after success."
+    },
+    {
+      "pairId": "sentry-xhr-terminal-listener-retention",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that XHR instrumentation registered a named readystatechange handler, used readyState === 4 as its terminal completion branch, and never detached the same handler. Rekon emits semantic.resourceLifetime on that one-shot listener retention and clears after the fixed revision removes it after completion reporting; upstream tests verify removal at state 4 and preserve completion behavior and the onreadystatechange proxy path."
     }
   ]
 }

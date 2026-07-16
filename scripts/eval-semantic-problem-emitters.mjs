@@ -21,6 +21,7 @@ import {
   extractOptionPropagationEvidence,
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
+  extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
@@ -1266,20 +1267,40 @@ async function evaluateResourceLifetimePair(pair, repository) {
     const primary = sourceByPath.get(primaryPath);
     if (!primary) throw new Error(`${pair.id}: missing primary source ${primaryPath}.`);
     const facts = sourceRows.flatMap((source) =>
-      extractResourceLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
-        kind: "resource_flow",
-        subject: `${source.path}:${entry.resource}:${entry.action}:${entry.location.line}`,
-        value: {
-          source: source.path,
-          caller: entry.caller,
-          action: entry.action,
-          resource: entry.resource,
-          target: entry.target,
-          ownerKind: entry.ownerKind,
-          ...(entry.retainedNames ? { retainedNames: entry.retainedNames } : {}),
-          line: entry.location.line,
-        },
-      })));
+      pair.structuredEvidence === "terminal-event-listener"
+        ? extractTerminalEventListenerEvidence({ path: source.path, content: source.text }).map((entry) => ({
+          kind: "resource_flow",
+          subject: `${source.path}:${entry.target}:${entry.eventName}:${entry.handlerName}`,
+          value: {
+            source: source.path,
+            caller: entry.caller,
+            action: "retain",
+            mechanism: entry.mechanism,
+            target: entry.target,
+            eventName: entry.eventName,
+            handlerName: entry.handlerName,
+            terminalCondition: entry.terminalCondition,
+            terminalProperty: entry.terminalProperty,
+            terminalValue: entry.terminalValue,
+            location: entry.location,
+            handlerLocation: entry.handlerLocation,
+            terminalLocation: entry.terminalLocation,
+          },
+        }))
+        : extractResourceLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
+          kind: "resource_flow",
+          subject: `${source.path}:${entry.resource}:${entry.action}:${entry.location.line}`,
+          value: {
+            source: source.path,
+            caller: entry.caller,
+            action: entry.action,
+            resource: entry.resource,
+            target: entry.target,
+            ownerKind: entry.ownerKind,
+            ...(entry.retainedNames ? { retainedNames: entry.retainedNames } : {}),
+            line: entry.location.line,
+          },
+        })));
     const matching = evaluateResourceLifetimeSignals(facts, evidenceRef, { evidenceComplete: true });
     const changedLines = changedLineNumbers(primary.text, primary.counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({

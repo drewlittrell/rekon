@@ -18,15 +18,15 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   assert.equal(baseline.corpus.semanticPromptVersion, "semantic-file-understanding-v4");
   assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v6");
   assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
-  assert.equal(baseline.corpus.pairCount, 16);
-  assert.equal(baseline.corpus.caseCount, 42);
+  assert.equal(baseline.corpus.pairCount, 17);
+  assert.equal(baseline.corpus.caseCount, 44);
   assert.deepEqual(baseline.corpus.judgmentCoverage, {
     modelApiPairs: 10,
-    agentSourceReviewPairs: 6,
+    agentSourceReviewPairs: 7,
   });
   assert.equal(baseline.model.appliesToPairs, 10);
   assert.equal(baseline.summary.usageScope, "model-api-pairs-only");
-  assert.equal(baseline.summary.passedPairs, 16);
+  assert.equal(baseline.summary.passedPairs, 17);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -41,6 +41,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     "error-propagation",
     "option-propagation",
     "option-propagation",
+    "resource-lifetime",
     "resource-lifetime",
     "resource-lifetime",
     "scope-resolution",
@@ -85,7 +86,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     {
       ruleId: "semantic.resourceLifetime",
       problemClass: "resource-lifetime",
-      positivePairs: 2,
+      positivePairs: 3,
       minimumAdjudications: 5,
       status: "insufficient-evidence",
     },
@@ -102,6 +103,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     "launchdarkly-fastly-rejected-promise-cache",
     "nest-resolve-each-candidate-bypass",
     "playwright-abort-reason-propagation",
+    "sentry-xhr-terminal-listener-retention",
     "vite-rsc-shadowed-binding",
     "vscode-zipfile-error-forwarding",
     "webpack-falsy-option-defaults",
@@ -126,7 +128,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 42);
+  assert.equal(payload.requests, 44);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -141,6 +143,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
     "error-propagation",
     "option-propagation",
     "option-propagation",
+    "resource-lifetime",
     "resource-lifetime",
     "resource-lifetime",
     "scope-resolution",

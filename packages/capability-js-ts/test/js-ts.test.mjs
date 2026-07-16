@@ -16,6 +16,7 @@ import capability, {
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
+  extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   jsTsProvider,
@@ -858,6 +859,91 @@ test("resource-flow evidence captures request closures attached to connection so
     assert.equal(facts.length, 1);
     assert.equal(facts[0].value.resource, "socket:timeout");
     assert.deepEqual(facts[0].value.retainedNames, ["req"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("terminal listener evidence identifies completed XHR handlers that stay attached", async () => {
+  const buggySource = [
+    "export function instrumentXHR(xhr) {",
+    "  const virtualError = new Error();",
+    "  const onreadystatechangeHandler = () => {",
+    "    if (xhr.readyState === 4) {",
+    "      report(xhr, virtualError);",
+    "    }",
+    "  };",
+    "  xhr.addEventListener('readystatechange', onreadystatechangeHandler);",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    "      report(xhr, virtualError);",
+    "      report(xhr, virtualError);\n      xhr.removeEventListener('readystatechange', onreadystatechangeHandler);",
+  );
+  const onceSource = buggySource.replace(
+    "onreadystatechangeHandler);",
+    "onreadystatechangeHandler, { once: true });",
+  );
+  const nonTerminalSource = buggySource.replace("readyState === 4", "readyState === 3");
+  const inlineSource = buggySource.replace(
+    "  xhr.addEventListener('readystatechange', onreadystatechangeHandler);",
+    "  xhr.addEventListener('readystatechange', () => report(xhr));",
+  );
+  const unrelatedRemovalSource = buggySource.replace(
+    "  xhr.addEventListener('readystatechange', onreadystatechangeHandler);",
+    "  other.removeEventListener('readystatechange', onreadystatechangeHandler);\n  xhr.addEventListener('readystatechange', onreadystatechangeHandler);",
+  );
+
+  assert.deepEqual(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: buggySource,
+  }), [{
+    kind: "terminal-event-listener",
+    mechanism: "terminal-listener-retained",
+    caller: "instrumentXHR",
+    target: "xhr",
+    eventName: "readystatechange",
+    handlerName: "onreadystatechangeHandler",
+    terminalCondition: "xhr.readyState === 4",
+    terminalProperty: "readyState",
+    terminalValue: "4",
+    location: { line: 8, column: 3 },
+    handlerLocation: { line: 3, column: 9 },
+    terminalLocation: { line: 4, column: 9 },
+  }]);
+  assert.deepEqual(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: onceSource,
+  }), []);
+  assert.deepEqual(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: nonTerminalSource,
+  }), []);
+  assert.deepEqual(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: inlineSource,
+  }), []);
+  assert.equal(extractTerminalEventListenerEvidence({
+    path: "src/instrument/xhr.ts",
+    content: unrelatedRemovalSource,
+  }).length, 1);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-terminal-listener-"));
+  try {
+    await mkdir(join(root, "src", "instrument"), { recursive: true });
+    await writeFile(join(root, "src", "instrument", "xhr.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "resource_flow"
+        && fact.value.mechanism === "terminal-listener-retained");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.target, "xhr");
+    assert.equal(facts[0].value.handlerName, "onreadystatechangeHandler");
+    assert.equal(facts[0].provenance.line, 8);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

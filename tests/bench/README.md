@@ -233,8 +233,9 @@ The dependency-resolution, cache-integrity, cleanup-completeness,
 error-propagation, option-propagation, scope-resolution, and resource-lifetime
 emitters have a bounded live paired check. Resource-lifetime coverage includes
 both retained connection state and request closures attached to reusable socket
-listeners. Cache-integrity coverage includes both compiled-output integrity and
-a parameter-sensitive cross-call cache contract, plus rejected Promises retained
+listeners, plus terminal XHR listeners that remain attached after completion.
+Cache-integrity coverage includes both compiled-output integrity and a
+parameter-sensitive cross-call cache contract, plus rejected Promises retained
 by lazy member caches. Cleanup-completeness coverage includes semantic
 shutdown-hook analysis and structured lifecycle wait contracts.
 Dependency-resolution coverage includes both conditional candidate overwrite
@@ -270,6 +271,8 @@ The webpack falsy-option pair uses direct review and structured `option_flow`
 evidence bounded to visible boolean `true` defaults.
 The Vite RSC shadowing pair uses direct review and structured `scope_model`
 evidence for name-only owner lookup.
+The Sentry XHR pair uses direct review and source-local `resource_flow` evidence
+for a named terminal listener without same-handler removal.
 The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence

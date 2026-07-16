@@ -66,16 +66,18 @@ Ordinary unused locals and public declarations remain outside this signal.
   evidence rather than defects.
   Resource-flow facts identify request/reply objects stored on connection-owned
   state, request-scoped closures attached to connection sockets, and matching
-  explicit releases; they do not claim runtime reachability. Cache-flow facts
-  identify `getFactoryWithDefault` callbacks whose return branch depends on an
-  outer function parameter omitted from the cache key. They also identify lazy
-  Promise member caches that retain an async load without visible rejection
-  eviction. Neither shape infers call order or runtime impact. Cleanup-flow
-  facts identify fail-fast aggregate or sequential waits inside explicit
-  lifecycle functions; they do not prove that an obligation rejects at
-  runtime. Dependency-flow facts identify either a conditionally overwritten
-  loop selection or an iterated provider candidate bypassed by a generic
-  lookup; they do not establish intended precedence.
+  explicit releases. They also identify named XHR `readystatechange` listeners
+  with a visible `readyState === 4` terminal branch but no same-handler removal
+  or once-only registration. These facts do not claim runtime reachability.
+  Cache-flow facts identify `getFactoryWithDefault` callbacks whose return
+  branch depends on an outer function parameter omitted from the cache key.
+  They also identify lazy Promise member caches that retain an async load
+  without visible rejection eviction. Neither shape infers call order or
+  runtime impact. Cleanup-flow facts identify fail-fast aggregate or sequential
+  waits inside explicit lifecycle functions; they do not prove that an
+  obligation rejects at runtime. Dependency-flow facts identify either a
+  conditionally overwritten loop selection or an iterated provider candidate
+  bypassed by a generic lookup; they do not establish intended precedence.
 
 ## Lifecycle Fit
 
@@ -99,6 +101,8 @@ expose structured observations used by Rekon's policy and semantic judgment
 pipeline.
 `extractResourceLifetimeEvidence()` exposes the retain/release observations
 joined by policy across a complete EvidenceGraph.
+`extractTerminalEventListenerEvidence()` exposes source-local terminal XHR
+listener observations.
 
 ## Import Boundary
 
@@ -141,7 +145,10 @@ Resource flow is limited to visible request/reply values on
 socket, connection, or server-owned properties; request-scoped closures
 attached to sockets inside request socket callbacks; and explicit null,
 undefined, or delete releases. Cross-file completeness remains a policy
-concern.
+concern. Terminal-listener evidence requires a named `readystatechange`
+handler, same-target `readyState === 4` branch, no `{ once: true }`, and no
+visible removal of the same event and handler. Other listener lifecycles remain
+absent.
 
 Cache-contract evidence is limited to a returned `getFactoryWithDefault` call
 with a parameter-backed key, a distinct guarded return that reads another outer

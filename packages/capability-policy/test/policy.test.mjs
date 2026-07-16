@@ -415,6 +415,52 @@ test("resource lifetime requires complete cross-file retention evidence without 
   }], ref, { evidenceComplete: true }).length, 0);
 });
 
+test("resource lifetime identifies terminal XHR listeners that remain attached", () => {
+  const ref = { type: "EvidenceGraph", id: "terminal-listener-evidence", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "resource_flow",
+    subject: "src/instrument/xhr.ts:xhr:readystatechange:onreadystatechangeHandler",
+    value: {
+      source: "src/instrument/xhr.ts",
+      caller: "instrumentXHR",
+      action: "retain",
+      mechanism: "terminal-listener-retained",
+      target: "xhr",
+      eventName: "readystatechange",
+      handlerName: "onreadystatechangeHandler",
+      terminalCondition: "xhr.readyState === 4",
+      terminalProperty: "readyState",
+      terminalValue: "4",
+      location: { line: 99, column: 3 },
+      handlerLocation: { line: 61, column: 13 },
+      terminalLocation: { line: 69, column: 13 },
+    },
+  };
+
+  const assessments = evaluateResourceLifetimeSignals([fact], ref, { evidenceComplete: false });
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_RESOURCE_LIFETIME_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "terminal-listener-retained");
+  assert.equal(assessments[0].details.target, "xhr");
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    { path: "src/instrument/xhr.ts", lineStart: 61, lineEnd: 61 },
+    { path: "src/instrument/xhr.ts", lineStart: 69, lineEnd: 69 },
+    { path: "src/instrument/xhr.ts", lineStart: 99, lineEnd: 99 },
+  ]);
+  assert.deepEqual(evaluateResourceLifetimeSignals([{
+    ...fact,
+    value: { ...fact.value, eventName: "load" },
+  }], ref, { evidenceComplete: true }), []);
+  assert.deepEqual(evaluateResourceLifetimeSignals([{
+    ...fact,
+    value: { ...fact.value, terminalValue: "3" },
+  }], ref, { evidenceComplete: true }), []);
+  assert.deepEqual(evaluateResourceLifetimeSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/xhr.test.ts" },
+  }], ref, { evidenceComplete: true }), []);
+});
+
 test("structured error propagation requires a merged guard and distinct mapped identities", () => {
   const ref = { type: "EvidenceGraph", id: "error-flow", schemaVersion: "0.1.0" };
   const mappings = [

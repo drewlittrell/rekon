@@ -20,6 +20,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "vitest-typecheck-worker-off": "events.inverseListenerDelegation",
   "nextjs-cache-handler-name-validation": "validation.partialAllowlistMatch",
   "docker-modem-request-timeout-listener-leak": "semantic.resourceLifetime",
+  "sentry-xhr-terminal-listener-retention": "semantic.resourceLifetime",
 });
 
 export function buildAssessmentJudgmentEvalCases(catalog, adjudications, selectedPairIds = []) {

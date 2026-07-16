@@ -252,6 +252,21 @@ export type ResourceLifetimeEvidence = {
   location: AstLocation;
 };
 
+export type TerminalEventListenerEvidence = {
+  kind: "terminal-event-listener";
+  mechanism: "terminal-listener-retained";
+  caller: string;
+  target: string;
+  eventName: "readystatechange";
+  handlerName: string;
+  terminalCondition: string;
+  terminalProperty: "readyState";
+  terminalValue: "4";
+  location: AstLocation;
+  handlerLocation: AstLocation;
+  terminalLocation: AstLocation;
+};
+
 export type ScopeResolutionEvidence = {
   kind: "scope-model";
   classifierName: string;
@@ -359,6 +374,7 @@ type AstFlowRecord =
   | OptionPropagationEvidence
   | OptionFalsyDefaultEvidence
   | ResourceLifetimeEvidence
+  | TerminalEventListenerEvidence
   | ScopeResolutionEvidence
   | ScopeNameResolutionEvidence
   | DependencyResolutionEvidence
@@ -466,6 +482,15 @@ export function extractResourceLifetimeEvidence(input: AstExtractionInput): Reso
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ResourceLifetimeEvidence => record.kind === "resource-lifetime",
+  );
+}
+
+export function extractTerminalEventListenerEvidence(
+  input: AstExtractionInput,
+): TerminalEventListenerEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is TerminalEventListenerEvidence => record.kind === "terminal-event-listener",
   );
 }
 
@@ -878,6 +903,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...promiseEventErrorBridgeRecords(sourceFile));
+  records.push(...terminalEventListenerRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   records.push(...scopeNameResolutionRecords(sourceFile));
   return records;
@@ -1970,6 +1996,158 @@ function resourceLifetimeListener(
     retainedNames,
     location: locationOf(call, sourceFile),
   };
+}
+
+function terminalEventListenerRecords(sourceFile: ts.SourceFile): TerminalEventListenerEvidence[] {
+  const records: TerminalEventListenerEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const record = terminalEventListenerRecord(node, sourceFile);
+      if (record) records.push(record);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.target.localeCompare(right.target)
+      || left.handlerName.localeCompare(right.handlerName));
+}
+
+function terminalEventListenerRecord(
+  call: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+): TerminalEventListenerEvidence | undefined {
+  const path = memberPath(call.expression);
+  if (!path || path.length < 2 || path.at(-1) !== "addEventListener") return undefined;
+  const event = call.arguments[0];
+  const handlerReference = call.arguments[1];
+  if (!event || !ts.isStringLiteralLike(event) || event.text !== "readystatechange"
+    || !handlerReference || !ts.isIdentifier(handlerReference)
+    || eventListenerUsesOnce(call.arguments[2])) {
+    return undefined;
+  }
+
+  const target = path.slice(0, -1).join(".");
+  const boundary = enclosingFunctionBlock(call);
+  if (!boundary) return undefined;
+  const declaration = findVariableDeclaration(boundary.body, handlerReference.text);
+  if (!declaration?.initializer || declaration.getStart(sourceFile) > call.getStart(sourceFile)) return undefined;
+  const initializer = unwrapExpression(declaration.initializer);
+  if (!ts.isArrowFunction(initializer) && !ts.isFunctionExpression(initializer)) return undefined;
+  const terminal = terminalReadyStateCondition(initializer, target, sourceFile);
+  if (!terminal
+    || hasMatchingEventListenerRemoval(
+      boundary.body,
+      target,
+      event.text,
+      handlerReference.text,
+    )) {
+    return undefined;
+  }
+
+  return {
+    kind: "terminal-event-listener",
+    mechanism: "terminal-listener-retained",
+    caller: boundary.caller,
+    target,
+    eventName: "readystatechange",
+    handlerName: handlerReference.text,
+    terminalCondition: boundedNodeText(terminal, sourceFile),
+    terminalProperty: "readyState",
+    terminalValue: "4",
+    location: locationOf(call, sourceFile),
+    handlerLocation: locationOf(declaration, sourceFile),
+    terminalLocation: locationOf(terminal, sourceFile),
+  };
+}
+
+function eventListenerUsesOnce(expression: ts.Expression | undefined): boolean {
+  if (!expression) return false;
+  const value = unwrapExpression(expression);
+  if (!ts.isObjectLiteralExpression(value)) return false;
+  return value.properties.some((property) =>
+    ts.isPropertyAssignment(property)
+      && methodNameText(property.name) === "once"
+      && unwrapExpression(property.initializer).kind === ts.SyntaxKind.TrueKeyword);
+}
+
+function enclosingFunctionBlock(node: ts.Node): { body: ts.Block; caller: string } | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (isFunctionBoundary(current) && current.body && ts.isBlock(current.body)) {
+      return {
+        body: current.body,
+        caller: functionLikeName(current) ?? enclosingCaller(current),
+      };
+    }
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function terminalReadyStateCondition(
+  handler: ts.ArrowFunction | ts.FunctionExpression,
+  target: string,
+  sourceFile: ts.SourceFile,
+): ts.Expression | undefined {
+  let match: ts.Expression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== handler && isFunctionBoundary(node))) return;
+    if (ts.isIfStatement(node) && isTerminalReadyStateExpression(node.expression, target)) {
+      match = node.expression;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(handler);
+  return match && boundedNodeText(match, sourceFile) ? match : undefined;
+}
+
+function isTerminalReadyStateExpression(expression: ts.Expression, target: string): boolean {
+  const value = unwrapExpression(expression);
+  if (!ts.isBinaryExpression(value)
+    || value.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsEqualsToken) {
+    return false;
+  }
+  return (isReadyStateMember(value.left, target) && isReadyStateDoneValue(value.right))
+    || (isReadyStateDoneValue(value.left) && isReadyStateMember(value.right, target));
+}
+
+function isReadyStateMember(expression: ts.Expression, target: string): boolean {
+  return memberPath(unwrapExpression(expression))?.join(".") === `${target}.readyState`;
+}
+
+function isReadyStateDoneValue(expression: ts.Expression): boolean {
+  const value = unwrapExpression(expression);
+  return ts.isNumericLiteral(value) && value.text === "4";
+}
+
+function hasMatchingEventListenerRemoval(
+  body: ts.Block,
+  target: string,
+  eventName: string,
+  handlerName: string,
+): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      const event = node.arguments[0];
+      const handler = node.arguments[1];
+      if (path?.at(-1) === "removeEventListener"
+        && path.slice(0, -1).join(".") === target
+        && event && ts.isStringLiteralLike(event) && event.text === eventName
+        && handler && ts.isIdentifier(handler) && handler.text === handlerName) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return found;
 }
 
 function capturedRequestScopedNames(handler: ts.ArrowFunction | ts.FunctionExpression): string[] {

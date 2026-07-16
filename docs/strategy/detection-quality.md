@@ -268,6 +268,13 @@ docker-modem buggy revision is retained by independent judgment, while moving
 the timeout listener to the request clears the fixed revision. Resource
 lifetime now has two independent positive pairs.
 
+A third resource mechanism covers named XHR completion listeners. The extractor
+requires `addEventListener("readystatechange", handler)`, a same-target
+`readyState === 4` branch in that handler, and no once-only registration or
+same-handler removal. The pinned Sentry pair retains the listener on the buggy
+revision and clears after completion reporting removes it. Direct source review
+and upstream browser-unit tests supply the judgment.
+
 Cross-call cache contracts are modeled through deterministic `cache_flow`
 evidence rather than prompt wording. The extractor requires a returned
 `getFactoryWithDefault` call whose key references at least one outer parameter,
@@ -292,10 +299,10 @@ evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
 All seven semantic classes have at least two independent positive pairs; cache
-integrity and error propagation have three. All remain below the
+integrity, error propagation, and resource lifetime have three. All remain below the
 five-adjudication usefulness minimum, which is recorded in the compact baseline
 rather than reduced to fit the available data. Its token and cost totals cover
-the ten model-adjudicated pairs only; six newer pairs are recorded separately
+the ten model-adjudicated pairs only; seven newer pairs are recorded separately
 as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source

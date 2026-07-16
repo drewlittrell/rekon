@@ -84,6 +84,12 @@
       "directory": "launchdarkly-js-core",
       "url": "https://github.com/launchdarkly/js-core.git",
       "license": "Apache-2.0"
+    },
+    {
+      "id": "sentry-javascript",
+      "directory": "sentry-javascript",
+      "url": "https://github.com/getsentry/sentry-javascript.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -448,6 +454,24 @@
       "structuredEvidence": "promise-cache-rejection",
       "affectedPaths": ["packages/sdk/fastly/src/api/EdgeFeatureStore.ts"],
       "testPaths": ["packages/sdk/fastly/__tests__/api/EdgeFeatureStore.test.ts"]
+    },
+    {
+      "id": "sentry-xhr-terminal-listener-retention",
+      "repository": "sentry-javascript",
+      "buggyCommit": "0b88425a2cc4bf73deedd7b8c4a0cc043f502f4f",
+      "fixedCommit": "71201ff4884db5cf5d89c8ba0fc4f696d3263bcc",
+      "upstream": {
+        "fixUrl": "https://github.com/getsentry/sentry-javascript/pull/22216",
+        "summary": "XHR instrumentation left its readystatechange listener attached after readyState 4, retaining each completed request and the handler's captured virtual error on long-lived pages."
+      },
+      "claim": {
+        "category": "resource-lifetime",
+        "proof": "upstream-regression-test",
+        "summary": "A one-shot completion listener could remain attached after every XHR and accumulate retained request state under sustained traffic."
+      },
+      "structuredEvidence": "terminal-event-listener",
+      "affectedPaths": ["packages/browser-utils/src/instrument/xhr.ts"],
+      "testPaths": ["packages/browser-utils/test/instrument/xhr.test.ts"]
     }
   ]
 }

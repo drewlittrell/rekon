@@ -43,19 +43,25 @@ All notable changes to Rekon are documented here.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes sixteen pairs. Cache integrity and error propagation have
-  three independent positive pairs; the other five semantic classes have two.
+  baseline now passes seventeen pairs. Cache integrity, error propagation, and
+  resource lifetime have three independent positive pairs; the other four
+  semantic classes have two.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
   Direct source review covers the Playwright, VS Code event bridge, Nest
   candidate-bypass, Vite RSC shadowing, webpack falsy-option, and LaunchDarkly
-  rejected-Promise-cache pairs while model API calibration is deferred;
-  existing token and cost totals remain scoped to the ten prior
-  model-adjudicated pairs.
+  rejected-Promise-cache and Sentry terminal-listener pairs while model API
+  calibration is deferred; existing token and cost totals remain scoped to the
+  ten prior model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.
+- Added source-local resource-lifetime evidence for named XHR
+  `readystatechange` listeners with a visible `readyState === 4` terminal branch
+  but no same-handler removal or once-only registration. The public
+  `extractTerminalEventListenerEvidence()` helper exposes the observation, and
+  the pinned Sentry pair validates detachment after completion reporting.
 - Updated semantic file understanding to `semantic-file-understanding-v4` and
   assessment judgment to `assessment-judge-v6` with error-routing,
   option-precedence, scope-resolution, and autonomous resource-lifetime

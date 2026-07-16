@@ -70,6 +70,11 @@ fresh EvidenceGraph. It emits one semantic claim when request/reply objects are
 retained by a connection-owned value and no matching explicit release exists.
 Partial evidence graphs remain silent, and the claim still requires autonomous
 judgment or runtime verification before it can be treated as a defect.
+Source-local terminal XHR listener evidence does not require a complete graph:
+policy preserves it when a named `readystatechange` handler reaches
+`readyState === 4` without visible same-handler removal or once-only
+registration. Browser retention and workload impact remain judgment or runtime
+verification questions.
 
 Error-propagation policy compares compound throw guards with deterministic
 error-identity mappings in the same source file. It emits a semantic claim only

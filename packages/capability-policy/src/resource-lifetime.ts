@@ -23,14 +23,32 @@ type ResourceFlow = {
   scope: string;
 };
 
+type TerminalListenerFlow = {
+  path: string;
+  caller: string;
+  target: string;
+  eventName: "readystatechange";
+  handlerName: string;
+  terminalCondition: string;
+  terminalLine: number;
+  handlerLine: number;
+  registrationLine: number;
+};
+
 export function evaluateResourceLifetimeSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
   options: { evidenceComplete: boolean },
 ): Assessment[] {
-  if (!options.evidenceComplete) return [];
-  const flows = facts
-    .filter((fact) => fact.kind === "resource_flow")
+  const resourceFacts = facts.filter((fact) => fact.kind === "resource_flow");
+  const terminalListenerAssessments = resourceFacts
+    .map(parseTerminalListenerFlow)
+    .filter((flow): flow is TerminalListenerFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) =>
+      left.path.localeCompare(right.path) || left.registrationLine - right.registrationLine)
+    .map((flow) => terminalListenerAssessment(flow, evidenceRef));
+  if (!options.evidenceComplete) return terminalListenerAssessments;
+  const flows = resourceFacts
     .map(parseResourceFlow)
     .filter((flow): flow is ResourceFlow => flow !== undefined && !isNonProductionPath(flow.path));
   const releases = new Set(flows.filter((flow) => flow.action === "release").map(resourceIdentity));
@@ -44,9 +62,12 @@ export function evaluateResourceLifetimeSignals(
     retainedByResource.set(identity, current);
   }
 
-  return [...retainedByResource.entries()]
+  const crossFileAssessments = [...retainedByResource.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, retained]) => resourceLifetimeAssessment(retained[0]!.resource, retained, evidenceRef));
+  return [...crossFileAssessments, ...terminalListenerAssessments].sort((left, right) =>
+    (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
+      || firstEvidenceLine(left) - firstEvidenceLine(right));
 }
 
 function resourceLifetimeAssessment(
@@ -108,6 +129,67 @@ function resourceLifetimeAssessment(
   };
 }
 
+function terminalListenerAssessment(
+  flow: TerminalListenerFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    target: flow.target,
+    eventName: flow.eventName,
+    handlerName: flow.handlerName,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_RESOURCE_LIFETIME_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    impact: "medium",
+    title: `Possible completed-request listener retention in ${flow.path}`,
+    description:
+      `${flow.caller} registers ${flow.handlerName} for ${flow.target}.${flow.eventName}, and the handler has a visible terminal branch (${flow.terminalCondition}) without same-target removal or once-only registration. The listener can remain attached after its one-shot purpose completes; browser retention and workload impact remain to be verified.`,
+    subjects: [flow.path, flow.target, flow.handlerName],
+    files: [flow.path],
+    ruleId: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    suggestedAction:
+      `Verify repeated completed requests, then remove ${flow.handlerName} from ${flow.target} after terminal handling or use once-only registration when repeated notifications are not required.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.88,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves named readystatechange registration, a same-target readyState === 4 terminal branch, and no visible same-handler removal or once-only registration; browser retention and request frequency remain to be verified.",
+    },
+    details: {
+      problemClass: "resource-lifetime",
+      structuredMechanism: "terminal-listener-retained",
+      caller: flow.caller,
+      target: flow.target,
+      eventName: flow.eventName,
+      handlerName: flow.handlerName,
+      terminalCondition: flow.terminalCondition,
+      sourceEvidence: [
+        { path: flow.path, lineStart: flow.handlerLine, lineEnd: flow.handlerLine },
+        { path: flow.path, lineStart: flow.terminalLine, lineEnd: flow.terminalLine },
+        { path: flow.path, lineStart: flow.registrationLine, lineEnd: flow.registrationLine },
+      ],
+      retentionEvidence: [{
+        path: flow.path,
+        caller: flow.caller,
+        target: flow.target,
+        eventName: flow.eventName,
+        handlerName: flow.handlerName,
+        terminalCondition: flow.terminalCondition,
+        line: flow.registrationLine,
+      }],
+      releaseMatch: "absent-in-source",
+    },
+  };
+}
+
 function parseResourceFlow(fact: EvidenceFactLike): ResourceFlow | undefined {
   const { value } = fact;
   if (value.action !== "retain" && value.action !== "release") return undefined;
@@ -134,6 +216,36 @@ function parseResourceFlow(fact: EvidenceFactLike): ResourceFlow | undefined {
   };
 }
 
+function parseTerminalListenerFlow(fact: EvidenceFactLike): TerminalListenerFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "terminal-listener-retained"
+    || typeof value.source !== "string" || value.source.length === 0
+    || typeof value.caller !== "string" || value.caller.length === 0
+    || typeof value.target !== "string" || value.target.length === 0
+    || value.eventName !== "readystatechange"
+    || typeof value.handlerName !== "string" || value.handlerName.length === 0
+    || typeof value.terminalCondition !== "string" || value.terminalCondition.length === 0
+    || value.terminalProperty !== "readyState"
+    || value.terminalValue !== "4") {
+    return undefined;
+  }
+  const registrationLine = locationLineOf(value.location);
+  const handlerLine = locationLineOf(value.handlerLocation);
+  const terminalLine = locationLineOf(value.terminalLocation);
+  if (!registrationLine || !handlerLine || !terminalLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    target: value.target,
+    eventName: "readystatechange",
+    handlerName: value.handlerName,
+    terminalCondition: value.terminalCondition,
+    registrationLine,
+    handlerLine,
+    terminalLine,
+  };
+}
+
 function resourceIdentity(flow: ResourceFlow): string {
   return `${flow.scope}:${flow.resource}`;
 }
@@ -143,4 +255,21 @@ function resourceScope(path: string): string {
   return parts.length >= 2 && (parts[0] === "packages" || parts[0] === "apps" || parts[0] === "services")
     ? `${parts[0]}/${parts[1]}`
     : ".";
+}
+
+function locationLineOf(value: unknown): number | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const line = (value as { line?: unknown }).line;
+  return typeof line === "number" && Number.isInteger(line) && line > 0 ? line : undefined;
+}
+
+function firstEvidenceLine(assessment: Assessment): number {
+  const sourceEvidence = assessment.details?.sourceEvidence;
+  if (!Array.isArray(sourceEvidence)) return Number.MAX_SAFE_INTEGER;
+  const first = sourceEvidence[0];
+  if (typeof first !== "object" || first === null || Array.isArray(first)) return Number.MAX_SAFE_INTEGER;
+  const lineStart = (first as { lineStart?: unknown }).lineStart;
+  return typeof lineStart === "number" && Number.isInteger(lineStart)
+    ? lineStart
+    : Number.MAX_SAFE_INTEGER;
 }
