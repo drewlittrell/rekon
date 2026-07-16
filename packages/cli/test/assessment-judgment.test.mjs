@@ -91,6 +91,43 @@ test("judgment prompt requires a returned mutable selection for dependency resol
   assert.match(prompt, /order-sensitive resolution regression/);
 });
 
+test("judgment prompt recognizes an iterated dependency candidate bypass", () => {
+  const dependencyAssessment = {
+    ...assessment,
+    ruleId: "semantic.dependencyResolution",
+    type: "semantic.dependencyResolution",
+    details: { structuredMechanism: "iterated-candidate-bypass" },
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: dependencyAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /iterates distinct candidates/);
+  assert.match(prompt, /without referencing the current candidate/);
+  assert.match(prompt, /multiple registrations/);
+});
+
+test("judgment prompt recognizes cross-namespace first-match ambiguity", () => {
+  const dependencyAssessment = {
+    ...assessment,
+    ruleId: "semantic.dependencyResolution",
+    type: "semantic.dependencyResolution",
+    details: { structuredMechanism: "multi-namespace-first-match" },
+  };
+  const prompt = buildAssessmentJudgmentPrompt({
+    assessment: dependencyAssessment,
+    sources: [source],
+    maxSourceChars: 2000,
+  });
+
+  assert.match(prompt, /multiple reference properties/);
+  assert.match(prompt, /returned canonical identity/);
+  assert.match(prompt, /namespace exclusivity/);
+  assert.match(prompt, /distinct canonical matches/);
+});
+
 test("judgment prompt requires both merged identity and downstream handling for error propagation", () => {
   const errorAssessment = {
     ...assessment,

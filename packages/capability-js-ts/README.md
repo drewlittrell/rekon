@@ -76,8 +76,10 @@ Ordinary unused locals and public declarations remain outside this signal.
   runtime impact. Cleanup-flow facts identify fail-fast aggregate or sequential
   waits inside explicit lifecycle functions; they do not prove that an
   obligation rejects at runtime. Dependency-flow facts identify either a
-  conditionally overwritten loop selection or an iterated provider candidate
-  bypassed by a generic lookup; they do not establish intended precedence.
+  conditionally overwritten loop selection, an iterated provider candidate
+  bypassed by a generic lookup, or a first-match lookup across multiple
+  reference namespaces despite a visible ambiguity contract. They do not
+  establish intended precedence or namespace semantics.
 
 ## Lifecycle Fit
 
@@ -92,6 +94,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractCleanupCompletenessEvidence()`,
 `extractAsyncEffectContinuationEvidence()`,
 `extractDependencyCandidateBypassEvidence()`,
+`extractDependencyNamespaceAmbiguityEvidence()`,
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
 `extractErrorReasonPropagationEvidence()`,

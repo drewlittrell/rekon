@@ -9,6 +9,7 @@ import capability, {
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
@@ -598,6 +599,114 @@ test("dependency-flow evidence identifies a resolver that bypasses its iterated 
     assert.equal(facts[0].value.mechanism, "iterated-candidate-bypass");
     assert.equal(facts[0].value.bypassExpression, "this.get(typeOrToken)");
     assert.equal(facts[0].provenance.line, 8);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("dependency-flow evidence identifies first-match selection across reference namespaces", async () => {
+  const buggySource = [
+    "export function resolveTarget(input, tabs) {",
+    "  const needle = input.trim();",
+    "  const exact = tabs.find(tab =>",
+    "    tab.targetId === needle ||",
+    "    tab.suggestedTargetId === needle ||",
+    "    tab.label === needle",
+    "  );",
+    "  if (exact) return { ok: true, targetId: exact.targetId };",
+    "  const matches = tabs.filter(tab => tab.targetId.startsWith(needle));",
+    "  const only = matches.length === 1 ? matches[0] : undefined;",
+    "  if (only) return { ok: true, targetId: only.targetId };",
+    "  if (matches.length === 0) return { ok: false, reason: 'not_found' };",
+    "  return { ok: false, reason: 'ambiguous', matches };",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    [
+      "  const exact = tabs.find(tab =>",
+      "    tab.targetId === needle ||",
+      "    tab.suggestedTargetId === needle ||",
+      "    tab.label === needle",
+      "  );",
+      "  if (exact) return { ok: true, targetId: exact.targetId };",
+    ].join("\n"),
+    [
+      "  const exactMatches = tabs",
+      "    .filter(tab => tab.targetId === needle || tab.suggestedTargetId === needle || tab.label === needle)",
+      "    .map(tab => tab.targetId);",
+      "  if (exactMatches.length === 1) return { ok: true, targetId: exactMatches[0] };",
+      "  if (exactMatches.length > 1) return { ok: false, reason: 'ambiguous' };",
+    ].join("\n"),
+  );
+
+  const evidence = extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource,
+  });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "multi-namespace-first-match");
+  assert.equal(evidence[0].caller, "resolveTarget");
+  assert.equal(evidence[0].selectedBinding, "exact");
+  assert.equal(evidence[0].collectionExpression, "tabs");
+  assert.equal(evidence[0].candidateParameter, "tab");
+  assert.equal(evidence[0].selectorExpression, "needle");
+  assert.deepEqual(evidence[0].matchedProperties, ["targetId", "suggestedTargetId", "label"]);
+  assert.equal(evidence[0].canonicalProperty, "targetId");
+  assert.equal(evidence[0].returnExpression, "{ ok: true, targetId: exact.targetId }");
+  assert.equal(
+    evidence[0].ambiguitySignal,
+    "matches.length === 1 and matches.length === 0 before ambiguous return",
+  );
+
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource.replace(
+      "tab.suggestedTargetId === needle ||\n    tab.label === needle",
+      "tab.suggestedTargetId === other ||\n    tab.label === needle",
+    ),
+  }), []);
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource.replace(
+      "tab.suggestedTargetId === needle ||\n    tab.label === needle",
+      "tab.targetId === needle",
+    ),
+  }), []);
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource.replace(
+      "  return { ok: false, reason: 'ambiguous', matches };",
+      "  return { ok: false, reason: 'not_found' };",
+    ),
+  }), []);
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource.replace(
+      "  if (exact) return { ok: true, targetId: exact.targetId };",
+      "  return { ok: true, targetId: exact.targetId };",
+    ),
+  }), []);
+  assert.deepEqual(extractDependencyNamespaceAmbiguityEvidence({
+    path: "src/target-id.ts",
+    content: buggySource.replace("resolveTarget", "renderTarget"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-dependency-namespace-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "target-id.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "dependency_flow"
+        && fact.value.mechanism === "multi-namespace-first-match");
+    assert.equal(facts.length, 1);
+    assert.deepEqual(facts[0].value.matchedProperties, ["targetId", "suggestedTargetId", "label"]);
+    assert.equal(facts[0].value.canonicalProperty, "targetId");
+    assert.equal(facts[0].provenance.line, facts[0].value.selectionLocation.line);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

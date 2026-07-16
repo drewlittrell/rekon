@@ -360,6 +360,25 @@ export type DependencyCandidateBypassEvidence = {
   guardLocation: AstLocation;
 };
 
+export type DependencyNamespaceAmbiguityEvidence = {
+  kind: "dependency-namespace-ambiguity";
+  mechanism: "multi-namespace-first-match";
+  caller: string;
+  selectedBinding: string;
+  collectionExpression: string;
+  candidateParameter: string;
+  selectorExpression: string;
+  matchedProperties: string[];
+  canonicalProperty: string;
+  returnExpression: string;
+  ambiguitySignal: string;
+  location: AstLocation;
+  selectionLocation: AstLocation;
+  predicateLocation: AstLocation;
+  returnLocation: AstLocation;
+  ambiguityLocation: AstLocation;
+};
+
 export type CacheContractEvidence = {
   kind: "cache-contract";
   caller: string;
@@ -429,6 +448,7 @@ type AstFlowRecord =
   | ScopeTraversalEscapeEvidence
   | DependencyResolutionEvidence
   | DependencyCandidateBypassEvidence
+  | DependencyNamespaceAmbiguityEvidence
   | CacheContractEvidence
   | PromiseCacheRejectionEvidence
   | CleanupCompletenessEvidence
@@ -588,6 +608,16 @@ export function extractDependencyCandidateBypassEvidence(input: AstExtractionInp
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is DependencyCandidateBypassEvidence => record.kind === "dependency-candidate-bypass",
+  );
+}
+
+export function extractDependencyNamespaceAmbiguityEvidence(
+  input: AstExtractionInput,
+): DependencyNamespaceAmbiguityEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is DependencyNamespaceAmbiguityEvidence =>
+      record.kind === "dependency-namespace-ambiguity",
   );
 }
 
@@ -981,6 +1011,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...asyncEffectContinuationRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
+  records.push(...dependencyNamespaceAmbiguityRecords(sourceFile));
   records.push(...promiseEventErrorBridgeRecords(sourceFile));
   records.push(...requestSignalForwardingRecords(sourceFile));
   records.push(...terminalEventListenerRecords(sourceFile));
@@ -1714,6 +1745,7 @@ function dependencyResolutionRecords(sourceFile: ts.SourceFile): DependencyResol
 const DEPENDENCY_RESOLVER_NAME = /(?:resolve|find|get|inject|provider|dependency|binding)/iu;
 const DEPENDENCY_CANDIDATE_NAME = /(?:candidate|provider|binding|registration|instance.?link|wrapper|entry)/iu;
 const DEPENDENCY_LOOKUP_METHODS = new Set(["find", "get", "lookup", "resolve"]);
+const DEPENDENCY_NAMESPACE_RESOLVER_NAME = /(?:resolve|find|select|lookup)/iu;
 
 function dependencyCandidateBypassRecords(sourceFile: ts.SourceFile): DependencyCandidateBypassEvidence[] {
   const records: DependencyCandidateBypassEvidence[] = [];
@@ -1799,6 +1831,374 @@ function candidateDerivedBindings(
   };
   visit(resolver.body);
   return bindings;
+}
+
+function dependencyNamespaceAmbiguityRecords(
+  sourceFile: ts.SourceFile,
+): DependencyNamespaceAmbiguityEvidence[] {
+  const records: DependencyNamespaceAmbiguityEvidence[] = [];
+  const visitFunctions = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      const caller = functionLikeName(node);
+      if (caller && DEPENDENCY_NAMESPACE_RESOLVER_NAME.test(caller)) {
+        records.push(...dependencyNamespaceAmbiguityRecordsForFunction(node, caller, sourceFile));
+      }
+    }
+    ts.forEachChild(node, visitFunctions);
+  };
+  visitFunctions(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.selectedBinding.localeCompare(right.selectedBinding));
+}
+
+function dependencyNamespaceAmbiguityRecordsForFunction(
+  fn: ts.FunctionLikeDeclaration,
+  caller: string,
+  sourceFile: ts.SourceFile,
+): DependencyNamespaceAmbiguityEvidence[] {
+  if (!fn.body || !ts.isBlock(fn.body)) return [];
+  const body = fn.body;
+  const ambiguity = functionAmbiguityContract(body, sourceFile);
+  if (!ambiguity) return [];
+
+  const records: DependencyNamespaceAmbiguityEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node !== body && isFunctionBoundary(node)) return;
+    if (ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer) {
+      const selection = namespaceFirstMatchSelection(node.initializer, sourceFile);
+      if (selection) {
+        const returned = selectedCanonicalReturn(
+          body,
+          node,
+          node.name.text,
+          new Set(selection.matchedProperties),
+          sourceFile,
+        );
+        if (returned) {
+          records.push({
+            kind: "dependency-namespace-ambiguity",
+            mechanism: "multi-namespace-first-match",
+            caller,
+            selectedBinding: node.name.text,
+            collectionExpression: selection.collectionExpression,
+            candidateParameter: selection.candidateParameter,
+            selectorExpression: selection.selectorExpression,
+            matchedProperties: selection.matchedProperties,
+            canonicalProperty: returned.canonicalProperty,
+            returnExpression: returned.returnExpression,
+            ambiguitySignal: ambiguity.signal,
+            location: locationOf(node, sourceFile),
+            selectionLocation: locationOf(selection.call, sourceFile),
+            predicateLocation: locationOf(selection.predicate, sourceFile),
+            returnLocation: locationOf(returned.returnStatement, sourceFile),
+            ambiguityLocation: locationOf(ambiguity.condition, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return records;
+}
+
+function namespaceFirstMatchSelection(
+  initializer: ts.Expression,
+  sourceFile: ts.SourceFile,
+): {
+  call: ts.CallExpression;
+  predicate: ts.Expression;
+  collectionExpression: string;
+  candidateParameter: string;
+  selectorExpression: string;
+  matchedProperties: string[];
+} | undefined {
+  const call = unwrapExpression(initializer);
+  if (!ts.isCallExpression(call)
+    || !ts.isPropertyAccessExpression(call.expression)
+    || call.expression.name.text !== "find") {
+    return undefined;
+  }
+  const callback = call.arguments[0];
+  if (!callback || (!ts.isArrowFunction(callback) && !ts.isFunctionExpression(callback))) return undefined;
+  const candidate = callback.parameters[0]?.name;
+  if (!candidate || !ts.isIdentifier(candidate)) return undefined;
+  const predicate = callbackPredicate(callback);
+  if (!predicate) return undefined;
+
+  const comparisons = booleanTerms(unwrapExpression(predicate), "or");
+  if (comparisons.length < 2) return undefined;
+  const matchedProperties: string[] = [];
+  let selectorExpression: string | undefined;
+  for (const comparison of comparisons) {
+    const normalized = namespaceEquality(
+      unwrapExpression(comparison),
+      candidate.text,
+      sourceFile,
+    );
+    if (!normalized) return undefined;
+    if (selectorExpression !== undefined && normalized.selectorExpression !== selectorExpression) return undefined;
+    selectorExpression = normalized.selectorExpression;
+    matchedProperties.push(normalized.property);
+  }
+  const distinctProperties = [...new Set(matchedProperties)];
+  if (!selectorExpression || distinctProperties.length < 2) return undefined;
+  return {
+    call,
+    predicate,
+    collectionExpression: boundedNodeText(call.expression.expression, sourceFile),
+    candidateParameter: candidate.text,
+    selectorExpression,
+    matchedProperties: distinctProperties,
+  };
+}
+
+function callbackPredicate(
+  callback: ts.ArrowFunction | ts.FunctionExpression,
+): ts.Expression | undefined {
+  if (!ts.isBlock(callback.body)) return callback.body;
+  if (callback.body.statements.length !== 1) return undefined;
+  const statement = callback.body.statements[0];
+  return statement && ts.isReturnStatement(statement) && statement.expression
+    ? statement.expression
+    : undefined;
+}
+
+function namespaceEquality(
+  expression: ts.Expression,
+  candidateParameter: string,
+  sourceFile: ts.SourceFile,
+): { property: string; selectorExpression: string } | undefined {
+  if (!ts.isBinaryExpression(expression)
+    || expression.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsEqualsToken) {
+    return undefined;
+  }
+  return namespaceEqualitySides(expression.left, expression.right, candidateParameter, sourceFile)
+    ?? namespaceEqualitySides(expression.right, expression.left, candidateParameter, sourceFile);
+}
+
+function namespaceEqualitySides(
+  candidateSide: ts.Expression,
+  selectorSide: ts.Expression,
+  candidateParameter: string,
+  sourceFile: ts.SourceFile,
+): { property: string; selectorExpression: string } | undefined {
+  const path = memberPath(unwrapExpression(candidateSide));
+  if (!path || path.length !== 2 || path[0] !== candidateParameter) return undefined;
+  if (referencedNames(selectorSide, new Set([candidateParameter])).length > 0) return undefined;
+  return {
+    property: path[1]!,
+    selectorExpression: boundedNodeText(selectorSide, sourceFile),
+  };
+}
+
+function selectedCanonicalReturn(
+  body: ts.Block,
+  declaration: ts.VariableDeclaration,
+  selectedBinding: string,
+  matchedProperties: ReadonlySet<string>,
+  sourceFile: ts.SourceFile,
+): {
+  canonicalProperty: string;
+  returnExpression: string;
+  returnStatement: ts.ReturnStatement;
+} | undefined {
+  let result: {
+    canonicalProperty: string;
+    returnExpression: string;
+    returnStatement: ts.ReturnStatement;
+  } | undefined;
+  const visit = (node: ts.Node): void => {
+    if (result || (node !== body && node.getStart(sourceFile) <= declaration.getStart(sourceFile))) return;
+    if (node !== body && isFunctionBoundary(node)) return;
+    if (ts.isReturnStatement(node) && node.expression) {
+      const property = returnedSelectedProperty(node.expression, selectedBinding);
+      if (property
+        && matchedProperties.has(property)
+        && returnGuardedBySelection(node, body, selectedBinding)) {
+        result = {
+          canonicalProperty: property,
+          returnExpression: boundedNodeText(node.expression, sourceFile),
+          returnStatement: node,
+        };
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return result;
+}
+
+function returnGuardedBySelection(
+  returned: ts.ReturnStatement,
+  body: ts.Block,
+  selectedBinding: string,
+): boolean {
+  let current: ts.Node | undefined = returned.parent;
+  const selected = new Set([selectedBinding]);
+  while (current && current !== body) {
+    if (ts.isIfStatement(current)
+      && containsPosition(current.thenStatement, returned)
+      && referencedNames(current.expression, selected).length > 0) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function returnedSelectedProperty(
+  expression: ts.Expression,
+  selectedBinding: string,
+): string | undefined {
+  const value = unwrapExpression(expression);
+  const directPath = memberPath(value);
+  if (directPath?.length === 2 && directPath[0] === selectedBinding) return directPath[1];
+  if (!ts.isObjectLiteralExpression(value)) return undefined;
+  for (const property of value.properties) {
+    if (!ts.isPropertyAssignment(property)) continue;
+    const path = memberPath(unwrapExpression(property.initializer));
+    if (path?.length === 2 && path[0] === selectedBinding) return path[1];
+  }
+  return undefined;
+}
+
+function functionAmbiguityContract(
+  body: ts.Block,
+  sourceFile: ts.SourceFile,
+): { signal: string; condition: ts.Expression } | undefined {
+  let result: { signal: string; condition: ts.Expression } | undefined;
+  const visit = (node: ts.Node): void => {
+    if (result || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isIfStatement(node)
+      && isMultipleMatchCondition(node.expression)
+      && statementReturnsAmbiguous(node.thenStatement)) {
+      result = {
+        signal: boundedNodeText(node.expression, sourceFile),
+        condition: node.expression,
+      };
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  if (result) return result;
+
+  let ambiguousReturn: ts.ReturnStatement | undefined;
+  const findReturn = (node: ts.Node): void => {
+    if (ambiguousReturn || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node)
+      && node.expression
+      && expressionHasAmbiguousReason(node.expression)
+      && ambiguousMatchBinding(node.expression)) {
+      ambiguousReturn = node;
+      return;
+    }
+    ts.forEachChild(node, findReturn);
+  };
+  findReturn(body);
+  if (!ambiguousReturn?.expression) return undefined;
+  const matchBinding = ambiguousMatchBinding(ambiguousReturn.expression);
+  if (!matchBinding) return undefined;
+  const checks = collectionCardinalityChecks(
+    body,
+    matchBinding,
+    ambiguousReturn.getStart(sourceFile),
+    sourceFile,
+  );
+  const cardinalities = new Set(checks.map((check) => check.cardinality));
+  if (!cardinalities.has(0) || !cardinalities.has(1)) return undefined;
+  return {
+    signal: `${checks.map((check) => check.expression).join(" and ")} before ambiguous return`,
+    condition: ambiguousReturn.expression,
+  };
+}
+
+function isMultipleMatchCondition(expression: ts.Expression): boolean {
+  const value = unwrapExpression(expression);
+  if (!ts.isBinaryExpression(value)
+    || (value.operatorToken.kind !== ts.SyntaxKind.GreaterThanToken
+      && value.operatorToken.kind !== ts.SyntaxKind.GreaterThanEqualsToken)) {
+    return false;
+  }
+  const left = memberPath(unwrapExpression(value.left));
+  return left?.at(-1) === "length"
+    && ts.isNumericLiteral(unwrapExpression(value.right))
+    && Number(unwrapExpression(value.right).getText()) >= 1;
+}
+
+function statementReturnsAmbiguous(statement: ts.Statement): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== statement && isFunctionBoundary(node))) return;
+    if (ts.isReturnStatement(node)
+      && node.expression
+      && expressionHasAmbiguousReason(node.expression)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return found;
+}
+
+function expressionHasAmbiguousReason(expression: ts.Expression): boolean {
+  const value = unwrapExpression(expression);
+  if (!ts.isObjectLiteralExpression(value)) return false;
+  return value.properties.some((property) => {
+    if (!ts.isPropertyAssignment(property) || methodNameText(property.name) !== "reason") return false;
+    const initializer = unwrapExpression(property.initializer);
+    return ts.isStringLiteralLike(initializer) && initializer.text === "ambiguous";
+  });
+}
+
+function ambiguousMatchBinding(expression: ts.Expression): string | undefined {
+  const value = unwrapExpression(expression);
+  if (!ts.isObjectLiteralExpression(value)) return undefined;
+  for (const property of value.properties) {
+    if (ts.isShorthandPropertyAssignment(property) && property.name.text === "matches") {
+      return property.name.text;
+    }
+    if (ts.isPropertyAssignment(property) && methodNameText(property.name) === "matches") {
+      const initializer = unwrapExpression(property.initializer);
+      if (ts.isIdentifier(initializer)) return initializer.text;
+    }
+  }
+  return undefined;
+}
+
+function collectionCardinalityChecks(
+  body: ts.Block,
+  collection: string,
+  beforePosition: number,
+  sourceFile: ts.SourceFile,
+): Array<{ cardinality: number; expression: string }> {
+  const checks: Array<{ cardinality: number; expression: string }> = [];
+  const visit = (node: ts.Node): void => {
+    if ((node !== body && isFunctionBoundary(node)) || node.getStart(sourceFile) >= beforePosition) return;
+    if (ts.isBinaryExpression(node)
+      && (node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken
+        || node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsToken)) {
+      const left = memberPath(unwrapExpression(node.left));
+      const right = unwrapExpression(node.right);
+      if (left?.length === 2
+        && left[0] === collection
+        && left[1] === "length"
+        && ts.isNumericLiteral(right)) {
+        checks.push({
+          cardinality: Number(right.text),
+          expression: boundedNodeText(node, sourceFile),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return checks;
 }
 
 function candidateIteration(

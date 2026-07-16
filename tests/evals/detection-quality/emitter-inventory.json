@@ -207,8 +207,8 @@
     {
       "ruleId": "semantic.dependencyResolution",
       "outputKinds": ["semantic_claim"],
-      "evidence": "deterministic dependency_flow facts identify either a conditionally overwritten loop selection or an iterated candidate bypassed by a generic lookup",
-      "jurisdiction": "production JavaScript and TypeScript dependency resolvers with visible candidate iteration and selection control flow",
+      "evidence": "deterministic dependency_flow facts identify a conditionally overwritten loop selection, an iterated candidate bypassed by a generic lookup, or first-match selection across multiple reference namespaces despite a visible ambiguity contract",
+      "jurisdiction": "production JavaScript and TypeScript dependency resolvers with visible candidate iteration, selection control flow, or multi-namespace identity matching",
       "remediationUnit": "source file and dependency-selection control flow"
     },
     {

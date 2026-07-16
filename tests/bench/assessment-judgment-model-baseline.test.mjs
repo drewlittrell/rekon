@@ -42,8 +42,8 @@ test("assessment-judgment eval dry run exposes cost and coverage without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.cases, 44);
-  assert.equal(payload.requests, 88);
+  assert.equal(payload.cases, 46);
+  assert.equal(payload.requests, 92);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.models.map((model) => model.id), [
     "gpt-5.6-luna@low",

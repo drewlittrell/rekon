@@ -133,6 +133,20 @@ export function buildAssessmentJudgmentPrompt(input: {
 
 function assessmentSpecificRules(assessment: Assessment): string[] {
   if (assessment.ruleId === "semantic.dependencyResolution") {
+    if (assessment.details?.structuredMechanism === "iterated-candidate-bypass") {
+      return [
+        "- For dependency resolution, retain an iterated-candidate-bypass claim only when source iterates distinct candidates but a candidate-derived branch calls a generic resolver without referencing the current candidate.",
+        "- Use verification_required when the bypass is visible but the multi-provider contract or registration behavior is external; recommend resolving multiple registrations and checking each result in order.",
+        "- Reject the claim when every branch returns or resolves from the current candidate, or when source proves the generic lookup is intentionally equivalent for every iterated candidate.",
+      ];
+    }
+    if (assessment.details?.structuredMechanism === "multi-namespace-first-match") {
+      return [
+        "- For dependency resolution, retain a multi-namespace-first-match claim only when one selector is compared against multiple reference properties, the first matched item supplies the returned canonical identity, and the same resolver visibly rejects another multi-match case.",
+        "- Use verification_required when the collision mechanism is visible but namespace exclusivity or caller reachability is external; recommend colliding each friendly reference with another item's canonical identity.",
+        "- Reject the claim when source gathers distinct canonical matches before selection, rejects cardinality greater than one, uses only one reference property, or proves the namespaces cannot collide.",
+      ];
+    }
     return [
       "- For dependency resolution, retain only when a loop stores an eligible candidate, can continue after that selection, and returns the mutable selection after iteration so a later candidate can replace an earlier match.",
       "- Use verification_required when that overwrite structure is visible but the intended provider precedence or candidate eligibility contract is external; recommend an order-sensitive resolution regression.",

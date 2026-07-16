@@ -90,13 +90,16 @@ judgment or focused verification question. Scope-resolution candidates remain
 bounded to source transformers that expose both identifier rewriting and a
 lexical-boundary classifier.
 
-Dependency-resolution policy consumes two bounded `dependency_flow` shapes. It
+Dependency-resolution policy consumes three bounded `dependency_flow` shapes. It
 recognizes a loop that conditionally overwrites and later returns a selected
 lookup result, and a resolver callback that iterates provider candidates but
-returns a generic lookup without referencing the current candidate. An
-unconditional first-match exit and candidate-specific returns stay silent.
-Intended provider precedence remains an autonomous judgment or focused
-verification question.
+returns a generic lookup without referencing the current candidate. It also
+recognizes a resolver that first-matches one selector across multiple reference
+properties, returns a canonical property from the selected item, and already
+has a visible multi-match ambiguity contract elsewhere in the function. An
+unconditional first-match exit, candidate-specific returns, and ordinary
+single-property lookups stay silent. Intended provider precedence and namespace
+semantics remain autonomous judgment or focused verification questions.
 
 Option-propagation policy recognizes an option member combined through logical
 OR with a visible same-property boolean `true` default. The assessment records

@@ -189,6 +189,14 @@ clears when the callback returns the current provider instance. Direct review
 of the pinned source and upstream regression tests supplies the judgment while
 model comparison remains deferred.
 
+A third dependency mechanism covers resolvers that accept several identity
+namespaces through one selector. The extractor requires a first-match lookup
+across at least two direct candidate properties, a canonical return from the
+selected item, and a separate multi-match ambiguity contract in the same
+function. The pinned OpenClaw pair retains the cross-namespace collision on the
+buggy revision and clears after exact matches are deduplicated by canonical
+target ID and multiple results fail closed.
+
 The second batch adds `cleanup-completeness`. All three affected Nest shutdown
 hook implementations emit source-matched candidates on the buggy revision and
 remain clean after all-settled cleanup and guarded module hooks are introduced.
@@ -321,12 +329,10 @@ extractor requires named React `useEffect` and `useState` imports, a global
 state, and no returned cleanup. The pinned Automerge pair retains the stale
 continuation on the buggy revision and clears after cleanup prevents a
 superseded URL set from overwriting newer state.
-All seven semantic classes have at least two independent positive pairs. Cache
-integrity, cleanup completeness, error propagation, option propagation,
-resource lifetime, and scope resolution have three; dependency resolution has
-two. All remain below the five-adjudication usefulness minimum, which is
+All seven semantic classes have three independent positive pairs. All remain
+below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available data.
-Its token and cost totals cover the ten model-adjudicated pairs only; ten newer
+Its token and cost totals cover the ten model-adjudicated pairs only; eleven newer
 pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source

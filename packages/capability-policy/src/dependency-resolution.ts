@@ -35,6 +35,23 @@ type DependencyCandidateBypassFlow = {
   guardLine: number;
 };
 
+type DependencyNamespaceAmbiguityFlow = {
+  path: string;
+  caller: string;
+  selectedBinding: string;
+  collectionExpression: string;
+  candidateParameter: string;
+  selectorExpression: string;
+  matchedProperties: string[];
+  canonicalProperty: string;
+  returnExpression: string;
+  ambiguitySignal: string;
+  selectionLine: number;
+  predicateLine: number;
+  returnLine: number;
+  ambiguityLine: number;
+};
+
 export function evaluateDependencyResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -50,9 +67,74 @@ export function evaluateDependencyResolutionSignals(
     .filter((flow): flow is DependencyCandidateBypassFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.bypassLine - right.bypassLine)
     .map((flow) => dependencyCandidateBypassAssessment(flow, evidenceRef));
-  return [...overwriteAssessments, ...bypassAssessments].sort((left, right) =>
+  const ambiguityAssessments = dependencyFacts
+    .map(parseDependencyNamespaceAmbiguityFlow)
+    .filter((flow): flow is DependencyNamespaceAmbiguityFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.selectionLine - right.selectionLine)
+    .map((flow) => dependencyNamespaceAmbiguityAssessment(flow, evidenceRef));
+  return [...overwriteAssessments, ...bypassAssessments, ...ambiguityAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function dependencyNamespaceAmbiguityAssessment(
+  flow: DependencyNamespaceAmbiguityFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    selectedBinding: flow.selectedBinding,
+    selectorExpression: flow.selectorExpression,
+    matchedProperties: flow.matchedProperties,
+    canonicalProperty: flow.canonicalProperty,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    impact: "high",
+    title: `Possible cross-namespace first-match ambiguity in ${flow.path}`,
+    description:
+      `${flow.caller} selects the first item in ${flow.collectionExpression} whose ${flow.matchedProperties.join(", ")} matches ${flow.selectorExpression}, then returns ${flow.returnExpression}. Distinct reference namespaces can identify different items while bypassing the resolver's visible ${flow.ambiguitySignal} ambiguity contract.`,
+    subjects: [flow.path, flow.caller, flow.selectedBinding],
+    files: [flow.path],
+    ruleId: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Test collisions between the canonical identifier and every friendly reference namespace, then collect distinct canonical matches and reject selections with more than one result.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.88,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a first-match lookup across multiple candidate properties, a canonical return from the selected item, and a separate multi-match ambiguity contract in the same resolver.",
+    },
+    details: {
+      problemClass: "dependency-resolution",
+      structuredMechanism: "multi-namespace-first-match",
+      caller: flow.caller,
+      selectedBinding: flow.selectedBinding,
+      collectionExpression: flow.collectionExpression,
+      candidateParameter: flow.candidateParameter,
+      selectorExpression: flow.selectorExpression,
+      matchedProperties: flow.matchedProperties,
+      canonicalProperty: flow.canonicalProperty,
+      returnExpression: flow.returnExpression,
+      ambiguitySignal: flow.ambiguitySignal,
+      sourceEvidence: [...new Set([
+        flow.selectionLine,
+        flow.predicateLine,
+        flow.returnLine,
+        flow.ambiguityLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function dependencyResolutionAssessment(flow: DependencyFlow, evidenceRef: ArtifactRef): Assessment {
@@ -213,6 +295,47 @@ function parseDependencyCandidateBypassFlow(fact: EvidenceFactLike): DependencyC
     iterationLine: value.iterationLocation.line,
     bypassLine: value.bypassLocation.line,
     guardLine: value.guardLocation.line,
+  };
+}
+
+function parseDependencyNamespaceAmbiguityFlow(
+  fact: EvidenceFactLike,
+): DependencyNamespaceAmbiguityFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "multi-namespace-first-match"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.selectedBinding !== "string"
+    || typeof value.collectionExpression !== "string"
+    || typeof value.candidateParameter !== "string"
+    || typeof value.selectorExpression !== "string"
+    || !isStringArray(value.matchedProperties)
+    || new Set(value.matchedProperties).size < 2
+    || typeof value.canonicalProperty !== "string"
+    || !value.matchedProperties.includes(value.canonicalProperty)
+    || typeof value.returnExpression !== "string"
+    || typeof value.ambiguitySignal !== "string"
+    || !isLocation(value.selectionLocation)
+    || !isLocation(value.predicateLocation)
+    || !isLocation(value.returnLocation)
+    || !isLocation(value.ambiguityLocation)) {
+    return undefined;
+  }
+  return {
+    path: value.source,
+    caller: value.caller,
+    selectedBinding: value.selectedBinding,
+    collectionExpression: value.collectionExpression,
+    candidateParameter: value.candidateParameter,
+    selectorExpression: value.selectorExpression,
+    matchedProperties: value.matchedProperties,
+    canonicalProperty: value.canonicalProperty,
+    returnExpression: value.returnExpression,
+    ambiguitySignal: value.ambiguitySignal,
+    selectionLine: value.selectionLocation.line,
+    predicateLine: value.predicateLocation.line,
+    returnLine: value.returnLocation.line,
+    ambiguityLine: value.ambiguityLocation.line,
   };
 }
 

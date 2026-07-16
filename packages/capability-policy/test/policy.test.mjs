@@ -659,6 +659,49 @@ test("structured dependency resolution identifies an iterated candidate bypass",
   }], ref), []);
 });
 
+test("structured dependency resolution identifies cross-namespace first-match ambiguity", () => {
+  const ref = { type: "EvidenceGraph", id: "dependency-namespace", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "dependency_flow",
+    value: {
+      source: "src/target-id.ts",
+      caller: "resolveTargetIdFromTabs",
+      mechanism: "multi-namespace-first-match",
+      selectedBinding: "exact",
+      collectionExpression: "tabs",
+      candidateParameter: "tab",
+      selectorExpression: "needle",
+      matchedProperties: ["targetId", "suggestedTargetId", "tabId", "label"],
+      canonicalProperty: "targetId",
+      returnExpression: "{ ok: true, targetId: exact.targetId }",
+      ambiguitySignal: "matches.length > 1",
+      selectionLocation: { line: 21, column: 17 },
+      predicateLocation: { line: 23, column: 7 },
+      returnLocation: { line: 31, column: 5 },
+      ambiguityLocation: { line: 45, column: 7 },
+    },
+  };
+
+  const assessments = evaluateDependencyResolutionSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "multi-namespace-first-match");
+  assert.deepEqual(assessments[0].details.matchedProperties, fact.value.matchedProperties);
+  assert.deepEqual(assessments[0].details.sourceEvidence.map((entry) => entry.lineStart), [21, 23, 31, 45]);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, matchedProperties: ["targetId"] },
+  }], ref), []);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, canonicalProperty: "unknown" },
+  }], ref), []);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, source: "tests/target-id.test.ts" },
+  }], ref), []);
+});
+
 test("structured option propagation identifies truthy defaults that override false", () => {
   const ref = { type: "EvidenceGraph", id: "option-falsy-default", schemaVersion: "0.1.0" };
   const fact = {

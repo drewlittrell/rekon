@@ -14,6 +14,7 @@ import {
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
@@ -384,6 +385,7 @@ async function evaluateDependencyResolutionPair(pair, repository) {
     const sha256 = createHash("sha256").update(text).digest("hex");
     const dependencyFlow = extractDependencyResolutionEvidence({ path, content: text });
     const dependencyCandidateBypass = extractDependencyCandidateBypassEvidence({ path, content: text });
+    const dependencyNamespaceAmbiguity = extractDependencyNamespaceAmbiguityEvidence({ path, content: text });
     const facts = dependencyFlow.map((entry) => ({
       kind: "dependency_flow",
       subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
@@ -417,6 +419,27 @@ async function evaluateDependencyResolutionPair(pair, repository) {
         iterationLocation: entry.iterationLocation,
         bypassLocation: entry.bypassLocation,
         guardLocation: entry.guardLocation,
+      },
+    }))).concat(dependencyNamespaceAmbiguity.map((entry) => ({
+      kind: "dependency_flow",
+      subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
+      value: {
+        source: path,
+        mechanism: entry.mechanism,
+        caller: entry.caller,
+        selectedBinding: entry.selectedBinding,
+        collectionExpression: entry.collectionExpression,
+        candidateParameter: entry.candidateParameter,
+        selectorExpression: entry.selectorExpression,
+        matchedProperties: entry.matchedProperties,
+        canonicalProperty: entry.canonicalProperty,
+        returnExpression: entry.returnExpression,
+        ambiguitySignal: entry.ambiguitySignal,
+        location: entry.location,
+        selectionLocation: entry.selectionLocation,
+        predicateLocation: entry.predicateLocation,
+        returnLocation: entry.returnLocation,
+        ambiguityLocation: entry.ambiguityLocation,
       },
     })));
     const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);

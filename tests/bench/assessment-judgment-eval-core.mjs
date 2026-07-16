@@ -11,6 +11,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "automerge-superseded-effect-continuation": "semantic.cleanupCompleteness",
   "nest-import-first-match": "semantic.dependencyResolution",
   "nest-resolve-each-candidate-bypass": "semantic.dependencyResolution",
+  "openclaw-cross-namespace-tab-reference": "semantic.dependencyResolution",
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
   "launchdarkly-fastly-rejected-promise-cache": "semantic.cacheIntegrity",
   "playwright-abort-reason-propagation": "semantic.errorPropagation",

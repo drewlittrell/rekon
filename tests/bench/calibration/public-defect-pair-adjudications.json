@@ -154,6 +154,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms that Babel's renameVisitor skipped child scopes when bindingIdentifierEquals failed and already requeued method keys and decorators, but did not requeue a SwitchStatement discriminant evaluated in the parent scope. Rekon emits semantic.scopeResolution on that omitted traversal exception and clears after the fixed revision queues path.get(\"discriminant\"); upstream fixtures cover identifier, member, binary, and call-expression discriminants under case-local shadowing."
+    },
+    {
+      "pairId": "openclaw-cross-namespace-tab-reference",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms resolveTargetIdFromTabs used one first-match lookup across raw targetId, suggestedTargetId, tabId, and label namespaces, then returned the selected tab's canonical target ID even though the same resolver already rejected ambiguous prefix matches. Rekon emits semantic.dependencyResolution on that cross-namespace path and clears after the fixed revision gathers distinct canonical target IDs and rejects multiple exact matches; upstream tests cover each friendly namespace colliding with another tab's raw ID and route behavior returns 409 without acting."
     }
   ]
 }

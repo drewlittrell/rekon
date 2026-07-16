@@ -83,6 +83,7 @@ export {
   type CleanupCompletenessEvidence,
   type AsyncEffectContinuationEvidence,
   type DependencyCandidateBypassEvidence,
+  type DependencyNamespaceAmbiguityEvidence,
   type DependencyResolutionEvidence,
   type OptionFalsyDefaultEvidence,
   type OptionPropagationEvidence,
@@ -100,6 +101,7 @@ export {
   extractCleanupCompletenessEvidence,
   extractAsyncEffectContinuationEvidence,
   extractDependencyCandidateBypassEvidence,
+  extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
@@ -1524,6 +1526,29 @@ function factsFromAstResult(
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.bypassLocation.line));
+      continue;
+    }
+    if (flow.kind === "dependency-namespace-ambiguity") {
+      facts.push(fact("dependency_flow", `${path}:${flow.caller}:${flow.selectedBinding}:${flow.selectionLocation.line}`, {
+        source: path,
+        mechanism: flow.mechanism,
+        caller: flow.caller,
+        selectedBinding: flow.selectedBinding,
+        collectionExpression: flow.collectionExpression,
+        candidateParameter: flow.candidateParameter,
+        selectorExpression: flow.selectorExpression,
+        matchedProperties: flow.matchedProperties,
+        canonicalProperty: flow.canonicalProperty,
+        returnExpression: flow.returnExpression,
+        ambiguitySignal: flow.ambiguitySignal,
+        location: flow.location,
+        selectionLocation: flow.selectionLocation,
+        predicateLocation: flow.predicateLocation,
+        returnLocation: flow.returnLocation,
+        ambiguityLocation: flow.ambiguityLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.selectionLocation.line));
       continue;
     }
     const binding = allImportBindings.get(flow.root);

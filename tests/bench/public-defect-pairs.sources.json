@@ -108,6 +108,12 @@
       "directory": "babel",
       "url": "https://github.com/babel/babel.git",
       "license": "MIT"
+    },
+    {
+      "id": "openclaw",
+      "directory": "openclaw",
+      "url": "https://github.com/openclaw/openclaw.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -548,6 +554,24 @@
         "packages/babel-plugin-transform-block-scoping/test/fixtures/regression/issue-17684/input.js",
         "packages/babel-plugin-transform-block-scoping/test/fixtures/regression/issue-17684/output.js"
       ]
+    },
+    {
+      "id": "openclaw-cross-namespace-tab-reference",
+      "repository": "openclaw",
+      "buggyCommit": "3f16718b0ca33f1a05fdf3a488ee2c2fd1a81bbe",
+      "fixedCommit": "eb9111d6e0ac121ee6eaa2e7e7cee3faad2f7774",
+      "upstream": {
+        "fixUrl": "https://github.com/openclaw/openclaw/pull/103119",
+        "summary": "Browser tab resolution accepted raw target IDs and several friendly reference namespaces in one first-match lookup, allowing a friendly reference on one tab to collide with another tab's canonical target ID."
+      },
+      "claim": {
+        "category": "dependency-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "An ambiguous cross-namespace tab reference could focus or close the wrong browser tab instead of failing closed."
+      },
+      "structuredEvidence": "dependency-namespace-ambiguity",
+      "affectedPaths": ["extensions/browser/src/browser/target-id.ts"],
+      "testPaths": ["extensions/browser/src/browser/target-id.test.ts"]
     }
   ]
 }

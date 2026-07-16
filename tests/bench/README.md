@@ -240,8 +240,10 @@ by lazy member caches. Cleanup-completeness coverage includes semantic
 shutdown-hook analysis, structured lifecycle wait contracts, and
 dependency-bearing React effects whose Promise aggregate continuation updates
 state without returned cleanup.
-Dependency-resolution coverage includes both conditional candidate overwrite
-and iterated candidate bypass through a generic token lookup.
+Dependency-resolution coverage includes conditional candidate overwrite,
+iterated candidate bypass through a generic token lookup, and first-match
+selection across multiple reference namespaces despite a visible ambiguity
+contract.
 Option-propagation coverage includes callback-backed spread overrides and
 logical-OR defaulting that coerces explicit false values.
 Scope-resolution coverage includes missing lexical boundaries, name-only
@@ -270,6 +272,9 @@ anchor because the fix adds the missing error edge and therefore leaves no
 changed line in the buggy revision.
 The Nest candidate-bypass pair uses the same direct-review boundary and
 structured `dependency_flow` evidence.
+The OpenClaw tab-reference pair uses direct review and structured
+`dependency_flow` evidence for a first-match lookup across canonical and
+friendly reference namespaces.
 The webpack falsy-option pair uses direct review and structured `option_flow`
 evidence bounded to visible boolean `true` defaults.
 The Langfuse abort-signal pair uses direct review and structured `option_flow`
@@ -294,11 +299,10 @@ enter the structured path. The Automerge cleanup pair uses deterministic
 aggregate continuation can update state after a newer effect supersedes it.
 The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
-also records positive-pair counts against the five-adjudication minimum. Cache
-integrity, cleanup completeness, error propagation, option propagation,
-resource lifetime, and scope resolution have three independent positive pairs;
-dependency resolution has two. All are still `insufficient-evidence`. Token and
-cost totals apply only to the ten pairs previously run through the model API.
+also records positive-pair counts against the five-adjudication minimum. All
+seven semantic classes have three independent positive pairs and remain
+`insufficient-evidence`. Token and cost totals apply only to the ten pairs
+previously run through the model API.
 
 ## Corpus retention
 

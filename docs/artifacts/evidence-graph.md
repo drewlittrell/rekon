@@ -50,7 +50,7 @@ they may collide with built-ins.
 | `state_access` | direct call through a recognized imported state SDK |
 | `cache_flow` | cache contracts, including omitted result parameters in memoization keys and lazy Promise caches without visible rejection eviction |
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape, or a dependency-bearing React effect whose Promise aggregate continuation updates state without returned cleanup |
-| `dependency_flow` | candidate selection inside iteration, including conditional overwrite or a generic lookup that bypasses the current provider candidate |
+| `dependency_flow` | dependency selection control flow, including conditional overwrite, a generic lookup that bypasses the current provider candidate, or first-match selection across multiple reference namespaces despite a visible ambiguity contract |
 | `error_flow` | explicit throw/rethrow control flow, an Error-like construction that preserves a cause while selecting the default message, or a Promise/event bridge with no same-emitter error edge |
 | `option_flow` | option precedence, including same-name spread overrides, logical-OR fallback to a visible same-property boolean true default, and temporary `Request` signals forwarded in place of caller-owned abort signals |
 | `resource_flow` | connection-owned request retention, request closures attached to socket listeners, terminal XHR listeners without visible detachment, or explicit release evidence |

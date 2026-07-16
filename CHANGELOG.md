@@ -16,8 +16,13 @@ All notable changes to Rekon are documented here.
   fallback, callback, connection-retention, and explicit-release context.
   Dependency-flow evidence records lookup selection, conditional loop exit, and
   post-loop return behavior, plus iterated provider candidates bypassed by a
-  generic token lookup. The pinned Nest candidate-bypass pair validates the
-  second mechanism through direct source review and upstream regression tests.
+  generic token lookup. It also records first-match selection across multiple
+  reference namespaces when the same resolver exposes an ambiguity contract.
+  The pinned Nest candidate-bypass and OpenClaw tab-reference pairs validate
+  the latter mechanisms through direct source review and upstream regression
+  tests. Assessment judgment now applies mechanism-specific source rules to
+  loop overwrite, iterated-candidate bypass, and multi-namespace first-match
+  candidates.
 - Added deterministic error-flow evidence for Promise bridges that resolve
   from a recognized emitter event, use rejection for other failures, and omit
   a same-emitter error edge. `extractPromiseEventErrorBridgeEvidence()` exposes
@@ -59,19 +64,18 @@ All notable changes to Rekon are documented here.
   returned cleanup. The public `extractAsyncEffectContinuationEvidence()`
   helper exposes that observation, and the pinned Automerge pair validates that
   a superseded effect cannot overwrite newer state after cleanup is added. The
-  source-free semantic baseline now passes twenty pairs. Cache integrity,
-  cleanup completeness, error propagation, option propagation, resource
-  lifetime, and scope resolution have three independent positive pairs;
-  dependency resolution has two.
+  source-free semantic baseline now passes twenty-one pairs. All seven semantic
+  classes have three independent positive pairs.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
   Direct source review covers the Playwright, VS Code event bridge, Nest
   candidate-bypass, Vite RSC shadowing, webpack falsy-option, and LaunchDarkly
   rejected-Promise-cache, Sentry terminal-listener, Langfuse abort-signal, and
-  Automerge superseded-effect and Babel switch-discriminant pairs while model
-  API calibration is deferred; existing token and cost totals remain scoped to
-  the ten prior model-adjudicated pairs.
+  Automerge superseded-effect, Babel switch-discriminant, and OpenClaw
+  cross-namespace tab-reference pairs while model API calibration is deferred;
+  existing token and cost totals remain scoped to the ten prior
+  model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

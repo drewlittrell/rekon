@@ -18,15 +18,15 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   assert.equal(baseline.corpus.semanticPromptVersion, "semantic-file-understanding-v4");
   assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v6");
   assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
-  assert.equal(baseline.corpus.pairCount, 20);
-  assert.equal(baseline.corpus.caseCount, 50);
+  assert.equal(baseline.corpus.pairCount, 21);
+  assert.equal(baseline.corpus.caseCount, 52);
   assert.deepEqual(baseline.corpus.judgmentCoverage, {
     modelApiPairs: 10,
-    agentSourceReviewPairs: 10,
+    agentSourceReviewPairs: 11,
   });
   assert.equal(baseline.model.appliesToPairs, 10);
   assert.equal(baseline.summary.usageScope, "model-api-pairs-only");
-  assert.equal(baseline.summary.passedPairs, 20);
+  assert.equal(baseline.summary.passedPairs, 21);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -35,6 +35,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     "cleanup-completeness",
     "cleanup-completeness",
     "cleanup-completeness",
+    "dependency-resolution",
     "dependency-resolution",
     "dependency-resolution",
     "error-propagation",
@@ -68,7 +69,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     {
       ruleId: "semantic.dependencyResolution",
       problemClass: "dependency-resolution",
-      positivePairs: 2,
+      positivePairs: 3,
       minimumAdjudications: 5,
       status: "insufficient-evidence",
     },
@@ -108,6 +109,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     "langfuse-derived-abort-signal-forwarding",
     "launchdarkly-fastly-rejected-promise-cache",
     "nest-resolve-each-candidate-bypass",
+    "openclaw-cross-namespace-tab-reference",
     "playwright-abort-reason-propagation",
     "sentry-xhr-terminal-listener-retention",
     "vite-rsc-shadowed-binding",
@@ -134,7 +136,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 50);
+  assert.equal(payload.requests, 52);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
@@ -143,6 +145,7 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
     "cleanup-completeness",
     "cleanup-completeness",
     "cleanup-completeness",
+    "dependency-resolution",
     "dependency-resolution",
     "dependency-resolution",
     "error-propagation",
