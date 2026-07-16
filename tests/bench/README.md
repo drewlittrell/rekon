@@ -260,6 +260,9 @@ Redux error-propagation pair uses deterministic compound-guard and downstream
 identity-mapping evidence. The Playwright error-propagation pair uses
 structured evidence for a supplied cause hidden behind a default message and
 is currently adjudicated by direct review of pinned source and upstream tests.
+The VS Code error-propagation pair uses a structured Promise/event bridge
+anchor because the fix adds the missing error edge and therefore leaves no
+changed line in the buggy revision.
 The Nest candidate-bypass pair uses the same direct-review boundary and
 structured `dependency_flow` evidence.
 The webpack falsy-option pair uses direct review and structured `option_flow`

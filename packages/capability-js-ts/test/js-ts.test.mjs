@@ -11,6 +11,7 @@ import capability, {
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
+  extractPromiseEventErrorBridgeEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
@@ -383,6 +384,107 @@ test("error-reason evidence identifies cause values hidden behind a default mess
     assert.equal(facts[0].value.mechanism, "cause-with-default-message");
     assert.equal(facts[0].value.causeExpression, "params.reason");
     assert.equal(facts[0].provenance.line, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("promise event bridge evidence identifies emitter errors that do not reach reject", async () => {
+  const buggySource = [
+    "export function read(zipPath, filePath) {",
+    "  return openZip(zipPath).then(zipfile => {",
+    "    return new Promise((resolve, reject) => {",
+    "      zipfile.on('entry', entry => {",
+    "        if (entry.fileName === filePath) {",
+    "          openZipStream(zipfile, entry).then(stream => resolve(stream), err => reject(err));",
+    "        }",
+    "      });",
+    "      zipfile.once('close', () => reject(new Error('not found')));",
+    "    });",
+    "  });",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    "      zipfile.on('entry', entry => {",
+    "      zipfile.once('error', err => reject(err));\n      zipfile.on('entry', entry => {",
+  );
+
+  const evidence = extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: buggySource,
+  });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].kind, "promise-event-error-bridge");
+  assert.equal(evidence[0].mechanism, "unforwarded-emitter-error");
+  assert.equal(evidence[0].caller, "read");
+  assert.equal(evidence[0].emitter, "zipfile");
+  assert.deepEqual(evidence[0].successEvents, ["entry"]);
+  assert.equal(evidence[0].rejectIdentifier, "reject");
+  assert.deepEqual(evidence[0].location, { line: 3, column: 12 });
+  assert.deepEqual(evidence[0].successListenerLocations, [{ line: 4, column: 7 }]);
+  assert.equal(evidence[0].rejectionLocation.line, 6);
+
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: buggySource.replace(
+      "      zipfile.on('entry', entry => {",
+      "      zipfile.once('error', reject);\n      zipfile.on('entry', entry => {",
+    ),
+  }), []);
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: [
+      "new Promise((resolve, reject) => {",
+      "  zipfile.on('change', value => resolve(value));",
+      "  rejectLater(reject);",
+      "});",
+    ].join("\n"),
+  }), []);
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: [
+      "new Promise((resolve, reject) => {",
+      "  zipfile.on('entry', resolve => resolve('local'));",
+      "  reject(new Error('failed'));",
+      "});",
+    ].join("\n"),
+  }), []);
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: [
+      "new Promise(resolve => {",
+      "  zipfile.on('entry', value => resolve(value));",
+      "});",
+    ].join("\n"),
+  }), []);
+  assert.deepEqual(extractPromiseEventErrorBridgeEvidence({
+    path: "src/zip.ts",
+    content: [
+      "function Promise() {}",
+      "new Promise((resolve, reject) => {",
+      "  zipfile.on('entry', value => resolve(value));",
+      "  reject(new Error('failed'));",
+      "});",
+    ].join("\n"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-event-error-bridge-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "zip.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "error_flow"
+        && fact.value.mechanism === "unforwarded-emitter-error");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.action, "bridge");
+    assert.equal(facts[0].value.emitter, "zipfile");
+    assert.deepEqual(facts[0].value.successEvents, ["entry"]);
+    assert.equal(facts[0].provenance.line, 3);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

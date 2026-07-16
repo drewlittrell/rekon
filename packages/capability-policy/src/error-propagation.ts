@@ -35,6 +35,16 @@ type ErrorReasonFlow = {
   causeLine: number;
 };
 
+type PromiseEventErrorBridgeFlow = {
+  path: string;
+  caller: string;
+  emitter: string;
+  successEvents: string[];
+  locationLine: number;
+  successListenerLines: number[];
+  rejectionLine: number;
+};
+
 export function evaluateErrorPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -51,7 +61,16 @@ export function evaluateErrorPropagationSignals(
     .filter((flow): flow is ErrorReasonFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => hiddenReasonAssessment(flow, evidenceRef));
-  return [...mergedIdentityAssessments, ...hiddenReasonAssessments].sort((left, right) =>
+  const unforwardedEmitterAssessments = errorFacts
+    .map(parsePromiseEventErrorBridgeFlow)
+    .filter((flow): flow is PromiseEventErrorBridgeFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
+    .map((flow) => unforwardedEmitterErrorAssessment(flow, evidenceRef));
+  return [
+    ...mergedIdentityAssessments,
+    ...hiddenReasonAssessments,
+    ...unforwardedEmitterAssessments,
+  ].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
 }
@@ -164,6 +183,56 @@ function hiddenReasonAssessment(flow: ErrorReasonFlow, evidenceRef: ArtifactRef)
   };
 }
 
+function unforwardedEmitterErrorAssessment(
+  flow: PromiseEventErrorBridgeFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    emitter: flow.emitter,
+    successEvents: flow.successEvents,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_ERROR_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    impact: "medium",
+    title: `Possible unforwarded emitter error in ${flow.path}`,
+    description:
+      `${flow.caller} bridges ${flow.emitter} event${flow.successEvents.length === 1 ? "" : "s"} ${flow.successEvents.join(", ")} into a Promise and uses its reject channel for other failures, but no error listener on that emitter forwards to reject. If ${flow.emitter} emits error, the caller may not receive the failure; the emitter contract remains to be verified.`,
+    subjects: [flow.path, flow.caller, flow.emitter],
+    files: [flow.path],
+    ruleId: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    suggestedAction:
+      `Exercise ${flow.emitter}'s error path and verify the returned Promise rejects with the expected error. Add a same-emitter error listener that forwards to reject when the emitter contract requires it.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.84,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves that a Promise resolves from a recognized event on one emitter and uses rejection for other failures without forwarding that emitter's error event; whether the emitter can fail remains to be verified.",
+    },
+    details: {
+      problemClass: "error-propagation",
+      structuredMechanism: "unforwarded-emitter-error",
+      caller: flow.caller,
+      emitter: flow.emitter,
+      successEvents: flow.successEvents,
+      sourceEvidence: [...new Set([
+        flow.locationLine,
+        ...flow.successListenerLines,
+        flow.rejectionLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
+}
+
 function parseErrorFlow(fact: EvidenceFactLike): ErrorFlow | undefined {
   const { value } = fact;
   if (typeof value.source !== "string" || typeof value.caller !== "string" || typeof value.errorIdentity !== "string") {
@@ -220,6 +289,39 @@ function parseErrorReasonFlow(fact: EvidenceFactLike): ErrorReasonFlow | undefin
     causeExpression: value.causeExpression,
     locationLine,
     causeLine,
+  };
+}
+
+function parsePromiseEventErrorBridgeFlow(
+  fact: EvidenceFactLike,
+): PromiseEventErrorBridgeFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "unforwarded-emitter-error"
+    || value.action !== "bridge"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.emitter !== "string"
+    || value.emitter.length === 0
+    || !Array.isArray(value.successEvents)
+    || value.successEvents.length === 0
+    || value.successEvents.some((event) => typeof event !== "string" || event.length === 0)) {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const rejectionLine = locationLineOf(value.rejectionLocation);
+  if (!locationLine || !rejectionLine || !Array.isArray(value.successListenerLocations)) return undefined;
+  const successListenerLines = value.successListenerLocations
+    .map(locationLineOf)
+    .filter((line): line is number => line !== undefined);
+  if (successListenerLines.length === 0) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    emitter: value.emitter,
+    successEvents: value.successEvents as string[],
+    locationLine,
+    successListenerLines,
+    rejectionLine,
   };
 }
 

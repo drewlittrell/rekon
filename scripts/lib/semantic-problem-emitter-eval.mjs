@@ -85,6 +85,20 @@ export function assessmentMatchesDefectEvidence(input) {
     return anchorLines.size > 0 && assessmentOverlapsChangedLines(input.assessment, anchorLines);
   }
   if (input.problemClass !== "error-propagation") return false;
+  if (input.assessment?.details?.structuredMechanism === "unforwarded-emitter-error") {
+    const matchingBridge = (input.promiseEventErrorBridges ?? []).find((entry) =>
+      entry.mechanism === "unforwarded-emitter-error"
+      && entry.emitter === input.assessment?.details?.emitter
+      && entry.caller === input.assessment?.details?.caller);
+    if (!matchingBridge) return false;
+    const anchorLines = new Set([
+      matchingBridge.location?.line,
+      matchingBridge.rejectionLocation?.line,
+      ...(matchingBridge.successListenerLocations ?? []).map((location) => location?.line),
+    ].filter((line) => Number.isInteger(line)));
+    return anchorLines.size > 0
+      && assessmentOverlapsChangedLines(input.assessment, anchorLines);
+  }
   const anchorLines = new Set(
     (input.errorControlFlow ?? [])
       .filter((entry) => entry.errorIdentity && entry.guards.some((guard) => guard.terms.length > 1))

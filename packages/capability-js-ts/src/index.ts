@@ -75,6 +75,7 @@ export {
   type AstSymbolKind,
   type ErrorControlFlowGuard,
   type ErrorControlFlowEvidence,
+  type PromiseEventErrorBridgeEvidence,
   type ErrorReasonPropagationEvidence,
   type ErrorIdentityMapping,
   type CacheContractEvidence,
@@ -87,6 +88,7 @@ export {
   type ScopeNameResolutionEvidence,
   type ScopeResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractPromiseEventErrorBridgeEvidence,
   extractErrorReasonPropagationEvidence,
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
@@ -1227,6 +1229,23 @@ function factsFromAstResult(
         location: flow.location,
         messageLocation: flow.messageLocation,
         causeLocation: flow.causeLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "promise-event-error-bridge") {
+      facts.push(fact("error_flow", `${path}:${flow.caller}:${flow.mechanism}:${flow.location.line}:${flow.location.column}`, {
+        source: path,
+        caller: flow.caller,
+        action: "bridge" as const,
+        mechanism: flow.mechanism,
+        emitter: flow.emitter,
+        successEvents: flow.successEvents,
+        rejectIdentifier: flow.rejectIdentifier,
+        location: flow.location,
+        successListenerLocations: flow.successListenerLocations,
+        rejectionLocation: flow.rejectionLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

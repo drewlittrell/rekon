@@ -78,8 +78,11 @@ ordering and externally visible behavior to autonomous judgment or focused
 verification. It also recognizes Error-like constructions that preserve a
 meaningful cause but explicitly select the constructor's default message.
 Those claims leave downstream cause handling and message visibility to the
-same verification boundary. Scope-resolution candidates remain bounded to
-source transformers that expose both identifier rewriting and a
+same verification boundary. It also recognizes Promise bridges that resolve
+from a known emitter event and reject other failures without forwarding that
+emitter's error event. Whether the emitter can fail remains an autonomous
+judgment or focused verification question. Scope-resolution candidates remain
+bounded to source transformers that expose both identifier rewriting and a
 lexical-boundary classifier.
 
 Dependency-resolution policy consumes two bounded `dependency_flow` shapes. It

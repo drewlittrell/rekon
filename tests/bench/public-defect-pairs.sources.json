@@ -32,6 +32,12 @@
       "license": "Apache-2.0"
     },
     {
+      "id": "vscode",
+      "directory": "vscode",
+      "url": "https://github.com/microsoft/vscode.git",
+      "license": "MIT"
+    },
+    {
       "id": "pnpm",
       "directory": "pnpm",
       "url": "https://github.com/pnpm/pnpm.git",
@@ -281,6 +287,25 @@
         "tests/page/expect-timeout.spec.ts",
         "tests/page/page-click.spec.ts"
       ]
+    },
+    {
+      "id": "vscode-zipfile-error-forwarding",
+      "repository": "vscode",
+      "buggyCommit": "f6d1fcfcfcb5225125221ff6fdd6ae8c699958d5",
+      "fixedCommit": "7eff9ee6bd6f4bd34c0cbe46837156d452d8a614",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/vscode/pull/319175",
+        "proofUrls": ["https://github.com/microsoft/vscode/issues/314359"],
+        "summary": "The zipfile Promise bridge handled entry, stream, and not-found failures but did not forward zipfile error events to the caller."
+      },
+      "claim": {
+        "category": "error-propagation",
+        "proof": "upstream-issue",
+        "summary": "A zip parsing failure could bypass the read Promise rejection channel instead of reaching its caller as an extraction error."
+      },
+      "structuredEvidence": "promise-event-error-bridge",
+      "affectedPaths": ["src/vs/base/node/zip.ts"],
+      "testPaths": []
     },
     {
       "id": "pnpm-publish-otp-propagation",

@@ -18,6 +18,11 @@ All notable changes to Rekon are documented here.
   post-loop return behavior, plus iterated provider candidates bypassed by a
   generic token lookup. The pinned Nest candidate-bypass pair validates the
   second mechanism through direct source review and upstream regression tests.
+- Added deterministic error-flow evidence for Promise bridges that resolve
+  from a recognized emitter event, use rejection for other failures, and omit
+  a same-emitter error edge. `extractPromiseEventErrorBridgeEvidence()` exposes
+  the public observation. The pinned VS Code pair validates the incomplete
+  zipfile bridge before and after its upstream fix.
 - Added deterministic `scope_model` evidence for binding transforms that resolve
   reference names from one scope anchor. Policy preserves the shadowing risk as
   an assessment. The pinned Vite RSC pair validates the name-only mechanism
@@ -33,15 +38,15 @@ All notable changes to Rekon are documented here.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes fourteen pairs; all seven semantic classes have two
-  independent positive pairs.
+  baseline now passes fifteen pairs. Error propagation has three independent
+  positive pairs; the other six semantic classes have two.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
-  Direct source review covers the Playwright, Nest candidate-bypass, Vite RSC
-  shadowing, and webpack falsy-option pairs while model API calibration is
-  deferred; existing token and cost totals remain scoped to the ten prior
-  model-adjudicated pairs.
+  Direct source review covers the Playwright, VS Code event bridge, Nest
+  candidate-bypass, Vite RSC shadowing, and webpack falsy-option pairs while
+  model API calibration is deferred; existing token and cost totals remain
+  scoped to the ten prior model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

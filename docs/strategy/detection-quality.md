@@ -212,6 +212,15 @@ generic message text and clears when the reason becomes the message. The pair
 was adjudicated by direct review of the pinned source and upstream regression
 tests; model comparison is deferred until the emitter set is stable.
 
+The third error mechanism covers Promise bridges that resolve from recognized
+events on one emitter and use rejection for other failures without forwarding
+that emitter's `error` event. The pinned VS Code pair emits on the incomplete
+zipfile bridge and clears when the fixed revision forwards the error through
+the Promise reject channel. Because the repair adds a previously missing edge,
+defect identity uses the structured bridge anchor rather than requiring a
+changed line in the buggy revision. Direct source review supplies the judgment;
+the detector does not assume that every emitter can fail.
+
 The fourth batch adds `option-propagation`. Deterministic JS/TS evidence records
 same-name overrides after option spreads, including callback ownership and
 whether a nullish fallback preserves the spread value. Semantic analysis emits

@@ -58,7 +58,9 @@ Ordinary unused locals and public declarations remain outside this signal.
   that coerce explicit false values without classifying them as defects.
   Error-flow facts preserve visible error-identity mappings and Error-like
   constructions that keep a cause while selecting the constructor's default
-  message. Scope-model facts describe identifier-rewriting classifiers and
+  message. They also record Promise bridges that resolve from a recognized
+  emitter event, use rejection for other failures, and omit a same-emitter
+  error edge. Scope-model facts describe identifier-rewriting classifiers and
   lexical boundaries, plus binding transforms that resolve reference names from
   one scope anchor rather than tracking individual occurrences. They remain
   evidence rather than defects.
@@ -87,6 +89,7 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
 `extractErrorReasonPropagationEvidence()`,
+`extractPromiseEventErrorBridgeEvidence()`,
 `extractOptionFalsyDefaultEvidence()`, `extractOptionPropagationEvidence()`,
 `extractScopeNameResolutionEvidence()`, and `extractScopeResolutionEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
@@ -122,11 +125,15 @@ binding from a recognized state SDK; event flow requires a literal event name;
 error control flow requires explicit throw syntax. Error-reason evidence is
 limited to Error-like constructors called with global `undefined` as the
 message and a meaningful inline `cause`; explicit messages, shadowed
-`undefined`, and non-error constructors stay quiet. Option flow records
-same-name property overrides after a spread and logical-OR defaults from an
-option member to literal `true` or a same-property boolean `true` value in a
-top-level `const` defaults object. Other fallback expressions stay quiet, and
-materiality remains a policy or judgment concern.
+`undefined`, and non-error constructors stay quiet. Promise event-error bridge
+evidence requires a recognized `on` or `once` success event to reach the
+Promise resolver, visible use of the reject channel, and no error listener on
+the same emitter that reaches reject. Other event shapes stay quiet, and
+whether the emitter can fail remains a policy or judgment concern. Option flow
+records same-name property overrides after a spread and logical-OR defaults
+from an option member to literal `true` or a same-property boolean `true` value
+in a top-level `const` defaults object. Other fallback expressions stay quiet,
+and materiality remains a policy or judgment concern.
 Resource flow is limited to visible request/reply values on
 socket, connection, or server-owned properties; request-scoped closures
 attached to sockets inside request socket callbacks; and explicit null,

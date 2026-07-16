@@ -129,6 +129,49 @@ test("error-propagation defect identity accepts a cited changed compound guard w
   }), false);
 });
 
+test("error-propagation defect identity accepts a missing emitter error edge from structured bridge evidence", () => {
+  const assessment = {
+    details: {
+      structuredMechanism: "unforwarded-emitter-error",
+      caller: "read",
+      emitter: "zipfile",
+      sourceEvidence: [
+        { lineStart: 232, lineEnd: 232 },
+        { lineStart: 233, lineEnd: 233 },
+        { lineStart: 236, lineEnd: 236 },
+      ],
+    },
+  };
+  const bridge = {
+    caller: "read",
+    mechanism: "unforwarded-emitter-error",
+    emitter: "zipfile",
+    location: { line: 232 },
+    successListenerLocations: [{ line: 233 }],
+    rejectionLocation: { line: 236 },
+  };
+
+  assert.equal(assessmentChangedLineCoverage(assessment, new Set()), 0);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "error-propagation",
+    promiseEventErrorBridges: [bridge],
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "error-propagation",
+    promiseEventErrorBridges: [{ ...bridge, emitter: "stream" }],
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "cache-integrity",
+    promiseEventErrorBridges: [bridge],
+  }), false);
+});
+
 test("resource-lifetime defect identity accepts structured cross-file retention when the fix only adds release code", () => {
   const assessment = {
     details: {

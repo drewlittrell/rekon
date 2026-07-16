@@ -72,6 +72,13 @@
       "rationale": "Direct source review confirms that the buggy dispatcher constructs AbortError with params.reason only as cause while explicitly selecting its generic default message. Rekon emits semantic.errorPropagation on that changed constructor; passing the reason as the message removes the structured evidence in the fixed revision, and the upstream click and assertion tests verify the reason reaches API errors and call logs."
     },
     {
+      "pairId": "vscode-zipfile-error-forwarding",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that read() resolves its Promise from zipfile entry events and rejects stream and not-found failures, but the buggy revision has no zipfile error listener. Rekon emits semantic.errorPropagation from that incomplete Promise-to-emitter bridge and clears after the fixed revision forwards zipfile errors through toExtractError into the same reject channel."
+    },
+    {
       "pairId": "pnpm-publish-otp-propagation",
       "claimVerdict": "valid",
       "coverage": "captured",

@@ -15,6 +15,7 @@ import {
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
+  extractPromiseEventErrorBridgeEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractScopeResolutionEvidence,
@@ -1060,6 +1061,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
     const sha256 = createHash("sha256").update(text).digest("hex");
     const errorControlFlow = extractErrorControlFlowEvidence({ path, content: text });
     const errorReasonPropagation = extractErrorReasonPropagationEvidence({ path, content: text });
+    const promiseEventErrorBridges = extractPromiseEventErrorBridgeEvidence({ path, content: text });
     const facts = errorControlFlow.map((entry) => ({
       kind: "error_flow",
       subject: `${path}:${entry.caller}:${entry.action}:${entry.location.line}`,
@@ -1090,6 +1092,21 @@ async function evaluateErrorPropagationPair(pair, repository) {
         messageLocation: entry.messageLocation,
         causeLocation: entry.causeLocation,
       },
+    }))).concat(promiseEventErrorBridges.map((entry) => ({
+      kind: "error_flow",
+      subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        action: "bridge",
+        mechanism: entry.mechanism,
+        emitter: entry.emitter,
+        successEvents: entry.successEvents,
+        rejectIdentifier: entry.rejectIdentifier,
+        location: entry.location,
+        successListenerLocations: entry.successListenerLocations,
+        rejectionLocation: entry.rejectionLocation,
+      },
     })));
     const matching = evaluateErrorPropagationSignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
@@ -1098,6 +1115,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
       changedLines,
       problemClass: pair.claim.category,
       errorControlFlow,
+      promiseEventErrorBridges,
     }));
     const judgmentResults = [];
     for (const assessment of defectMatching) {
@@ -1177,6 +1195,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
           changedLines,
           problemClass: pair.claim.category,
           errorControlFlow,
+          promiseEventErrorBridges,
         }),
         evidenceLines: Array.isArray(assessment.details?.sourceEvidence)
           ? assessment.details.sourceEvidence.map((entry) => ({

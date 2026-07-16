@@ -496,6 +496,49 @@ test("structured error propagation identifies a cause hidden by a default messag
   }], ref), []);
 });
 
+test("structured error propagation identifies Promise bridges that omit emitter errors", () => {
+  const ref = { type: "EvidenceGraph", id: "event-error-bridge", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "error_flow",
+    value: {
+      source: "src/zip.ts",
+      caller: "read",
+      action: "bridge",
+      mechanism: "unforwarded-emitter-error",
+      emitter: "zipfile",
+      successEvents: ["entry"],
+      rejectIdentifier: "reject",
+      location: { line: 232, column: 10 },
+      successListenerLocations: [{ line: 233, column: 4 }],
+      rejectionLocation: { line: 236, column: 70 },
+    },
+  };
+
+  const assessments = evaluateErrorPropagationSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_ERROR_PROPAGATION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "unforwarded-emitter-error");
+  assert.equal(assessments[0].details.emitter, "zipfile");
+  assert.deepEqual(assessments[0].details.successEvents, ["entry"]);
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    { path: "src/zip.ts", lineStart: 232, lineEnd: 232 },
+    { path: "src/zip.ts", lineStart: 233, lineEnd: 233 },
+    { path: "src/zip.ts", lineStart: 236, lineEnd: 236 },
+  ]);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, action: "construct" },
+  }], ref), []);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, successEvents: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateErrorPropagationSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/zip.test.ts" },
+  }], ref), []);
+});
+
 test("structured dependency resolution requires conditional exit and post-loop selection", () => {
   const ref = { type: "EvidenceGraph", id: "dependency-flow", schemaVersion: "0.1.0" };
   const fact = {

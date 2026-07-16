@@ -196,6 +196,18 @@ export type ErrorReasonPropagationEvidence = {
   causeLocation: AstLocation;
 };
 
+export type PromiseEventErrorBridgeEvidence = {
+  kind: "promise-event-error-bridge";
+  caller: string;
+  mechanism: "unforwarded-emitter-error";
+  emitter: string;
+  successEvents: string[];
+  rejectIdentifier: string;
+  location: AstLocation;
+  successListenerLocations: AstLocation[];
+  rejectionLocation: AstLocation;
+};
+
 export type OptionPropagationEvidence = {
   kind: "option-override";
   caller: string;
@@ -330,6 +342,7 @@ type AstFlowRecord =
   | { kind: "member-call"; caller: string; root: string; members: string[]; location: AstLocation }
   | ErrorControlFlowEvidence
   | ErrorReasonPropagationEvidence
+  | PromiseEventErrorBridgeEvidence
   | OptionPropagationEvidence
   | OptionFalsyDefaultEvidence
   | ResourceLifetimeEvidence
@@ -409,6 +422,15 @@ export function extractErrorReasonPropagationEvidence(input: AstExtractionInput)
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ErrorReasonPropagationEvidence => record.kind === "error-reason",
+  );
+}
+
+export function extractPromiseEventErrorBridgeEvidence(
+  input: AstExtractionInput,
+): PromiseEventErrorBridgeEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is PromiseEventErrorBridgeEvidence => record.kind === "promise-event-error-bridge",
   );
 }
 
@@ -831,6 +853,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...cleanupCompletenessRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
+  records.push(...promiseEventErrorBridgeRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   records.push(...scopeNameResolutionRecords(sourceFile));
   return records;
@@ -2051,6 +2074,196 @@ function classifyThrownExpression(expression: ts.Expression | undefined): {
     return { ...(errorIdentity ? { errorIdentity } : {}), expressionKind: "object" };
   }
   return { expressionKind: "other" };
+}
+
+const PROMISE_BRIDGE_SUCCESS_EVENTS = new Set([
+  "connect",
+  "data",
+  "end",
+  "entry",
+  "exit",
+  "finish",
+  "load",
+  "message",
+  "open",
+  "ready",
+  "response",
+]);
+
+type PromiseEventSubscription = {
+  emitter: string;
+  eventName: string;
+  resolves: boolean;
+  rejects: boolean;
+  location: AstLocation;
+};
+
+function promiseEventErrorBridgeRecords(sourceFile: ts.SourceFile): PromiseEventErrorBridgeEvidence[] {
+  if (hasLocalPromiseBinding(sourceFile)) return [];
+  const records: PromiseEventErrorBridgeEvidence[] = [];
+  const visit = (node: ts.Node, caller: string): void => {
+    let childCaller = caller;
+    if (isFunctionBoundary(node)) {
+      childCaller = functionLikeName(node) ?? caller;
+    }
+    if (ts.isNewExpression(node)) {
+      records.push(...promiseEventErrorBridgeRecord(node, sourceFile, childCaller));
+    }
+    ts.forEachChild(node, (child) => visit(child, childCaller));
+  };
+  visit(sourceFile, "__module__");
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.emitter.localeCompare(right.emitter));
+}
+
+function promiseEventErrorBridgeRecord(
+  expression: ts.NewExpression,
+  sourceFile: ts.SourceFile,
+  caller: string,
+): PromiseEventErrorBridgeEvidence[] {
+  if (!ts.isIdentifier(expression.expression) || expression.expression.text !== "Promise") return [];
+  const executor = expression.arguments?.[0];
+  if (!executor || (!ts.isArrowFunction(executor) && !ts.isFunctionExpression(executor))) return [];
+  const resolveParameter = executor.parameters[0]?.name;
+  const rejectParameter = executor.parameters[1]?.name;
+  if (!resolveParameter || !rejectParameter
+    || !ts.isIdentifier(resolveParameter) || !ts.isIdentifier(rejectParameter)
+    || resolveParameter.text === rejectParameter.text) {
+    return [];
+  }
+
+  const rejectionLocation = firstIdentifierCallLocation(
+    executor.body,
+    rejectParameter.text,
+    sourceFile,
+  );
+  if (!rejectionLocation) return [];
+  const subscriptions = promiseEventSubscriptions(
+    executor.body,
+    resolveParameter.text,
+    rejectParameter.text,
+    sourceFile,
+  );
+  const byEmitter = new Map<string, PromiseEventSubscription[]>();
+  for (const subscription of subscriptions) {
+    const current = byEmitter.get(subscription.emitter) ?? [];
+    current.push(subscription);
+    byEmitter.set(subscription.emitter, current);
+  }
+
+  const records: PromiseEventErrorBridgeEvidence[] = [];
+  for (const [emitter, emitterSubscriptions] of byEmitter) {
+    const successSubscriptions = emitterSubscriptions.filter((subscription) =>
+      subscription.eventName !== "error"
+      && PROMISE_BRIDGE_SUCCESS_EVENTS.has(subscription.eventName)
+      && subscription.resolves);
+    if (successSubscriptions.length === 0) continue;
+    const forwardsError = emitterSubscriptions.some((subscription) =>
+      subscription.eventName === "error" && subscription.rejects);
+    if (forwardsError) continue;
+    records.push({
+      kind: "promise-event-error-bridge",
+      caller,
+      mechanism: "unforwarded-emitter-error",
+      emitter,
+      successEvents: [...new Set(successSubscriptions.map((subscription) => subscription.eventName))].sort(),
+      rejectIdentifier: rejectParameter.text,
+      location: locationOf(expression, sourceFile),
+      successListenerLocations: successSubscriptions.map((subscription) => subscription.location),
+      rejectionLocation,
+    });
+  }
+  return records;
+}
+
+function promiseEventSubscriptions(
+  node: ts.Node,
+  resolveIdentifier: string,
+  rejectIdentifier: string,
+  sourceFile: ts.SourceFile,
+): PromiseEventSubscription[] {
+  const subscriptions: PromiseEventSubscription[] = [];
+  const visit = (current: ts.Node): void => {
+    if (current !== node && ts.isNewExpression(current)
+      && ts.isIdentifier(current.expression) && current.expression.text === "Promise") {
+      return;
+    }
+    if (ts.isCallExpression(current)) {
+      const path = memberPath(current.expression);
+      const method = path?.at(-1);
+      const eventArgument = current.arguments[0];
+      const listener = current.arguments[1];
+      if (path && path.length >= 2
+        && (method === "on" || method === "once")
+        && eventArgument && ts.isStringLiteralLike(eventArgument)
+        && listener) {
+        subscriptions.push({
+          emitter: path.slice(0, -1).join("."),
+          eventName: eventArgument.text,
+          resolves: expressionInvokesIdentifier(listener, resolveIdentifier),
+          rejects: expressionInvokesIdentifier(listener, rejectIdentifier),
+          location: locationOf(current, sourceFile),
+        });
+      }
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return subscriptions;
+}
+
+function expressionInvokesIdentifier(node: ts.Node, identifier: string): boolean {
+  if (ts.isIdentifier(node) && node.text === identifier) return true;
+  let invoked = false;
+  const visit = (current: ts.Node): void => {
+    if (invoked) return;
+    if (isFunctionBoundary(current)
+      && current.parameters.some((parameter) => bindingContainsName(parameter.name, identifier))) {
+      return;
+    }
+    if (current !== node && ts.isNewExpression(current)
+      && ts.isIdentifier(current.expression) && current.expression.text === "Promise") {
+      return;
+    }
+    if (ts.isCallExpression(current)
+      && ts.isIdentifier(current.expression)
+      && current.expression.text === identifier) {
+      invoked = true;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return invoked;
+}
+
+function firstIdentifierCallLocation(
+  node: ts.Node,
+  identifier: string,
+  sourceFile: ts.SourceFile,
+): AstLocation | undefined {
+  let result: AstLocation | undefined;
+  const visit = (current: ts.Node): void => {
+    if (result) return;
+    if (isFunctionBoundary(current)
+      && current.parameters.some((parameter) => bindingContainsName(parameter.name, identifier))) {
+      return;
+    }
+    if (current !== node && ts.isNewExpression(current)
+      && ts.isIdentifier(current.expression) && current.expression.text === "Promise") {
+      return;
+    }
+    if (ts.isCallExpression(current)
+      && ts.isIdentifier(current.expression)
+      && current.expression.text === identifier) {
+      result = locationOf(current, sourceFile);
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return result;
 }
 
 function errorReasonPropagationRecord(
