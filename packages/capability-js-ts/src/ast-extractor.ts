@@ -252,6 +252,23 @@ export type DependencyResolutionEvidence = {
   location: AstLocation;
 };
 
+export type DependencyCandidateBypassEvidence = {
+  kind: "dependency-candidate-bypass";
+  caller: string;
+  resolver: string;
+  mechanism: "iterated-candidate-bypass";
+  candidateParameter: string;
+  candidateBindings: string[];
+  collectionExpression: string;
+  bypassExpression: string;
+  selectorExpressions: string[];
+  guardExpression: string;
+  location: AstLocation;
+  iterationLocation: AstLocation;
+  bypassLocation: AstLocation;
+  guardLocation: AstLocation;
+};
+
 export type CacheContractEvidence = {
   kind: "cache-contract";
   caller: string;
@@ -286,6 +303,7 @@ type AstFlowRecord =
   | ResourceLifetimeEvidence
   | ScopeResolutionEvidence
   | DependencyResolutionEvidence
+  | DependencyCandidateBypassEvidence
   | CacheContractEvidence
   | CleanupCompletenessEvidence;
 
@@ -386,6 +404,13 @@ export function extractDependencyResolutionEvidence(input: AstExtractionInput): 
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is DependencyResolutionEvidence => record.kind === "dependency-selection",
+  );
+}
+
+export function extractDependencyCandidateBypassEvidence(input: AstExtractionInput): DependencyCandidateBypassEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is DependencyCandidateBypassEvidence => record.kind === "dependency-candidate-bypass",
   );
 }
 
@@ -748,6 +773,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...cacheContractRecords(sourceFile));
   records.push(...cleanupCompletenessRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
+  records.push(...dependencyCandidateBypassRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   return records;
 }
@@ -1107,6 +1133,161 @@ function dependencyResolutionRecords(sourceFile: ts.SourceFile): DependencyResol
   };
   visitLoops(sourceFile);
   return records;
+}
+
+const DEPENDENCY_RESOLVER_NAME = /(?:resolve|find|get|inject|provider|dependency|binding)/iu;
+const DEPENDENCY_CANDIDATE_NAME = /(?:candidate|provider|binding|registration|instance.?link|wrapper|entry)/iu;
+const DEPENDENCY_LOOKUP_METHODS = new Set(["find", "get", "lookup", "resolve"]);
+
+function dependencyCandidateBypassRecords(sourceFile: ts.SourceFile): DependencyCandidateBypassEvidence[] {
+  const records: DependencyCandidateBypassEvidence[] = [];
+  const visitResolvers = (node: ts.Node): void => {
+    if ((ts.isArrowFunction(node) || ts.isFunctionExpression(node)) && ts.isBlock(node.body)) {
+      const record = dependencyCandidateBypassRecord(node, sourceFile);
+      if (record) records.push(record);
+    }
+    ts.forEachChild(node, visitResolvers);
+  };
+  visitResolvers(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.resolver.localeCompare(right.resolver));
+}
+
+function dependencyCandidateBypassRecord(
+  resolver: ts.ArrowFunction | ts.FunctionExpression,
+  sourceFile: ts.SourceFile,
+): DependencyCandidateBypassEvidence | undefined {
+  const resolverName = functionLikeName(resolver);
+  const candidate = resolver.parameters[0]?.name;
+  if (!resolverName || !candidate || !ts.isIdentifier(candidate) || !DEPENDENCY_CANDIDATE_NAME.test(candidate.text)) {
+    return undefined;
+  }
+  const outer = enclosingFunction(resolver);
+  const caller = outer ? functionLikeName(outer) : undefined;
+  if (!outer?.body || !ts.isBlock(outer.body) || !caller || !DEPENDENCY_RESOLVER_NAME.test(caller)) return undefined;
+  const iteration = candidateIteration(outer.body, resolverName, sourceFile);
+  if (!iteration || !DEPENDENCY_CANDIDATE_NAME.test(iteration.collectionExpression)) return undefined;
+
+  const candidateBindings = candidateDerivedBindings(resolver, candidate.text);
+  const outerParameters = new Set<string>();
+  for (const parameter of outer.parameters) collectBindingNames(parameter.name, outerParameters);
+  if (outerParameters.size === 0) return undefined;
+
+  for (const returned of directFunctionReturns(resolver)) {
+    if (!returned.expression) continue;
+    const bypassCall = returnedCallExpression(returned.expression);
+    const callPath = bypassCall ? memberPath(bypassCall.expression) : undefined;
+    if (!bypassCall || callPath?.[0] !== "this" || !DEPENDENCY_LOOKUP_METHODS.has(callPath.at(-1) ?? "")) {
+      continue;
+    }
+    if (referencedNames(bypassCall, candidateBindings).length > 0) continue;
+    const selectorExpressions = bypassCall.arguments
+      .filter((argument) => referencedNames(argument, outerParameters).length > 0)
+      .map((argument) => boundedNodeText(argument, sourceFile));
+    if (selectorExpressions.length === 0) continue;
+    const guarded = enclosingCandidateGuard(returned, resolver, candidateBindings);
+    if (!guarded) continue;
+    return {
+      kind: "dependency-candidate-bypass",
+      caller,
+      resolver: resolverName,
+      mechanism: "iterated-candidate-bypass",
+      candidateParameter: candidate.text,
+      candidateBindings: [...candidateBindings].sort(),
+      collectionExpression: iteration.collectionExpression,
+      bypassExpression: boundedNodeText(bypassCall, sourceFile),
+      selectorExpressions,
+      guardExpression: boundedNodeText(guarded.expression, sourceFile),
+      location: locationOf(resolver, sourceFile),
+      iterationLocation: iteration.location,
+      bypassLocation: locationOf(bypassCall, sourceFile),
+      guardLocation: locationOf(guarded.expression, sourceFile),
+    };
+  }
+  return undefined;
+}
+
+function candidateDerivedBindings(
+  resolver: ts.ArrowFunction | ts.FunctionExpression,
+  candidate: string,
+): Set<string> {
+  const bindings = new Set([candidate]);
+  const visit = (node: ts.Node): void => {
+    if (node !== resolver.body && isFunctionBoundary(node)) return;
+    if (ts.isVariableDeclaration(node)
+      && node.initializer
+      && referencedNames(node.initializer, bindings).length > 0) {
+      collectBindingNames(node.name, bindings);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(resolver.body);
+  return bindings;
+}
+
+function candidateIteration(
+  body: ts.Block,
+  resolverName: string,
+  sourceFile: ts.SourceFile,
+): { collectionExpression: string; location: AstLocation } | undefined {
+  let match: { collectionExpression: string; location: AstLocation } | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node)
+      && ts.isPropertyAccessExpression(node.expression)
+      && (node.expression.name.text === "map" || node.expression.name.text === "flatMap")
+      && callbackInvokesResolver(node.arguments[0], resolverName)) {
+      match = {
+        collectionExpression: boundedNodeText(node.expression.expression, sourceFile),
+        location: locationOf(node, sourceFile),
+      };
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+}
+
+function callbackInvokesResolver(callback: ts.Expression | undefined, resolverName: string): boolean {
+  if (!callback) return false;
+  const value = unwrapExpression(callback);
+  if (ts.isIdentifier(value)) return value.text === resolverName;
+  if (!ts.isArrowFunction(value) && !ts.isFunctionExpression(value)) return false;
+  const callbackBindings = new Set<string>();
+  for (const parameter of value.parameters) collectBindingNames(parameter.name, callbackBindings);
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== value.body && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === resolverName
+      && node.arguments.some((argument) => referencedNames(argument, callbackBindings).length > 0)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(value.body);
+  return found;
+}
+
+function enclosingCandidateGuard(
+  node: ts.Node,
+  resolver: ts.ArrowFunction | ts.FunctionExpression,
+  candidateBindings: ReadonlySet<string>,
+): ts.IfStatement | undefined {
+  let current: ts.Node | undefined = node.parent;
+  while (current && current !== resolver) {
+    if (ts.isIfStatement(current)
+      && referencedNames(current.expression, candidateBindings).length > 0
+      && (containsPosition(current.thenStatement, node)
+        || (current.elseStatement ? containsPosition(current.elseStatement, node) : false))) {
+      return current;
+    }
+    current = current.parent;
+  }
+  return undefined;
 }
 
 function candidateSelectionAssignment(

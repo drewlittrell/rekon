@@ -7,6 +7,7 @@ import test from "node:test";
 import capability, {
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
+  extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
@@ -423,6 +424,71 @@ test("dependency-flow evidence distinguishes conditional overwrite from first-ma
     assert.equal(facts[0].value.exitKind, "conditional-break");
     assert.equal(facts[0].value.returnedAfterLoop, true);
     assert.equal(facts[0].provenance.line, facts[0].value.selectionLocation.line);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("dependency-flow evidence identifies a resolver that bypasses its iterated candidate", async () => {
+  const buggySource = [
+    "export abstract class Resolver {",
+    "  protected abstract get(token: string): unknown;",
+    "  protected async resolvePerContext(typeOrToken: string) {",
+    "    const instanceLinks = this.links.get(typeOrToken);",
+    "    const pluckInstance = async (instanceLink) => {",
+    "      const { wrapperRef } = instanceLink;",
+    "      if (wrapperRef.isStatic()) {",
+    "        return this.get(typeOrToken);",
+    "      }",
+    "      return wrapperRef.instance;",
+    "    };",
+    "    return Promise.all(instanceLinks.map(link => pluckInstance(link)));",
+    "  }",
+    "}",
+  ].join("\n");
+  const fixedSource = buggySource.replace("return this.get(typeOrToken);", "return wrapperRef.instance;");
+
+  const evidence = extractDependencyCandidateBypassEvidence({ path: "src/resolver.ts", content: buggySource });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].caller, "resolvePerContext");
+  assert.equal(evidence[0].resolver, "pluckInstance");
+  assert.equal(evidence[0].mechanism, "iterated-candidate-bypass");
+  assert.equal(evidence[0].candidateParameter, "instanceLink");
+  assert.deepEqual(evidence[0].candidateBindings, ["instanceLink", "wrapperRef"]);
+  assert.equal(evidence[0].collectionExpression, "instanceLinks");
+  assert.equal(evidence[0].bypassExpression, "this.get(typeOrToken)");
+  assert.deepEqual(evidence[0].selectorExpressions, ["typeOrToken"]);
+  assert.equal(evidence[0].guardExpression, "wrapperRef.isStatic()");
+  assert.equal(evidence[0].bypassLocation.line, 8);
+  assert.equal(evidence[0].iterationLocation.line, 12);
+
+  assert.deepEqual(extractDependencyCandidateBypassEvidence({ path: "src/resolver.ts", content: fixedSource }), []);
+  assert.deepEqual(extractDependencyCandidateBypassEvidence({
+    path: "src/resolver.ts",
+    content: buggySource.replace("this.get(typeOrToken)", "this.get(instanceLink.token)"),
+  }), []);
+  assert.deepEqual(extractDependencyCandidateBypassEvidence({
+    path: "src/resolver.ts",
+    content: buggySource.replace(
+      "Promise.all(instanceLinks.map(link => pluckInstance(link)))",
+      "pluckInstance(instanceLinks[0])",
+    ),
+  }), []);
+  assert.deepEqual(extractDependencyCandidateBypassEvidence({
+    path: "src/resolver.ts",
+    content: buggySource.replace("resolvePerContext", "renderEach"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-dependency-bypass-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "resolver.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "dependency_flow");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.mechanism, "iterated-candidate-bypass");
+    assert.equal(facts[0].value.bypassExpression, "this.get(typeOrToken)");
+    assert.equal(facts[0].provenance.line, 8);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

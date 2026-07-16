@@ -79,6 +79,7 @@ export {
   type ErrorIdentityMapping,
   type CacheContractEvidence,
   type CleanupCompletenessEvidence,
+  type DependencyCandidateBypassEvidence,
   type DependencyResolutionEvidence,
   type OptionPropagationEvidence,
   type ResourceLifetimeEvidence,
@@ -87,6 +88,7 @@ export {
   extractErrorReasonPropagationEvidence,
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
+  extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
@@ -1332,6 +1334,27 @@ function factsFromAstResult(
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.selectionLocation.line));
+      continue;
+    }
+    if (flow.kind === "dependency-candidate-bypass") {
+      facts.push(fact("dependency_flow", `${path}:${flow.caller}:${flow.resolver}:${flow.bypassLocation.line}`, {
+        source: path,
+        caller: flow.caller,
+        resolver: flow.resolver,
+        mechanism: flow.mechanism,
+        candidateParameter: flow.candidateParameter,
+        candidateBindings: flow.candidateBindings,
+        collectionExpression: flow.collectionExpression,
+        bypassExpression: flow.bypassExpression,
+        selectorExpressions: flow.selectorExpressions,
+        guardExpression: flow.guardExpression,
+        location: flow.location,
+        iterationLocation: flow.iterationLocation,
+        bypassLocation: flow.bypassLocation,
+        guardLocation: flow.guardLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.bypassLocation.line));
       continue;
     }
     const binding = allImportBindings.get(flow.root);

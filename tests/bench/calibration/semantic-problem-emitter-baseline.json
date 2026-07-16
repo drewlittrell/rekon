@@ -1,11 +1,11 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-16T01:39:35Z",
+  "generatedAt": "2026-07-16T02:11:42Z",
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 11,
-    "caseCount": 30,
+    "pairCount": 12,
+    "caseCount": 32,
     "sourceRetention": "none",
     "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v1+cleanup-flow-anchor-v1",
     "minimumChangedLineCoverage": 0.2,
@@ -15,7 +15,7 @@
     "judgmentCoercionVersion": "assessment-judgment-v2",
     "judgmentCoverage": {
       "modelApiPairs": 10,
-      "agentSourceReviewPairs": 1
+      "agentSourceReviewPairs": 2
     }
   },
   "model": {
@@ -26,7 +26,7 @@
     "appliesToPairs": 10
   },
   "summary": {
-    "passedPairs": 11,
+    "passedPairs": 12,
     "failedPairs": 0,
     "errors": 0,
     "usageScope": "model-api-pairs-only",
@@ -57,7 +57,7 @@
     {
       "ruleId": "semantic.dependencyResolution",
       "problemClass": "dependency-resolution",
-      "positivePairs": 1,
+      "positivePairs": 2,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
@@ -130,6 +130,19 @@
     {
       "pairId": "nest-import-first-match",
       "problemClass": "dependency-resolution",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "nest-resolve-each-candidate-bypass",
+      "problemClass": "dependency-resolution",
+      "judgmentMode": "agent-source-review",
       "requiredBuggyPaths": 1,
       "buggyDefectPaths": 1,
       "buggyRetainedPaths": 1,

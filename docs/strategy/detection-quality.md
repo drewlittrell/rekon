@@ -181,6 +181,14 @@ Policy emits only the conditional-overwrite shape; the fixed unconditional
 first-match exit remains silent. The semantic judge still decides whether the
 visible overwrite mechanism conflicts with intended provider precedence.
 
+A second dependency mechanism covers resolver callbacks that iterate provider
+candidates but use a generic token lookup in a candidate-derived branch. The
+extractor requires visible iteration and proves that the lookup omits the
+current candidate. The pinned Nest pair is retained on the buggy revision and
+clears when the callback returns the current provider instance. Direct review
+of the pinned source and upstream regression tests supplies the judgment while
+model comparison remains deferred.
+
 The second batch adds `cleanup-completeness`. All three affected Nest shutdown
 hook implementations emit source-matched candidates on the buggy revision and
 remain clean after all-settled cleanup and guarded module hooks are introduced.
@@ -251,12 +259,14 @@ Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
 evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
-Cache integrity, cleanup completeness, error propagation, and resource lifetime
-now have two independent positive pairs; the other semantic classes have one.
+Cache integrity, cleanup completeness, dependency resolution, error
+propagation, and resource lifetime now have two independent positive pairs; the
+other semantic classes have one.
 All seven remain below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available
 data. Its token and cost totals cover the ten model-adjudicated pairs only; the
-Playwright error-reason pair is recorded separately as direct source review.
+Nest candidate-bypass and Playwright error-reason pairs are recorded separately
+as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

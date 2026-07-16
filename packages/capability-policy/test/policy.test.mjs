@@ -526,6 +526,48 @@ test("structured dependency resolution requires conditional exit and post-loop s
   }], ref), []);
 });
 
+test("structured dependency resolution identifies an iterated candidate bypass", () => {
+  const ref = { type: "EvidenceGraph", id: "dependency-bypass", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "dependency_flow",
+    value: {
+      source: "src/abstract-resolver.ts",
+      caller: "resolvePerContext",
+      resolver: "pluckInstance",
+      mechanism: "iterated-candidate-bypass",
+      candidateParameter: "instanceLink",
+      candidateBindings: ["instanceLink", "wrapperRef"],
+      collectionExpression: "instanceLinkOrArray",
+      bypassExpression: "this.get(typeOrToken, { strict: options?.strict })",
+      selectorExpressions: ["typeOrToken", "{ strict: options?.strict }"],
+      guardExpression: "wrapperRef.isDependencyTreeStatic() && !wrapperRef.isTransient",
+      location: { line: 58, column: 27 },
+      guardLocation: { line: 60, column: 11 },
+      bypassLocation: { line: 61, column: 16 },
+      iterationLocation: { line: 76, column: 9 },
+    },
+  };
+
+  const assessments = evaluateDependencyResolutionSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "iterated-candidate-bypass");
+  assert.equal(assessments[0].details.bypassExpression, fact.value.bypassExpression);
+  assert.deepEqual(assessments[0].details.sourceEvidence.map((entry) => entry.lineStart), [60, 61, 76]);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, candidateBindings: ["wrapperRef"] },
+  }], ref), []);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, selectorExpressions: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateDependencyResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, source: "tests/abstract-resolver.test.ts" },
+  }], ref), []);
+});
+
 test("cache integrity requires a result parameter omitted from the cache key", () => {
   const ref = { type: "EvidenceGraph", id: "evidence-cache", schemaVersion: "0.1.0" };
   const fact = {

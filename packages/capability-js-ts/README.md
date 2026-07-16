@@ -67,7 +67,9 @@ Ordinary unused locals and public declarations remain outside this signal.
   outer function parameter omitted from the cache key; they do not infer call
   order or runtime impact. Cleanup-flow facts identify fail-fast aggregate or
   sequential waits inside explicit lifecycle functions; they do not prove that
-  an obligation rejects at runtime.
+  an obligation rejects at runtime. Dependency-flow facts identify either a
+  conditionally overwritten loop selection or an iterated provider candidate
+  bypassed by a generic lookup; they do not establish intended precedence.
 
 ## Lifecycle Fit
 
@@ -79,6 +81,7 @@ projection, evaluation, resolver fallback, and docs.
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
 `extractCacheContractEvidence()`, `extractCleanupCompletenessEvidence()`,
+`extractDependencyCandidateBypassEvidence()`,
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
 `extractErrorReasonPropagationEvidence()`,
@@ -131,6 +134,12 @@ from this evidence. Cleanup-contract evidence is limited to exact lifecycle
 function names and visible `Promise.all` or multiple uninsulated direct awaits.
 All-settled and individually caught waits remain silent rather than being
 classified as incomplete cleanup.
+
+Candidate-bypass evidence is limited to resolver-like callbacks observed in
+`map` or `flatMap`. It requires a candidate-derived guard and a generic
+`this.get`, `find`, `lookup`, or `resolve` call that uses an outer selector but
+not the current candidate. Candidate-specific returns and non-iterated helpers
+remain silent.
 
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`

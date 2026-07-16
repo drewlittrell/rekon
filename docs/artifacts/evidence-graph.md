@@ -50,7 +50,7 @@ they may collide with built-ins.
 | `state_access` | direct call through a recognized imported state SDK |
 | `cache_flow` | memoized callback result whose branch depends on an outer parameter omitted from the cache key |
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape |
-| `dependency_flow` | candidate selected from a lookup inside iteration, including exit condition and post-loop return behavior |
+| `dependency_flow` | candidate selection inside iteration, including conditional overwrite or a generic lookup that bypasses the current provider candidate |
 | `error_flow` | explicit throw/rethrow control flow, or an Error-like construction that preserves a cause while selecting the default message |
 | `option_flow` | same-name option override after an object spread, including fallback and callback context where available |
 | `resource_flow` | request/reply retention on connection-owned state, a request-scoped closure attached to a socket listener, or an explicit release of that resource key |

@@ -153,6 +153,28 @@
       ]
     },
     {
+      "id": "nest-resolve-each-candidate-bypass",
+      "repository": "nest",
+      "buggyCommit": "6b3c41aa493cdfb3d6d2894687167c4c2c965051",
+      "fixedCommit": "adff255d8904bc926dfe539a9394e6fd5c3278ff",
+      "upstream": {
+        "fixUrl": "https://github.com/nestjs/nest/pull/16005",
+        "proofUrls": ["https://github.com/nestjs/nest/issues/15979"],
+        "summary": "Multi-provider resolution iterated distinct links but delegated each static item to a token-wide lookup that returned the last registration."
+      },
+      "claim": {
+        "category": "dependency-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "Resolving every provider under one token returned repeated copies of the last provider instead of each distinct registration."
+      },
+      "structuredEvidence": "dependency-candidate-bypass",
+      "affectedPaths": ["packages/core/injector/abstract-instance-resolver.ts"],
+      "testPaths": [
+        "packages/core/test/nest-application-context.spec.ts",
+        "integration/injector/e2e/multiple-providers.spec.ts"
+      ]
+    },
+    {
       "id": "fastify-keep-alive-meta-leak",
       "repository": "fastify",
       "buggyCommit": "9d2914857906a98b6366266417d6527ab8e5e06f",

@@ -236,7 +236,8 @@ both retained connection state and request closures attached to reusable socket
 listeners. Cache-integrity coverage includes both compiled-output integrity and
 a parameter-sensitive cross-call cache contract. Cleanup-completeness coverage
 includes semantic shutdown-hook analysis and structured lifecycle wait
-contracts.
+contracts. Dependency-resolution coverage includes both conditional candidate
+overwrite and iterated candidate bypass through a generic token lookup.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -255,6 +256,8 @@ Redux error-propagation pair uses deterministic compound-guard and downstream
 identity-mapping evidence. The Playwright error-propagation pair uses
 structured evidence for a supplied cause hidden behind a default message and
 is currently adjudicated by direct review of pinned source and upstream tests.
+The Nest candidate-bypass pair uses the same direct-review boundary and
+structured `dependency_flow` evidence.
 The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
@@ -263,10 +266,11 @@ cleanup pair uses deterministic `cleanup_flow` evidence so only explicit
 lifecycle wait contracts enter the structured path. The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`.
 That aggregate also records positive-pair counts against the five-adjudication
-minimum. Resource lifetime, cache integrity, cleanup completeness, and error
-propagation currently have two independent positive pairs; the other semantic
-classes have one each, so all remain `insufficient-evidence`. Token and cost
-totals apply only to the ten pairs previously run through the model API.
+minimum. Resource lifetime, cache integrity, cleanup completeness, dependency
+resolution, and error propagation currently have two independent positive
+pairs; the other semantic classes have one each, so all remain
+`insufficient-evidence`. Token and cost totals apply only to the ten pairs
+previously run through the model API.
 
 ## Corpus retention
 

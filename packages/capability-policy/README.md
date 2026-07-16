@@ -82,10 +82,12 @@ same verification boundary. Scope-resolution candidates remain bounded to
 source transformers that expose both identifier rewriting and a
 lexical-boundary classifier.
 
-Dependency-resolution policy consumes `dependency_flow` facts only when a loop
-stores a lookup result, exits conditionally after selection, and returns that
-mutable selection after iteration. An unconditional first-match exit stays
-silent. Intended provider precedence remains an autonomous judgment or focused
+Dependency-resolution policy consumes two bounded `dependency_flow` shapes. It
+recognizes a loop that conditionally overwrites and later returns a selected
+lookup result, and a resolver callback that iterates provider candidates but
+returns a generic lookup without referencing the current candidate. An
+unconditional first-match exit and candidate-specific returns stay silent.
+Intended provider precedence remains an autonomous judgment or focused
 verification question.
 
 Cache-integrity policy consumes `cache_flow` facts when a memoized callback can

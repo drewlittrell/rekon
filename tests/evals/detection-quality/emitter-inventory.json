@@ -207,8 +207,8 @@
     {
       "ruleId": "semantic.dependencyResolution",
       "outputKinds": ["semantic_claim"],
-      "evidence": "deterministic dependency_flow facts identify a loop-selected candidate, conditional exit, and post-loop return of the mutable selection",
-      "jurisdiction": "production JavaScript and TypeScript source where repeated dependency lookup can replace a selected candidate before return",
+      "evidence": "deterministic dependency_flow facts identify either a conditionally overwritten loop selection or an iterated candidate bypassed by a generic lookup",
+      "jurisdiction": "production JavaScript and TypeScript dependency resolvers with visible candidate iteration and selection control flow",
       "remediationUnit": "source file and dependency-selection control flow"
     },
     {

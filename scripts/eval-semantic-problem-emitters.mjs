@@ -11,6 +11,7 @@ import { buildSemanticFileUnderstandingReport } from "../packages/capability-mod
 import {
   extractCacheContractEvidence,
   extractCleanupCompletenessEvidence,
+  extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
@@ -356,6 +357,7 @@ async function evaluateDependencyResolutionPair(pair, repository) {
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
     const dependencyFlow = extractDependencyResolutionEvidence({ path, content: text });
+    const dependencyCandidateBypass = extractDependencyCandidateBypassEvidence({ path, content: text });
     const facts = dependencyFlow.map((entry) => ({
       kind: "dependency_flow",
       subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
@@ -371,7 +373,26 @@ async function evaluateDependencyResolutionPair(pair, repository) {
         selectionLocation: entry.selectionLocation,
         ...(entry.exitLocation ? { exitLocation: entry.exitLocation } : {}),
       },
-    }));
+    })).concat(dependencyCandidateBypass.map((entry) => ({
+      kind: "dependency_flow",
+      subject: `${path}:${entry.caller}:${entry.resolver}:${entry.bypassLocation.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        resolver: entry.resolver,
+        mechanism: entry.mechanism,
+        candidateParameter: entry.candidateParameter,
+        candidateBindings: entry.candidateBindings,
+        collectionExpression: entry.collectionExpression,
+        bypassExpression: entry.bypassExpression,
+        selectorExpressions: entry.selectorExpressions,
+        guardExpression: entry.guardExpression,
+        location: entry.location,
+        iterationLocation: entry.iterationLocation,
+        bypassLocation: entry.bypassLocation,
+        guardLocation: entry.guardLocation,
+      },
+    })));
     const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({

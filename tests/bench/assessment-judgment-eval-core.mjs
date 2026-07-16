@@ -7,6 +7,7 @@ const EMITTER_BACKED_RULES = Object.freeze({
   "vite-ssr-switch-scope": "semantic.scopeResolution",
   "nest-shutdown-cleanup-completeness": "semantic.cleanupCompleteness",
   "nest-import-first-match": "semantic.dependencyResolution",
+  "nest-resolve-each-candidate-bypass": "semantic.dependencyResolution",
   "playwright-compilation-cache-integrity": "semantic.cacheIntegrity",
   "playwright-abort-reason-propagation": "semantic.errorPropagation",
   "redux-toolkit-pre-pending-abort": "semantic.errorPropagation",

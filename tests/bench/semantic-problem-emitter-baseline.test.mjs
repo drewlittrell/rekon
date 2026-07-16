@@ -18,21 +18,22 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   assert.equal(baseline.corpus.semanticPromptVersion, "semantic-file-understanding-v4");
   assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v6");
   assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
-  assert.equal(baseline.corpus.pairCount, 11);
-  assert.equal(baseline.corpus.caseCount, 30);
+  assert.equal(baseline.corpus.pairCount, 12);
+  assert.equal(baseline.corpus.caseCount, 32);
   assert.deepEqual(baseline.corpus.judgmentCoverage, {
     modelApiPairs: 10,
-    agentSourceReviewPairs: 1,
+    agentSourceReviewPairs: 2,
   });
   assert.equal(baseline.model.appliesToPairs, 10);
   assert.equal(baseline.summary.usageScope, "model-api-pairs-only");
-  assert.equal(baseline.summary.passedPairs, 11);
+  assert.equal(baseline.summary.passedPairs, 12);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
     "cache-integrity",
     "cleanup-completeness",
     "cleanup-completeness",
+    "dependency-resolution",
     "dependency-resolution",
     "error-propagation",
     "error-propagation",
@@ -59,7 +60,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     {
       ruleId: "semantic.dependencyResolution",
       problemClass: "dependency-resolution",
-      positivePairs: 1,
+      positivePairs: 2,
       minimumAdjudications: 5,
       status: "insufficient-evidence",
     },
@@ -92,9 +93,12 @@ test("semantic problem emitter baseline retains paired outcomes without source p
       status: "insufficient-evidence",
     },
   ]);
-  const agentReviewed = baseline.pairs.find((pair) => pair.pairId === "playwright-abort-reason-propagation");
-  assert.equal(agentReviewed?.judgmentMode, "agent-source-review");
-  assert.equal(agentReviewed?.passed, true);
+  const agentReviewed = baseline.pairs.filter((pair) => pair.judgmentMode === "agent-source-review");
+  assert.deepEqual(agentReviewed.map((pair) => pair.pairId).sort(), [
+    "nest-resolve-each-candidate-bypass",
+    "playwright-abort-reason-propagation",
+  ]);
+  assert.ok(agentReviewed.every((pair) => pair.passed));
   assert.ok(baseline.pairs.every((pair) =>
     pair.buggyDefectPaths === pair.requiredBuggyPaths
       && pair.buggyRetainedPaths === pair.requiredBuggyPaths
@@ -114,13 +118,14 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 30);
+  assert.equal(payload.requests, 32);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
     "cache-integrity",
     "cache-integrity",
     "cleanup-completeness",
     "cleanup-completeness",
+    "dependency-resolution",
     "dependency-resolution",
     "error-propagation",
     "error-propagation",

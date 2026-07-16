@@ -30,6 +30,13 @@
       "rationale": "Rekon now emits semantic.dependencyResolution from current source-matched evidence on the buggy revision. The candidate identifies the later-match overwrite path, remains a semantic claim pending independent judgment, and is silent after the first-match fix."
     },
     {
+      "pairId": "nest-resolve-each-candidate-bypass",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that resolvePerContext iterated distinct instance links but its static branch called the token-wide get method without the current link, returning the last registered provider for every item. Rekon emits semantic.dependencyResolution on that guarded bypass; returning wrapperRef.instance removes the evidence, and upstream unit and integration tests verify three distinct providers are returned in order."
+    },
+    {
       "pairId": "fastify-keep-alive-meta-leak",
       "claimVerdict": "valid",
       "coverage": "captured",
