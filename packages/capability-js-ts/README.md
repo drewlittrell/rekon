@@ -68,12 +68,14 @@ Ordinary unused locals and public declarations remain outside this signal.
   state, request-scoped closures attached to connection sockets, and matching
   explicit releases; they do not claim runtime reachability. Cache-flow facts
   identify `getFactoryWithDefault` callbacks whose return branch depends on an
-  outer function parameter omitted from the cache key; they do not infer call
-  order or runtime impact. Cleanup-flow facts identify fail-fast aggregate or
-  sequential waits inside explicit lifecycle functions; they do not prove that
-  an obligation rejects at runtime. Dependency-flow facts identify either a
-  conditionally overwritten loop selection or an iterated provider candidate
-  bypassed by a generic lookup; they do not establish intended precedence.
+  outer function parameter omitted from the cache key. They also identify lazy
+  Promise member caches that retain an async load without visible rejection
+  eviction. Neither shape infers call order or runtime impact. Cleanup-flow
+  facts identify fail-fast aggregate or sequential waits inside explicit
+  lifecycle functions; they do not prove that an obligation rejects at
+  runtime. Dependency-flow facts identify either a conditionally overwritten
+  loop selection or an iterated provider candidate bypassed by a generic
+  lookup; they do not establish intended precedence.
 
 ## Lifecycle Fit
 
@@ -84,7 +86,8 @@ projection, evaluation, resolver fallback, and docs.
 
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
-`extractCacheContractEvidence()`, `extractCleanupCompletenessEvidence()`,
+`extractCacheContractEvidence()`, `extractPromiseCacheRejectionEvidence()`,
+`extractCleanupCompletenessEvidence()`,
 `extractDependencyCandidateBypassEvidence()`,
 `extractDependencyResolutionEvidence()`,
 `extractErrorControlFlowEvidence()`,
@@ -143,8 +146,12 @@ concern.
 Cache-contract evidence is limited to a returned `getFactoryWithDefault` call
 with a parameter-backed key, a distinct guarded return that reads another outer
 parameter, and a later fallback return. Other memoization APIs remain absent
-from this evidence. Cleanup-contract evidence is limited to exact lifecycle
-function names and visible `Promise.all` or multiple uninsulated direct awaits.
+from this evidence. Promise-cache rejection evidence is limited to a
+Promise-named member guarded by a missing-value check, assigned from an async
+IIFE, returned to later callers, and lacking a visible same-member catch or
+finally handler that clears the active entry. Other cache and retry patterns
+remain absent. Cleanup-contract evidence is limited to exact lifecycle function
+names and visible `Promise.all` or multiple uninsulated direct awaits.
 All-settled and individually caught waits remain silent rather than being
 classified as incomplete cleanup.
 

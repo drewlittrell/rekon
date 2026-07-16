@@ -108,8 +108,10 @@ question.
 Cache-integrity policy consumes `cache_flow` facts when a memoized callback can
 return different results based on an outer parameter absent from the key. It
 emits a semantic claim with the key, omitted parameters, guard, and fallback
-locations. Cross-call ordering and user-visible impact remain autonomous
-judgment or focused verification questions.
+locations. It also recognizes lazy Promise member caches that reuse an async
+load without visible rejection eviction. Provider failure behavior, cross-call
+ordering, and user-visible impact remain autonomous judgment or focused
+verification questions.
 
 Cleanup-completeness policy consumes `cleanup_flow` facts from explicit
 lifecycle functions. It distinguishes fail-fast aggregate and sequential wait

@@ -12,6 +12,7 @@ import capability, {
   extractErrorControlFlowEvidence,
   extractErrorReasonPropagationEvidence,
   extractPromiseEventErrorBridgeEvidence,
+  extractPromiseCacheRejectionEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractResourceLifetimeEvidence,
@@ -923,6 +924,94 @@ test("cache-contract evidence identifies result parameters omitted from a memoiz
     assert.deepEqual(facts[0].value.omittedResultParameters, ["version"]);
     assert.deepEqual(facts[0].value.guardLocation, { line: 5, column: 9 });
     assert.equal(facts[0].provenance.line, 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("promise-cache evidence identifies rejected async loads retained for later callers", async () => {
+  const buggySource = [
+    "export class EdgeFeatureStore {",
+    "  async _getKVData() {",
+    "    if (!this._deserializedPromise) {",
+    "      this._deserializedPromise = (async () => {",
+    "        return await this._edgeProvider.get(this._rootKey);",
+    "      })();",
+    "    }",
+    "    return this._deserializedPromise;",
+    "  }",
+    "}",
+  ].join("\n");
+  const fixedSource = [
+    "export class EdgeFeatureStore {",
+    "  async _getKVData() {",
+    "    if (!this._deserializedPromise) {",
+    "      const promise = (async () => {",
+    "        return await this._edgeProvider.get(this._rootKey);",
+    "      })();",
+    "      promise.catch(() => {",
+    "        if (this._deserializedPromise === promise) this._deserializedPromise = null;",
+    "      });",
+    "      this._deserializedPromise = promise;",
+    "    }",
+    "    return this._deserializedPromise;",
+    "  }",
+    "}",
+  ].join("\n");
+  const directEvictionSource = buggySource.replace(
+    "      })();\n    }",
+    "      })();\n      this._deserializedPromise.catch(() => { this._deserializedPromise = null; });\n    }",
+  );
+
+  const evidence = extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: buggySource,
+  });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].kind, "promise-cache-rejection");
+  assert.equal(evidence[0].caller, "_getKVData");
+  assert.equal(evidence[0].mechanism, "rejected-promise-retained");
+  assert.equal(evidence[0].cacheBinding, "this._deserializedPromise");
+  assert.equal(evidence[0].guardExpression, "!this._deserializedPromise");
+  assert.equal(evidence[0].promiseExpression.startsWith("(async () =>"), true);
+  assert.equal(evidence[0].returnExpression, "this._deserializedPromise");
+  assert.deepEqual(evidence[0].guardLocation, { line: 3, column: 9 });
+  assert.deepEqual(evidence[0].location, { line: 4, column: 7 });
+  assert.deepEqual(evidence[0].returnLocation, { line: 8, column: 5 });
+
+  assert.deepEqual(extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: directEvictionSource,
+  }), []);
+  assert.deepEqual(extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: buggySource.replaceAll("_deserializedPromise", "_deserializedValue"),
+  }), []);
+  assert.deepEqual(extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: buggySource.replace("    return this._deserializedPromise;", "    return null;"),
+  }), []);
+  assert.deepEqual(extractPromiseCacheRejectionEvidence({
+    path: "src/EdgeFeatureStore.ts",
+    content: buggySource.replace("(async () =>", "(() =>"),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-promise-cache-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "EdgeFeatureStore.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) =>
+        fact.kind === "cache_flow"
+        && fact.value.mechanism === "rejected-promise-retained");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.cacheBinding, "this._deserializedPromise");
+    assert.equal(facts[0].value.returnExpression, "this._deserializedPromise");
+    assert.equal(facts[0].provenance.line, 4);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

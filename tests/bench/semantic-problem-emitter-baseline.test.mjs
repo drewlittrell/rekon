@@ -18,17 +18,18 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   assert.equal(baseline.corpus.semanticPromptVersion, "semantic-file-understanding-v4");
   assert.equal(baseline.corpus.judgmentPromptVersion, "assessment-judge-v6");
   assert.equal(baseline.corpus.judgmentCoercionVersion, "assessment-judgment-v2");
-  assert.equal(baseline.corpus.pairCount, 15);
-  assert.equal(baseline.corpus.caseCount, 40);
+  assert.equal(baseline.corpus.pairCount, 16);
+  assert.equal(baseline.corpus.caseCount, 42);
   assert.deepEqual(baseline.corpus.judgmentCoverage, {
     modelApiPairs: 10,
-    agentSourceReviewPairs: 5,
+    agentSourceReviewPairs: 6,
   });
   assert.equal(baseline.model.appliesToPairs, 10);
   assert.equal(baseline.summary.usageScope, "model-api-pairs-only");
-  assert.equal(baseline.summary.passedPairs, 15);
+  assert.equal(baseline.summary.passedPairs, 16);
   assert.equal(baseline.summary.failedPairs, 0);
   assert.deepEqual(baseline.pairs.map((pair) => pair.problemClass).sort(), [
+    "cache-integrity",
     "cache-integrity",
     "cache-integrity",
     "cleanup-completeness",
@@ -49,7 +50,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
     {
       ruleId: "semantic.cacheIntegrity",
       problemClass: "cache-integrity",
-      positivePairs: 2,
+      positivePairs: 3,
       minimumAdjudications: 5,
       status: "insufficient-evidence",
     },
@@ -98,6 +99,7 @@ test("semantic problem emitter baseline retains paired outcomes without source p
   ]);
   const agentReviewed = baseline.pairs.filter((pair) => pair.judgmentMode === "agent-source-review");
   assert.deepEqual(agentReviewed.map((pair) => pair.pairId).sort(), [
+    "launchdarkly-fastly-rejected-promise-cache",
     "nest-resolve-each-candidate-bypass",
     "playwright-abort-reason-propagation",
     "vite-rsc-shadowed-binding",
@@ -124,9 +126,10 @@ test("semantic problem emitter eval dry run exposes bounded work without credent
   ], { cwd: root, encoding: "utf8", env: {} });
   assert.equal(result.status, 0, result.stderr);
   const payload = JSON.parse(result.stdout);
-  assert.equal(payload.requests, 40);
+  assert.equal(payload.requests, 42);
   assert.equal(payload.sourceRetention, "none");
   assert.deepEqual(payload.pairs.map((pair) => pair.problemClass).sort(), [
+    "cache-integrity",
     "cache-integrity",
     "cache-integrity",
     "cleanup-completeness",

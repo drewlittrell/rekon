@@ -48,7 +48,7 @@ they may collide with built-ins.
 | `entry_point` | manifest or convention-backed repository root |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
-| `cache_flow` | memoized callback result whose branch depends on an outer parameter omitted from the cache key |
+| `cache_flow` | cache contracts, including omitted result parameters in memoization keys and lazy Promise caches without visible rejection eviction |
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape |
 | `dependency_flow` | candidate selection inside iteration, including conditional overwrite or a generic lookup that bypasses the current provider candidate |
 | `error_flow` | explicit throw/rethrow control flow, an Error-like construction that preserves a cause while selecting the default message, or a Promise/event bridge with no same-emitter error edge |

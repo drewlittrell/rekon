@@ -234,10 +234,11 @@ error-propagation, option-propagation, scope-resolution, and resource-lifetime
 emitters have a bounded live paired check. Resource-lifetime coverage includes
 both retained connection state and request closures attached to reusable socket
 listeners. Cache-integrity coverage includes both compiled-output integrity and
-a parameter-sensitive cross-call cache contract. Cleanup-completeness coverage
-includes semantic shutdown-hook analysis and structured lifecycle wait
-contracts. Dependency-resolution coverage includes both conditional candidate
-overwrite and iterated candidate bypass through a generic token lookup.
+a parameter-sensitive cross-call cache contract, plus rejected Promises retained
+by lazy member caches. Cleanup-completeness coverage includes semantic
+shutdown-hook analysis and structured lifecycle wait contracts.
+Dependency-resolution coverage includes both conditional candidate overwrite
+and iterated candidate bypass through a generic token lookup.
 Option-propagation coverage includes callback-backed spread overrides and
 logical-OR defaulting that coerces explicit false values.
 Scope-resolution coverage includes missing lexical boundaries and name-only
@@ -272,14 +273,16 @@ evidence for name-only owner lookup.
 The scope-resolution pair
 uses a structured classifier anchor so ordinary switch statements do not enter
 its jurisdiction. The Yarn cache pair uses deterministic `cache_flow` evidence
-that a result-shaping parameter is absent from the memoization key. The Vite
-cleanup pair uses deterministic `cleanup_flow` evidence so only explicit
-lifecycle wait contracts enter the structured path. The durable aggregate is
-`tests/bench/calibration/semantic-problem-emitter-baseline.json`.
-That aggregate also records positive-pair counts against the five-adjudication
-minimum. Every semantic class currently has two independent positive pairs, so
-all remain `insufficient-evidence`. Token and cost totals apply only to the ten
-pairs previously run through the model API.
+that a result-shaping parameter is absent from the memoization key. The
+LaunchDarkly cache pair uses deterministic `cache_flow` evidence for a rejected
+Promise retained by a lazy request cache. The Vite cleanup pair uses
+deterministic `cleanup_flow` evidence so only explicit lifecycle wait contracts
+enter the structured path. The durable aggregate is
+`tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
+also records positive-pair counts against the five-adjudication minimum. Cache
+integrity has three independent positive pairs; the other classes remain at
+their recorded counts and all are still `insufficient-evidence`. Token and cost
+totals apply only to the ten pairs previously run through the model API.
 
 ## Corpus retention
 

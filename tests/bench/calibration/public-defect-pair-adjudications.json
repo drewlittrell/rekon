@@ -119,6 +119,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Rekon emits semantic.cacheIntegrity from structured evidence that getPackageMetadata memoizes by package identity while a version-specific result branch depends on version outside the key. Independent judgment retains the buggy cross-call contract as verification-required, while separating disk and network caches removes the evidence in the fixed revision."
+    },
+    {
+      "pairId": "launchdarkly-fastly-rejected-promise-cache",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that the Fastly store assigned an async load directly to a Promise-named member and returned that member to later callers without clearing it after rejection. Rekon emits semantic.cacheIntegrity on that retained rejected Promise and clears after the fixed revision identity-guards a rejection handler that resets the active cache entry; upstream tests verify retry after transient failure and reuse after success."
     }
   ]
 }

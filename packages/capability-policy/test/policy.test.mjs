@@ -736,6 +736,48 @@ test("cache integrity requires a result parameter omitted from the cache key", (
   }], ref), []);
 });
 
+test("cache integrity identifies rejected Promises retained by lazy member caches", () => {
+  const ref = { type: "EvidenceGraph", id: "evidence-promise-cache", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "cache_flow",
+    value: {
+      source: "src/EdgeFeatureStore.ts",
+      caller: "_getKVData",
+      mechanism: "rejected-promise-retained",
+      cacheBinding: "this._deserializedPromise",
+      guardExpression: "!this._deserializedPromise",
+      promiseExpression: "(async () => { return await this._edgeProvider.get(this._rootKey); })()",
+      returnExpression: "this._deserializedPromise",
+      location: { line: 35, column: 7 },
+      guardLocation: { line: 34, column: 9 },
+      returnLocation: { line: 61, column: 5 },
+    },
+  };
+
+  const assessments = evaluateCacheIntegritySignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_CACHE_INTEGRITY_RULE_ID);
+  assert.equal(assessments[0].details.structuredMechanism, "rejected-promise-retained");
+  assert.equal(assessments[0].details.cacheBinding, "this._deserializedPromise");
+  assert.deepEqual(assessments[0].details.sourceEvidence, [
+    { path: "src/EdgeFeatureStore.ts", lineStart: 34, lineEnd: 34 },
+    { path: "src/EdgeFeatureStore.ts", lineStart: 35, lineEnd: 35 },
+    { path: "src/EdgeFeatureStore.ts", lineStart: 61, lineEnd: 61 },
+  ]);
+  assert.deepEqual(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, mechanism: "other" },
+  }], ref), []);
+  assert.deepEqual(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, cacheBinding: "this._deserializedValue" },
+  }], ref), []);
+  assert.deepEqual(evaluateCacheIntegritySignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/EdgeFeatureStore.test.ts" },
+  }], ref), []);
+});
+
 test("cleanup completeness requires multiple visible lifecycle obligations", () => {
   const ref = { type: "EvidenceGraph", id: "evidence-cleanup", schemaVersion: "0.1.0" };
   const fact = {

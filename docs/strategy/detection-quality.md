@@ -279,16 +279,24 @@ the buggy package-identity cache and clears after disk and network caches are
 separated. Cache integrity and resource lifetime now have two independent
 positive pairs.
 
+A third cache mechanism covers lazy Promise member caches. The extractor
+requires a missing-value guard, direct async load assignment, later reuse of the
+same Promise-named member, and no visible rejection eviction. The pinned
+LaunchDarkly Fastly pair retains the rejected Promise on the buggy revision and
+clears after the active Promise resets the member on rejection. Direct source
+review and upstream retry tests supply the judgment. Successful single-flight
+caching remains outside the assessment.
+
 Cleanup wait contracts are also modeled through deterministic `cleanup_flow`
 evidence. The extractor is limited to explicit lifecycle function names and
 visible fail-fast aggregate or sequential wait shapes. The pinned Vite pair
 retains both premature-close paths and clears when both use all-settled waits.
-All seven semantic classes now have two independent positive pairs.
-All seven remain below the five-adjudication usefulness minimum, which is
-recorded in the compact baseline rather than reduced to fit the available
-data. Its token and cost totals cover the ten model-adjudicated pairs only; the
-Nest candidate-bypass, Playwright error-reason, Vite RSC shadowing, and webpack
-falsy-option pairs are recorded separately as direct source review.
+All seven semantic classes have at least two independent positive pairs; cache
+integrity and error propagation have three. All remain below the
+five-adjudication usefulness minimum, which is recorded in the compact baseline
+rather than reduced to fit the available data. Its token and cost totals cover
+the ten model-adjudicated pairs only; six newer pairs are recorded separately
+as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source
 coordinates, source-grounded adjudications, aggregate calibration history,

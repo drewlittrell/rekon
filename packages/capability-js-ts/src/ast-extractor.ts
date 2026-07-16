@@ -328,6 +328,19 @@ export type CacheContractEvidence = {
   fallbackLocation: AstLocation;
 };
 
+export type PromiseCacheRejectionEvidence = {
+  kind: "promise-cache-rejection";
+  caller: string;
+  mechanism: "rejected-promise-retained";
+  cacheBinding: string;
+  guardExpression: string;
+  promiseExpression: string;
+  returnExpression: string;
+  location: AstLocation;
+  guardLocation: AstLocation;
+  returnLocation: AstLocation;
+};
+
 export type CleanupCompletenessEvidence = {
   kind: "cleanup-contract";
   caller: string;
@@ -351,6 +364,7 @@ type AstFlowRecord =
   | DependencyResolutionEvidence
   | DependencyCandidateBypassEvidence
   | CacheContractEvidence
+  | PromiseCacheRejectionEvidence
   | CleanupCompletenessEvidence;
 
 export interface AstExtractionResult {
@@ -487,6 +501,15 @@ export function extractCacheContractEvidence(input: AstExtractionInput): CacheCo
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is CacheContractEvidence => record.kind === "cache-contract",
+  );
+}
+
+export function extractPromiseCacheRejectionEvidence(
+  input: AstExtractionInput,
+): PromiseCacheRejectionEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is PromiseCacheRejectionEvidence => record.kind === "promise-cache-rejection",
   );
 }
 
@@ -850,6 +873,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
 
   visitFlows(sourceFile, { caller: "__module__" });
   records.push(...cacheContractRecords(sourceFile));
+  records.push(...promiseCacheRejectionRecords(sourceFile));
   records.push(...cleanupCompletenessRecords(sourceFile));
   records.push(...dependencyResolutionRecords(sourceFile));
   records.push(...dependencyCandidateBypassRecords(sourceFile));
@@ -1092,6 +1116,149 @@ function cacheContractRecord(
     }
   }
   return undefined;
+}
+
+function promiseCacheRejectionRecords(sourceFile: ts.SourceFile): PromiseCacheRejectionEvidence[] {
+  const records: PromiseCacheRejectionEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (isFunctionBoundary(node) && node.body && ts.isBlock(node.body)) {
+      records.push(...promiseCacheRejectionRecordsForBody(
+        node.body,
+        functionLikeName(node) ?? enclosingCaller(node),
+        sourceFile,
+      ));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line
+      || left.cacheBinding.localeCompare(right.cacheBinding));
+}
+
+function promiseCacheRejectionRecordsForBody(
+  body: ts.Block,
+  caller: string,
+  sourceFile: ts.SourceFile,
+): PromiseCacheRejectionEvidence[] {
+  const records: PromiseCacheRejectionEvidence[] = [];
+  for (let index = 0; index < body.statements.length; index += 1) {
+    const statement = body.statements[index];
+    if (!statement || !ts.isIfStatement(statement)) continue;
+    const cacheBinding = negatedPromiseCacheBinding(statement.expression);
+    if (!cacheBinding) continue;
+    const assignment = findPromiseCacheAssignment(statement.thenStatement, cacheBinding);
+    if (!assignment || hasPromiseCacheRejectionEviction(body, cacheBinding)) continue;
+    const returned = body.statements.slice(index + 1)
+      .find((candidate): candidate is ts.ReturnStatement =>
+        ts.isReturnStatement(candidate)
+        && returnedMemberBinding(candidate.expression) === cacheBinding);
+    if (!returned?.expression) continue;
+    records.push({
+      kind: "promise-cache-rejection",
+      caller,
+      mechanism: "rejected-promise-retained",
+      cacheBinding,
+      guardExpression: boundedNodeText(statement.expression, sourceFile),
+      promiseExpression: boundedNodeText(assignment.right, sourceFile),
+      returnExpression: boundedNodeText(returned.expression, sourceFile),
+      location: locationOf(assignment, sourceFile),
+      guardLocation: locationOf(statement.expression, sourceFile),
+      returnLocation: locationOf(returned, sourceFile),
+    });
+  }
+  return records;
+}
+
+function negatedPromiseCacheBinding(expression: ts.Expression): string | undefined {
+  const value = unwrapExpression(expression);
+  if (!ts.isPrefixUnaryExpression(value)
+    || value.operator !== ts.SyntaxKind.ExclamationToken) {
+    return undefined;
+  }
+  const path = memberPath(unwrapExpression(value.operand));
+  if (!path || path.length < 2 || !/promise/iu.test(path.at(-1)!)) return undefined;
+  return path.join(".");
+}
+
+function findPromiseCacheAssignment(
+  node: ts.Node,
+  cacheBinding: string,
+): ts.BinaryExpression | undefined {
+  let match: ts.BinaryExpression | undefined;
+  const visit = (current: ts.Node): void => {
+    if (match || (current !== node && isFunctionBoundary(current))) return;
+    if (ts.isBinaryExpression(current)
+      && current.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && memberPath(unwrapExpression(current.left))?.join(".") === cacheBinding
+      && isAsyncImmediatelyInvokedFunction(current.right)) {
+      match = current;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return match;
+}
+
+function isAsyncImmediatelyInvokedFunction(expression: ts.Expression): boolean {
+  const call = unwrapExpression(expression);
+  if (!ts.isCallExpression(call)) return false;
+  const target = unwrapExpression(call.expression);
+  if (!ts.isArrowFunction(target) && !ts.isFunctionExpression(target)) return false;
+  return ts.canHaveModifiers(target)
+    && (ts.getModifiers(target) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword);
+}
+
+function returnedMemberBinding(expression: ts.Expression | undefined): string | undefined {
+  if (!expression) return undefined;
+  let value = unwrapExpression(expression);
+  while (ts.isAwaitExpression(value)) value = unwrapExpression(value.expression);
+  return memberPath(value)?.join(".");
+}
+
+function hasPromiseCacheRejectionEviction(body: ts.Block, cacheBinding: string): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (found || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const method = node.expression.name.text;
+      const receiver = memberPath(unwrapExpression(node.expression.expression))?.join(".");
+      const handler = node.arguments[0];
+      if ((method === "catch" || method === "finally")
+        && receiver === cacheBinding
+        && handler
+        && containsNullishAssignment(handler, cacheBinding)) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return found;
+}
+
+function containsNullishAssignment(node: ts.Node, cacheBinding: string): boolean {
+  let found = false;
+  const visit = (current: ts.Node): void => {
+    if (found || (current !== node && isFunctionBoundary(current))) return;
+    if (ts.isBinaryExpression(current)
+      && current.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && memberPath(unwrapExpression(current.left))?.join(".") === cacheBinding
+      && isNullishCacheValue(unwrapExpression(current.right))) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return found;
+}
+
+function isNullishCacheValue(expression: ts.Expression): boolean {
+  return expression.kind === ts.SyntaxKind.NullKeyword
+    || (ts.isIdentifier(expression) && expression.text === "undefined");
 }
 
 function returnedCallExpression(expression: ts.Expression): ts.CallExpression | undefined {

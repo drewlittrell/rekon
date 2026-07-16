@@ -10,6 +10,7 @@ import { performance } from "node:perf_hooks";
 import { buildSemanticFileUnderstandingReport } from "../packages/capability-model/dist/index.js";
 import {
   extractCacheContractEvidence,
+  extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
@@ -112,8 +113,10 @@ for (const pair of selectedPairs) {
     runs.push(...await evaluateDependencyResolutionPair(pair, repository));
     continue;
   }
-  if (pair.claim.category === "cache-integrity" && pair.structuredEvidence === "cache-contract") {
-    runs.push(...await evaluateCacheContractPair(pair, repository));
+  if (pair.claim.category === "cache-integrity"
+    && (pair.structuredEvidence === "cache-contract"
+      || pair.structuredEvidence === "promise-cache-rejection")) {
+    runs.push(...await evaluateCacheIntegrityPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "cleanup-completeness" && pair.structuredEvidence === "cleanup-contract") {
@@ -785,9 +788,9 @@ async function evaluateScopeResolutionPair(pair, repository) {
   return pairRuns;
 }
 
-async function evaluateCacheContractPair(pair, repository) {
+async function evaluateCacheIntegrityPair(pair, repository) {
   if (pair.affectedPaths.length !== 1) {
-    throw new Error(`${pair.id}: cache-contract calibration requires exactly one fix path.`);
+    throw new Error(`${pair.id}: cache-integrity calibration requires exactly one fix path.`);
   }
   const pairRuns = [];
   const path = pair.affectedPaths[0];
@@ -802,26 +805,42 @@ async function evaluateCacheContractPair(pair, repository) {
       fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
-    const cacheFlow = extractCacheContractEvidence({ path, content: text });
-    const facts = cacheFlow.map((entry) => ({
-      kind: "cache_flow",
-      subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
-      value: {
-        source: path,
-        caller: entry.caller,
-        factory: entry.factory,
-        cacheBinding: entry.cacheBinding,
-        keyExpression: entry.keyExpression,
-        keyParameters: entry.keyParameters,
-        omittedResultParameters: entry.omittedResultParameters,
-        guardExpression: entry.guardExpression,
-        guardedReturnExpression: entry.guardedReturnExpression,
-        fallbackReturnExpression: entry.fallbackReturnExpression,
-        location: entry.location,
-        guardLocation: entry.guardLocation,
-        fallbackLocation: entry.fallbackLocation,
-      },
-    }));
+    const facts = pair.structuredEvidence === "promise-cache-rejection"
+      ? extractPromiseCacheRejectionEvidence({ path, content: text }).map((entry) => ({
+        kind: "cache_flow",
+        subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
+        value: {
+          source: path,
+          caller: entry.caller,
+          mechanism: entry.mechanism,
+          cacheBinding: entry.cacheBinding,
+          guardExpression: entry.guardExpression,
+          promiseExpression: entry.promiseExpression,
+          returnExpression: entry.returnExpression,
+          location: entry.location,
+          guardLocation: entry.guardLocation,
+          returnLocation: entry.returnLocation,
+        },
+      }))
+      : extractCacheContractEvidence({ path, content: text }).map((entry) => ({
+        kind: "cache_flow",
+        subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
+        value: {
+          source: path,
+          caller: entry.caller,
+          factory: entry.factory,
+          cacheBinding: entry.cacheBinding,
+          keyExpression: entry.keyExpression,
+          keyParameters: entry.keyParameters,
+          omittedResultParameters: entry.omittedResultParameters,
+          guardExpression: entry.guardExpression,
+          guardedReturnExpression: entry.guardedReturnExpression,
+          fallbackReturnExpression: entry.fallbackReturnExpression,
+          location: entry.location,
+          guardLocation: entry.guardLocation,
+          fallbackLocation: entry.fallbackLocation,
+        },
+      }));
     const matching = evaluateCacheIntegritySignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);
     const defectMatching = matching.filter((assessment) => assessmentMatchesDefectEvidence({

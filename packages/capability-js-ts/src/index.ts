@@ -79,6 +79,7 @@ export {
   type ErrorReasonPropagationEvidence,
   type ErrorIdentityMapping,
   type CacheContractEvidence,
+  type PromiseCacheRejectionEvidence,
   type CleanupCompletenessEvidence,
   type DependencyCandidateBypassEvidence,
   type DependencyResolutionEvidence,
@@ -91,6 +92,7 @@ export {
   extractPromiseEventErrorBridgeEvidence,
   extractErrorReasonPropagationEvidence,
   extractCacheContractEvidence,
+  extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyResolutionEvidence,
@@ -1323,6 +1325,23 @@ function factsFromAstResult(
         location: flow.location,
         guardLocation: flow.guardLocation,
         fallbackLocation: flow.fallbackLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "promise-cache-rejection") {
+      facts.push(fact("cache_flow", `${path}:${flow.caller}:${flow.cacheBinding}:${flow.location.line}`, {
+        source: path,
+        caller: flow.caller,
+        mechanism: flow.mechanism,
+        cacheBinding: flow.cacheBinding,
+        guardExpression: flow.guardExpression,
+        promiseExpression: flow.promiseExpression,
+        returnExpression: flow.returnExpression,
+        location: flow.location,
+        guardLocation: flow.guardLocation,
+        returnLocation: flow.returnLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

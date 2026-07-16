@@ -35,18 +35,24 @@ All notable changes to Rekon are documented here.
   contracts. Policy now identifies `getFactoryWithDefault` callbacks whose
   return branch depends on an outer parameter omitted from the cache key. The
   pinned Yarn pair validates this contract before and after its upstream fix.
+- Added deterministic `cache_flow` evidence for lazy Promise member caches that
+  retain a rejected async load without visible eviction. The public
+  `extractPromiseCacheRejectionEvidence()` helper exposes the observation, and
+  the pinned LaunchDarkly pair validates retry after transient failure while
+  preserving successful single-flight reuse.
 - Added deterministic `cleanup_flow` evidence for explicit lifecycle functions
   with fail-fast aggregate or sequential waits. The pinned Vite pair validates
   both mechanisms before and after their upstream fix. The source-free semantic
-  baseline now passes fifteen pairs. Error propagation has three independent
-  positive pairs; the other six semantic classes have two.
+  baseline now passes sixteen pairs. Cache integrity and error propagation have
+  three independent positive pairs; the other five semantic classes have two.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
   Direct source review covers the Playwright, VS Code event bridge, Nest
-  candidate-bypass, Vite RSC shadowing, and webpack falsy-option pairs while
-  model API calibration is deferred; existing token and cost totals remain
-  scoped to the ten prior model-adjudicated pairs.
+  candidate-bypass, Vite RSC shadowing, webpack falsy-option, and LaunchDarkly
+  rejected-Promise-cache pairs while model API calibration is deferred;
+  existing token and cost totals remain scoped to the ten prior
+  model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

@@ -4,8 +4,8 @@
   "pricingAsOf": "2026-07-15",
   "corpus": {
     "catalogVersion": "1.0.0",
-    "pairCount": 15,
-    "caseCount": 40,
+    "pairCount": 16,
+    "caseCount": 42,
     "sourceRetention": "none",
     "fixLineIdentity": "lcs-v1+evidence-density-v1+error-guard-anchor-v1+error-bridge-anchor-v1+resource-flow-anchor-v1+dependency-flow-anchor-v1+scope-model-anchor-v1+cleanup-flow-anchor-v1",
     "minimumChangedLineCoverage": 0.2,
@@ -15,7 +15,7 @@
     "judgmentCoercionVersion": "assessment-judgment-v2",
     "judgmentCoverage": {
       "modelApiPairs": 10,
-      "agentSourceReviewPairs": 5
+      "agentSourceReviewPairs": 6
     }
   },
   "model": {
@@ -26,7 +26,7 @@
     "appliesToPairs": 10
   },
   "summary": {
-    "passedPairs": 15,
+    "passedPairs": 16,
     "failedPairs": 0,
     "errors": 0,
     "usageScope": "model-api-pairs-only",
@@ -43,7 +43,7 @@
     {
       "ruleId": "semantic.cacheIntegrity",
       "problemClass": "cache-integrity",
-      "positivePairs": 2,
+      "positivePairs": 3,
       "minimumAdjudications": 5,
       "status": "insufficient-evidence"
     },
@@ -267,6 +267,19 @@
     {
       "pairId": "yarn-metadata-cache-boundary",
       "problemClass": "cache-integrity",
+      "requiredBuggyPaths": 1,
+      "buggyDefectPaths": 1,
+      "buggyRetainedPaths": 1,
+      "fixedEvaluatedPaths": 1,
+      "fixedDefectPaths": 0,
+      "fixedUnclearedPaths": 0,
+      "fixedSameClassCandidate": false,
+      "passed": true
+    },
+    {
+      "pairId": "launchdarkly-fastly-rejected-promise-cache",
+      "problemClass": "cache-integrity",
+      "judgmentMode": "agent-source-review",
       "requiredBuggyPaths": 1,
       "buggyDefectPaths": 1,
       "buggyRetainedPaths": 1,
