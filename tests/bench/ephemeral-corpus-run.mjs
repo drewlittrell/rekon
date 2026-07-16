@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertOutputOutsideTemporaryRoot } from "./corpus-retention-core.mjs";
+import { buildDefectPairCommandArgs } from "./defect-pair-run-core.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -64,13 +65,12 @@ try {
     run(join(repoRoot, "tests/bench/setup-public-corpus.mjs"), setupArgs, "public corpus setup");
     run(join(repoRoot, "tests/bench/classic-parity-bench.mjs"), benchArgs, "public corpus benchmark");
   } else {
-    const setupArgs = ["--root", temporaryRoot];
-    const benchArgs = ["--corpus", temporaryRoot, "--output", output];
-    for (const pair of flags.pairs) {
-      setupArgs.push("--pair", pair);
-      benchArgs.push("--pair", pair);
-    }
-    if (flags.full) benchArgs.push("--full");
+    const { setupArgs, benchArgs } = buildDefectPairCommandArgs({
+      temporaryRoot,
+      output,
+      pairs: flags.pairs,
+      full: flags.full,
+    });
     run(join(repoRoot, "tests/bench/setup-defect-pair-corpus.mjs"), setupArgs, "defect-pair corpus setup");
     run(join(repoRoot, "tests/bench/defect-pair-bench.mjs"), benchArgs, "defect-pair benchmark");
   }

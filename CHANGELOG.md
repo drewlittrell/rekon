@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Made public defect-pair setup materialize focused commit snapshots by default
+  instead of complete before/after worktrees. Full worktrees remain available
+  through `--full`; focused scans now include declared evidence paths, and CLI
+  capture failures report bounded status, signal, stdout, and stderr context.
 - Added bounded emitters for dependency resolution, cache integrity, cleanup
   completeness, error propagation, option propagation, resource lifetime, and
   scope resolution. Source-grounded semantic analysis handles cache-entry,

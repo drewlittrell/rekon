@@ -163,6 +163,12 @@ common correct code with transform scope, lifecycle obligations, resource
 retention, cache integrity, option precedence, dependency precedence, or abort
 semantics.
 
+Defect-pair runs materialize focused source snapshots by default: affected,
+evidence, and regression-test paths plus package and TypeScript configuration
+needed to interpret them. Complete detached worktrees remain available behind
+an explicit `--full` setup and scan. This keeps source-grounded calibration
+reproducible without making large public repositories a persistent disk cost.
+
 The first semantic emitter batch adds bounded `dependency-resolution` and
 `cache-integrity` problem classes to current, source-cited semantic file
 reports. Policy preserves them as `semantic.dependencyResolution` and

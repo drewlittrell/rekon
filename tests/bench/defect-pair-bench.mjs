@@ -11,6 +11,12 @@ import {
   validateDefectPairAdjudications,
   validateDefectPairCatalog,
 } from "./defect-pair-core.mjs";
+import {
+  collectDefectPairPaths,
+  formatProcessDiagnostics,
+  isAcceptableRefreshResult,
+  parseCliJson,
+} from "./defect-pair-run-core.mjs";
 import { scopeDefectAdjudicationsToPinnedPairs } from "./corpus-retention-core.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -31,26 +37,15 @@ function parseArgs(argv) {
   return flags;
 }
 
-function parseJson(stdout, label) {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    const start = stdout.indexOf("{");
-    const end = stdout.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(stdout.slice(start, end + 1));
-    throw new Error(`defect-pair-bench: could not parse JSON output for ${label}.`);
-  }
-}
-
 function runCli(args, label, { allowFailure = false } = {}) {
   const result = spawnSync(process.execPath, [cliPath, ...args], {
     cwd: repoRoot,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
-  if (result.status !== 0 && !allowFailure) {
+  if ((result.error || result.status !== 0) && !allowFailure) {
     throw new Error(
-      `defect-pair-bench: ${label} failed (exit ${result.status}).\n${(result.stderr || result.stdout || "").slice(-3000)}`,
+      `defect-pair-bench: ${label} failed.\n${formatProcessDiagnostics(result)}`,
     );
   }
   return result;
@@ -59,15 +54,15 @@ function runCli(args, label, { allowFailure = false } = {}) {
 function runRefresh(root, pair, mode) {
   const args = ["refresh", "--root", root, "--skip-publish", "--json"];
   if (mode === "focused") {
-    for (const path of [...pair.affectedPaths, ...(pair.testPaths ?? [])]) {
+    for (const path of collectDefectPairPaths(pair)) {
       args.push("--changed-file", path);
     }
   }
   const result = runCli(args, `refresh ${pair.id} ${mode}`, { allowFailure: true });
-  const parsed = parseJson(result.stdout, `refresh ${pair.id} ${mode}`);
-  if (result.status !== 0 && parsed.status !== "partial") {
+  const parsed = parseCliJson(result.stdout, `refresh ${pair.id} ${mode}`, result);
+  if (!isAcceptableRefreshResult(result, parsed)) {
     throw new Error(
-      `defect-pair-bench: refresh ${pair.id} ${mode} failed (exit ${result.status}).\n${(result.stderr || result.stdout || "").slice(-3000)}`,
+      `defect-pair-bench: refresh ${pair.id} ${mode} failed.\n${formatProcessDiagnostics(result)}`,
     );
   }
   return parsed;
@@ -78,7 +73,7 @@ function latestArtifactBody(root, type) {
     ["artifacts", "latest", "--root", root, "--type", type, "--allow-missing", "--json"],
     `latest ${type}`,
   );
-  const parsed = parseJson(result.stdout, `latest ${type}`);
+  const parsed = parseCliJson(result.stdout, `latest ${type}`, result);
   if (!parsed.artifact) return undefined;
   const artifactPath = parsed.artifact.path;
   const candidates = [
@@ -95,7 +90,7 @@ function latestArtifactBody(root, type) {
 
 function validateArtifacts(root, label) {
   const result = runCli(["artifacts", "validate", "--root", root, "--json"], `validate ${label}`);
-  const parsed = parseJson(result.stdout, `validate ${label}`);
+  const parsed = parseCliJson(result.stdout, `validate ${label}`, result);
   if (parsed.valid !== true) throw new Error(`defect-pair-bench: artifact validation failed for ${label}.`);
   return parsed;
 }
@@ -160,11 +155,19 @@ const rows = [];
 for (const pair of selected) {
   if (typeof pair.beforeRoot !== "string" || typeof pair.afterRoot !== "string") {
     throw new Error(
-      `defect-pair-bench: ${pair.id} has no checkout roots; run bench:defect-pairs:setup first.`,
+      `defect-pair-bench: ${pair.id} has no source roots; run bench:defect-pairs:setup first.`,
     );
   }
   const beforeRoot = resolve(corpusRoot, pair.beforeRoot);
   const afterRoot = resolve(corpusRoot, pair.afterRoot);
+  const legacyFullWorktrees = pair.sourceMaterialization === undefined
+    && existsSync(join(beforeRoot, ".git"))
+    && existsSync(join(afterRoot, ".git"));
+  if (flags.full && pair.sourceMaterialization !== "full-worktree" && !legacyFullWorktrees) {
+    throw new Error(
+      `defect-pair-bench: ${pair.id} uses a focused source snapshot; rerun setup with --full before a full scan.`,
+    );
+  }
   if (!flags.skipRefresh) {
     runRefresh(beforeRoot, pair, mode);
     runRefresh(afterRoot, pair, mode);

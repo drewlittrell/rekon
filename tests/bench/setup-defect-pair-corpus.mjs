@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { selectCatalogEntries } from "./corpus-retention-core.mjs";
 import { validateDefectPairCatalog } from "./defect-pair-core.mjs";
+import { collectDefectPairPaths } from "./defect-pair-run-core.mjs";
+import { materializeFocusedSnapshot } from "./defect-pair-snapshot-core.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const catalogPath = join(repoRoot, "tests/bench/public-defect-pairs.sources.json");
 
 function parseArgs(argv) {
-  const flags = { pairs: [] };
+  const flags = { pairs: [], full: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--root") flags.root = argv[(index += 1)];
     else if (arg === "--pair") flags.pairs.push(argv[(index += 1)]);
+    else if (arg === "--full") flags.full = true;
     else throw new Error(`setup-defect-pair-corpus: unknown argument "${arg}".`);
   }
   const root = flags.root ?? process.env.REKON_DEFECT_PAIR_CORPUS_ROOT;
@@ -25,7 +28,7 @@ function parseArgs(argv) {
       "setup-defect-pair-corpus: pass --root <path> or set REKON_DEFECT_PAIR_CORPUS_ROOT.",
     );
   }
-  return { root: resolve(root), pairs: flags.pairs };
+  return { root: resolve(root), pairs: flags.pairs, full: flags.full };
 }
 
 function git(args, cwd) {
@@ -77,14 +80,58 @@ function fetchPair(sourceRoot, pair) {
 }
 
 function ensureWorktree(sourceRoot, worktreeRoot, commit, label) {
-  if (!existsSync(worktreeRoot)) {
-    mkdirSync(dirname(worktreeRoot), { recursive: true });
-    git(["worktree", "add", "--detach", worktreeRoot, commit], sourceRoot);
+  if (existsSync(worktreeRoot)) {
+    if (isRegisteredWorktree(sourceRoot, worktreeRoot)) {
+      const actual = git(["rev-parse", "HEAD"], worktreeRoot);
+      if (actual === commit) return;
+      git(["worktree", "remove", "--force", worktreeRoot], sourceRoot);
+    } else {
+      rmSync(worktreeRoot, { recursive: true, force: true });
+    }
   }
+  mkdirSync(dirname(worktreeRoot), { recursive: true });
+  git(["worktree", "add", "--detach", worktreeRoot, commit], sourceRoot);
   const actual = git(["rev-parse", "HEAD"], worktreeRoot);
   if (actual !== commit) {
     throw new Error(`setup-defect-pair-corpus: ${label} is at ${actual}; expected ${commit}.`);
   }
+}
+
+function ensureFocusedSnapshot(sourceRoot, snapshotRoot, commit, pair) {
+  if (existsSync(snapshotRoot)) {
+    if (isRegisteredWorktree(sourceRoot, snapshotRoot)) {
+      git(["worktree", "remove", "--force", snapshotRoot], sourceRoot);
+    } else {
+      rmSync(snapshotRoot, { recursive: true, force: true });
+    }
+  }
+  mkdirSync(snapshotRoot, { recursive: true });
+  const materializedPaths = materializeFocusedSnapshot({
+    sourceRoot,
+    snapshotRoot,
+    commit,
+    pair,
+  });
+  const missingAffectedPaths = pair.affectedPaths.filter((path) => !materializedPaths.includes(path));
+  if (missingAffectedPaths.length > 0) {
+    throw new Error(
+      `setup-defect-pair-corpus: ${pair.id} ${commit} is missing affected path(s): `
+      + `${missingAffectedPaths.join(", ")}.`,
+    );
+  }
+  const selectedPaths = new Set(collectDefectPairPaths(pair));
+  if (![...selectedPaths].some((path) => materializedPaths.includes(path))) {
+    throw new Error(`setup-defect-pair-corpus: ${pair.id} ${commit} materialized no selected source paths.`);
+  }
+  return materializedPaths;
+}
+
+function isRegisteredWorktree(sourceRoot, candidateRoot) {
+  const normalizedCandidate = resolve(candidateRoot);
+  return git(["worktree", "list", "--porcelain"], sourceRoot)
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .some((line) => resolve(line.slice("worktree ".length)) === normalizedCandidate);
 }
 
 const flags = parseArgs(process.argv.slice(2));
@@ -110,13 +157,22 @@ for (const pair of selectedPairs) {
   fetchPair(sourceRoot, pair);
   const beforeRoot = join(root, "pairs", pair.id, "before");
   const afterRoot = join(root, "pairs", pair.id, "after");
-  ensureWorktree(sourceRoot, beforeRoot, pair.buggyCommit, `${pair.id} before`);
-  ensureWorktree(sourceRoot, afterRoot, pair.fixedCommit, `${pair.id} after`);
+  let materializedPaths;
+  if (flags.full) {
+    ensureWorktree(sourceRoot, beforeRoot, pair.buggyCommit, `${pair.id} before`);
+    ensureWorktree(sourceRoot, afterRoot, pair.fixedCommit, `${pair.id} after`);
+  } else {
+    const beforePaths = ensureFocusedSnapshot(sourceRoot, beforeRoot, pair.buggyCommit, pair);
+    const afterPaths = ensureFocusedSnapshot(sourceRoot, afterRoot, pair.fixedCommit, pair);
+    materializedPaths = [...new Set([...beforePaths, ...afterPaths])].sort();
+  }
 
   pairs.push({
     ...pair,
     beforeRoot: `./pairs/${pair.id}/before`,
     afterRoot: `./pairs/${pair.id}/after`,
+    sourceMaterialization: flags.full ? "full-worktree" : "focused-snapshot",
+    ...(materializedPaths ? { materializedPaths } : {}),
   });
 }
 
@@ -129,5 +185,6 @@ const manifest = {
 const output = join(root, "defect-pairs.json");
 writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 process.stdout.write(
-  `setup-defect-pair-corpus: verified ${pairs.length} pairs across ${selectedRepositories.length} repositories and wrote ${relative(process.cwd(), output)}.\n`,
+  `setup-defect-pair-corpus: verified ${pairs.length} pairs across ${selectedRepositories.length} repositories `
+  + `using ${flags.full ? "full worktrees" : "focused snapshots"} and wrote ${relative(process.cwd(), output)}.\n`,
 );

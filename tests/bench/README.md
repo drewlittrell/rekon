@@ -215,17 +215,29 @@ npm run bench:defect-pairs
 npm run bench:defect-pairs -- --pair vitest-typecheck-worker-off
 ```
 
-Focused mode scans only each pair's affected production and regression-test
-paths. Pass `--full` for a complete repository scan. `--pair <id>` is
-repeatable. The default command deletes its temporary checkouts even when the
-benchmark fails. Persistent setup and rescoring remain available through
+Focused mode materializes and scans only each pair's affected, evidence, and
+regression-test paths plus their package and TypeScript configuration context.
+This is the default and does not create complete repository worktrees. Pass
+`--full` to both persistent setup and rescoring for a complete repository scan:
+
+```bash
+npm run bench:defect-pairs:setup -- --root /path/to/corpus --full
+npm run bench:defect-pairs:existing -- --corpus /path/to/corpus --full
+```
+
+`--pair <id>` is repeatable. The default command deletes its temporary Git
+source cache, focused snapshots, and `.rekon/` output even when the benchmark
+fails. Persistent setup and rescoring remain available through
 `bench:defect-pairs:setup` and `bench:defect-pairs:existing`.
 
 The pinned catalog is `tests/bench/public-defect-pairs.sources.json`. Setup
-creates detached before/after worktrees, verifies commit ancestry, and does not
-install dependencies or execute target scripts. Reports are local and
-gitignored under `tests/bench/output/public-defect-pairs/`; the public agent
-judgments needed to interpret them live under `tests/bench/calibration/`.
+verifies commit ancestry and exact revisions, then records whether each pair
+uses focused snapshots or detached before/after worktrees. It does not install
+dependencies or execute target scripts. Reports are local and gitignored under
+`tests/bench/output/public-defect-pairs/`; the public agent judgments needed to
+interpret them live under `tests/bench/calibration/`. CLI failures include
+bounded process status, signal, stdout, and stderr diagnostics so large-repo
+failures remain actionable without retaining the source corpus.
 
 ### Semantic problem emitters
 
