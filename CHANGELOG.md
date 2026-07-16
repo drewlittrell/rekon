@@ -4,14 +4,13 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
-- Expanded every semantic problem class from three to four independent public
-  defect pairs. New structured evidence covers normalized cache-key guards,
-  teardown scheduling under early stop, explicit ambient-module expansion,
-  abort-reason loss, defaults after user option spreads, abort-listener
-  settlement cleanup, and class-property reference positions. The
-  credential-free `agent-source-review` eval mode requires explicit structured
-  pairs and retains no source. All seven classes remain below the five-pair
-  sufficiency threshold.
+- Calibrated all seven semantic problem classes against five independent public
+  defect pairs. New structured evidence covers revalidation-only cache entries,
+  pending callbacks during close, auto-import path ranking, retry-code loss
+  through error wrapping, mode-specific defaults, server-owned browser
+  shutdown, and nested loop-head initialization. The 35-pair semantic baseline
+  passes without retaining source; model usage and cost remain scoped to the
+  ten pairs previously run through provider APIs.
 - Made public defect-pair setup materialize focused commit snapshots by default
   instead of complete before/after worktrees. Full worktrees remain available
   through `--full`; focused scans now include declared evidence paths, and CLI

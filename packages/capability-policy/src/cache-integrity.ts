@@ -50,6 +50,15 @@ type NormalizedCacheFlow = {
   keyLine: number;
 };
 
+type CacheRevalidationFlow = {
+  path: string;
+  caller: string;
+  directiveBinding: string;
+  staleExpression: string;
+  locationLine: number;
+  returnLine: number;
+};
+
 export function evaluateCacheIntegritySignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -70,9 +79,60 @@ export function evaluateCacheIntegritySignals(
     .filter((flow): flow is NormalizedCacheFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => normalizedCacheGuardAssessment(flow, evidenceRef));
-  return [...incompleteKeyAssessments, ...rejectedPromiseAssessments, ...normalizationAssessments].sort((left, right) =>
+  const revalidationAssessments = cacheFacts
+    .map(parseCacheRevalidationFlow)
+    .filter((flow): flow is CacheRevalidationFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => cacheRevalidationAssessment(flow, evidenceRef));
+  return [...incompleteKeyAssessments, ...rejectedPromiseAssessments, ...normalizationAssessments, ...revalidationAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function cacheRevalidationAssessment(
+  flow: CacheRevalidationFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    directiveBinding: flow.directiveBinding,
+    staleExpression: flow.staleExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_CACHE_INTEGRITY_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    impact: "medium",
+    title: `Possible revalidation-only cache omission in ${flow.path}`,
+    description:
+      `${flow.caller} maps a zero ${flow.directiveBinding} freshness lifetime to undefined through ${flow.staleExpression}. Validator-backed responses can therefore bypass storage before conditional revalidation is possible.`,
+    subjects: [flow.path, flow.caller, flow.directiveBinding],
+    files: [flow.path],
+    ruleId: SEMANTIC_CACHE_INTEGRITY_RULE_ID,
+    suggestedAction:
+      "Exercise ETag or Last-Modified responses with no-cache and zero freshness, then retain them for a bounded window while requiring revalidation before reuse.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.9,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a cache freshness calculation that converts an explicit zero lifetime into no cache value while the same source handles validators; concrete storage and revalidation behavior remains to be verified.",
+    },
+    details: {
+      problemClass: "cache-integrity",
+      structuredMechanism: "validator-zero-freshness-not-stored",
+      caller: flow.caller,
+      directiveBinding: flow.directiveBinding,
+      staleExpression: flow.staleExpression,
+      sourceEvidence: [
+        { path: flow.path, lineStart: flow.locationLine, lineEnd: flow.locationLine },
+        { path: flow.path, lineStart: flow.returnLine, lineEnd: flow.returnLine },
+      ],
+    },
+  };
 }
 
 function normalizedCacheGuardAssessment(
@@ -323,6 +383,28 @@ function parseNormalizedCacheFlow(fact: EvidenceFactLike): NormalizedCacheFlow |
     locationLine,
     guardLine,
     keyLine,
+  };
+}
+
+function parseCacheRevalidationFlow(fact: EvidenceFactLike): CacheRevalidationFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "validator-zero-freshness-not-stored"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.directiveBinding !== "string"
+    || typeof value.staleExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const returnLine = locationLineOf(value.returnLocation);
+  if (!locationLine || !returnLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    directiveBinding: value.directiveBinding,
+    staleExpression: value.staleExpression,
+    locationLine,
+    returnLine,
   };
 }
 

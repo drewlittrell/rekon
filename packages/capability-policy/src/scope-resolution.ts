@@ -49,6 +49,17 @@ type ReferencePositionFlow = {
   propertyKeyExclusionLine: number;
 };
 
+type NestedLoopInitializationFlow = {
+  path: string;
+  caller: string;
+  pathParameter: string;
+  loopCondition: string;
+  initializationExpression: string;
+  locationLine: number;
+  conditionLine: number;
+  initializationLine: number;
+};
+
 export function evaluateScopeResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -69,9 +80,65 @@ export function evaluateScopeResolutionSignals(
     .filter((flow): flow is ReferencePositionFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => referencePositionAssessment(flow, evidenceRef));
-  return [...nameOnlyAssessments, ...traversalAssessments, ...referencePositionAssessments].sort((left, right) =>
+  const nestedLoopAssessments = scopeFacts
+    .map(parseNestedLoopInitializationFlow)
+    .filter((flow): flow is NestedLoopInitializationFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => nestedLoopInitializationAssessment(flow, evidenceRef));
+  return [...nameOnlyAssessments, ...traversalAssessments, ...referencePositionAssessments, ...nestedLoopAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function nestedLoopInitializationAssessment(
+  flow: NestedLoopInitializationFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    loopCondition: flow.loopCondition,
+    initializationExpression: flow.initializationExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_SCOPE_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    impact: "high",
+    title: `Possible nested loop-head initialization gap in ${flow.path}`,
+    description:
+      `${flow.caller} adds ${flow.initializationExpression} for loop-body declarations selected by ${flow.loopCondition}, but does not visibly handle a for-statement initializer nested inside another loop. Lowering block scope can therefore reuse the inner declaration across outer iterations.`,
+    subjects: [flow.path, flow.caller, flow.pathParameter],
+    files: [flow.path],
+    ruleId: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Transform a nested for loop whose uninitialized inner head variable controls loop termination, then verify every outer iteration reinitializes that variable.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.92,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a block-scope transform initializes loop-body declarations, excludes loop heads, and lacks a nested for-init exception; emitted runtime behavior remains to be verified.",
+    },
+    details: {
+      problemClass: "scope-resolution",
+      structuredMechanism: "nested-loop-head-reinitialization-missing",
+      caller: flow.caller,
+      pathParameter: flow.pathParameter,
+      loopCondition: flow.loopCondition,
+      initializationExpression: flow.initializationExpression,
+      sourceEvidence: [...new Set([
+        flow.locationLine,
+        flow.conditionLine,
+        flow.initializationLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function referencePositionAssessment(
@@ -342,6 +409,34 @@ function parseReferencePositionFlow(fact: EvidenceFactLike): ReferencePositionFl
     locationLine,
     methodExclusionLine,
     propertyKeyExclusionLine,
+  };
+}
+
+function parseNestedLoopInitializationFlow(
+  fact: EvidenceFactLike,
+): NestedLoopInitializationFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "nested-loop-head-reinitialization-missing"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.pathParameter !== "string"
+    || typeof value.loopCondition !== "string"
+    || typeof value.initializationExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const conditionLine = locationLineOf(value.conditionLocation);
+  const initializationLine = locationLineOf(value.initializationLocation);
+  if (!locationLine || !conditionLine || !initializationLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    pathParameter: value.pathParameter,
+    loopCondition: value.loopCondition,
+    initializationExpression: value.initializationExpression,
+    locationLine,
+    conditionLine,
+    initializationLine,
   };
 }
 

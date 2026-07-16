@@ -47,6 +47,17 @@ type AbortListenerFlow = {
   settlementLines: number[];
 };
 
+type OwnedBrowserLifetimeFlow = {
+  path: string;
+  caller: string;
+  owner: string;
+  browserCollection: string;
+  transportCloseExpression: string;
+  locationLine: number;
+  ownershipLine: number;
+  transportCloseLine: number;
+};
+
 export function evaluateResourceLifetimeSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -65,7 +76,16 @@ export function evaluateResourceLifetimeSignals(
     .sort((left, right) =>
       left.path.localeCompare(right.path) || left.registrationLine - right.registrationLine)
     .map((flow) => abortListenerAssessment(flow, evidenceRef));
-  const localAssessments = [...terminalListenerAssessments, ...abortListenerAssessments];
+  const ownedBrowserAssessments = resourceFacts
+    .map(parseOwnedBrowserLifetimeFlow)
+    .filter((flow): flow is OwnedBrowserLifetimeFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => ownedBrowserLifetimeAssessment(flow, evidenceRef));
+  const localAssessments = [
+    ...terminalListenerAssessments,
+    ...abortListenerAssessments,
+    ...ownedBrowserAssessments,
+  ];
   if (!options.evidenceComplete) return localAssessments;
   const flows = resourceFacts
     .map(parseResourceFlow)
@@ -87,6 +107,58 @@ export function evaluateResourceLifetimeSignals(
   return [...crossFileAssessments, ...localAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function ownedBrowserLifetimeAssessment(
+  flow: OwnedBrowserLifetimeFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    owner: flow.owner,
+    browserCollection: flow.browserCollection,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_RESOURCE_LIFETIME_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    impact: "high",
+    title: `Possible owned browser process leak in ${flow.path}`,
+    description:
+      `${flow.caller} closes ${flow.transportCloseExpression}, while ${flow.owner} exposes owned browsers through ${flow.browserCollection} elsewhere in the server. No browser close is visible in the server shutdown path, so reusable browser processes can outlive their owner.`,
+    subjects: [flow.path, flow.caller, flow.owner],
+    files: [flow.path],
+    ruleId: SEMANTIC_RESOURCE_LIFETIME_RULE_ID,
+    suggestedAction:
+      "Launch a reusable browser, close the server, and verify every browser owned by the server exits after the transport is closed.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.93,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a server class enumerates owned browsers during operation but its close method only closes another transport; process lifetime and ownership exceptions remain to be verified.",
+    },
+    details: {
+      problemClass: "resource-lifetime",
+      structuredMechanism: "server-owned-browsers-not-closed",
+      caller: flow.caller,
+      owner: flow.owner,
+      browserCollection: flow.browserCollection,
+      transportCloseExpression: flow.transportCloseExpression,
+      sourceEvidence: [...new Set([
+        flow.locationLine,
+        flow.ownershipLine,
+        flow.transportCloseLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+      releaseMatch: "absent-in-close",
+    },
+  };
 }
 
 function abortListenerAssessment(
@@ -354,6 +426,33 @@ function parseAbortListenerFlow(fact: EvidenceFactLike): AbortListenerFlow | und
     registrationLine,
     handlerLine,
     settlementLines,
+  };
+}
+
+function parseOwnedBrowserLifetimeFlow(fact: EvidenceFactLike): OwnedBrowserLifetimeFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "server-owned-browsers-not-closed"
+    || value.action !== "retain"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.owner !== "string"
+    || typeof value.browserCollection !== "string"
+    || typeof value.transportCloseExpression !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const ownershipLine = locationLineOf(value.ownershipLocation);
+  const transportCloseLine = locationLineOf(value.transportCloseLocation);
+  if (!locationLine || !ownershipLine || !transportCloseLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    owner: value.owner,
+    browserCollection: value.browserCollection,
+    transportCloseExpression: value.transportCloseExpression,
+    locationLine,
+    ownershipLine,
+    transportCloseLine,
   };
 }
 

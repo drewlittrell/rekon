@@ -10,22 +10,29 @@ import capability, {
   extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
   extractCacheKeyNormalizationEvidence,
+  extractCacheRevalidationEvidence,
   extractCleanupCompletenessEvidence,
   extractDefaultOptionOverrideEvidence,
+  extractModeDefaultOverrideEvidence,
+  extractPendingCallbackCleanupEvidence,
+  extractAutoImportPathPreferenceEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyExplicitSourceEvidence,
   extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractErrorCodeWrappingEvidence,
   extractErrorReasonPropagationEvidence,
   extractPromiseEventErrorBridgeEvidence,
   extractPromiseCacheRejectionEvidence,
   extractOptionFalsyDefaultEvidence,
   extractOptionPropagationEvidence,
   extractRequestSignalForwardingEvidence,
+  extractOwnedBrowserLifetimeEvidence,
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
   extractReferencePositionEvidence,
+  extractNestedLoopInitializationEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
@@ -2535,4 +2542,218 @@ test("reference-position evidence distinguishes class property keys from values"
   assert.equal(evidence[0].missingExclusion, "PropertyDefinition.noncomputed-key");
   assert.deepEqual(extractReferencePositionEvidence({ path: "src/walker.ts", content: fixed }), []);
   assert.deepEqual(extractReferencePositionEvidence({ path: "src/walker.ts", content: unrelated }), []);
+});
+
+test("cache revalidation evidence identifies zero freshness discarded despite validators", () => {
+  const buggy = `
+    function determineStaleAt(cacheControlDirectives, resHeaders) {
+      const maxAge = cacheControlDirectives["max-age"];
+      if (resHeaders.etag) observe(resHeaders.etag);
+      if (maxAge !== undefined)
+        return maxAge > 0 ? maxAge * 1000 : undefined;
+      return undefined;
+    }
+  `;
+  const fixed = `
+    function determineStaleAt(cacheControlDirectives, resHeaders, hasValidator) {
+      const maxAge = cacheControlDirectives["max-age"];
+      if (resHeaders.etag) observe(resHeaders.etag);
+      if (maxAge !== undefined) {
+        if (maxAge > 0) return maxAge * 1000;
+        return maxAge === 0 && hasValidator ? 0 : undefined;
+      }
+      return undefined;
+    }
+  `;
+  const unrelated = buggy.replaceAll("resHeaders.etag", "resHeaders.authorization");
+
+  const evidence = extractCacheRevalidationEvidence({ path: "src/cache.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].mechanism, "validator-zero-freshness-not-stored");
+  assert.deepEqual(extractCacheRevalidationEvidence({ path: "src/cache.ts", content: fixed }), []);
+  assert.deepEqual(extractCacheRevalidationEvidence({ path: "src/cache.ts", content: unrelated }), []);
+});
+
+test("pending callback cleanup evidence follows the lifecycle implementation", () => {
+  const buggy = `
+    class Device {
+      private _callbacks = new Map();
+      private _send(id) {
+        return new Promise((fulfill, reject) =>
+          this._callbacks.set(id, { fulfill, reject }));
+      }
+      async close() { await this._close(); }
+      private async _close() { await this._backend.close(); }
+    }
+  `;
+  const fixed = buggy.replace(
+    "private async _close() { await this._backend.close(); }",
+    `private async _close() {
+      for (const callback of this._callbacks.values())
+        callback.reject(new Error("closed"));
+      this._callbacks.clear();
+      await this._backend.close();
+    }`,
+  );
+  const unrelated = `
+    class Device {
+      private _callbacks = new Map();
+      private _send(id, callback) { this._callbacks.set(id, callback); }
+      private async _close() { await this._backend.close(); }
+    }
+  `;
+
+  const evidence = extractPendingCallbackCleanupEvidence({ path: "src/device.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].closeMethod, "_close");
+  assert.deepEqual(extractPendingCallbackCleanupEvidence({ path: "src/device.ts", content: fixed }), []);
+  assert.deepEqual(extractPendingCallbackCleanupEvidence({ path: "src/device.ts", content: unrelated }), []);
+});
+
+test("auto-import path evidence distinguishes ranking from explicit auto-import mode", () => {
+  const buggy = `
+    function computeModuleSpecifiers(importedFileIsInNodeModules, modulePath) {
+      if (!importedFileIsInNodeModules || modulePath.isInNodeModules)
+        return modulePath.path;
+      return undefined;
+    }
+  `;
+  const fixed = `
+    function computeModuleSpecifiers(importedFileIsInNodeModules, modulePath, forAutoImport) {
+      if (forAutoImport || !importedFileIsInNodeModules || modulePath.isInNodeModules)
+        return modulePath.path;
+      return undefined;
+    }
+  `;
+  const unrelated = buggy.replace("computeModuleSpecifiers", "filterPaths");
+
+  const evidence = extractAutoImportPathPreferenceEvidence({ path: "src/modules.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].candidateBinding, "modulePath");
+  assert.deepEqual(extractAutoImportPathPreferenceEvidence({ path: "src/modules.ts", content: fixed }), []);
+  assert.deepEqual(extractAutoImportPathPreferenceEvidence({ path: "src/modules.ts", content: unrelated }), []);
+});
+
+test("error-code wrapping evidence requires a stream adapter and retry code contract", () => {
+  const buggy = `
+    function sendWithRetries(error) {
+      if (error.code !== "ECONNRESET") throw error;
+    }
+    function send(response, transform, reject) {
+      pipeline(response, transform, error => {
+        if (error)
+          reject(new Error(\`decompression failed: \${error.message}\`));
+      });
+    }
+  `;
+  const fixed = `
+    function sendWithRetries(error) {
+      if (error.code !== "ECONNRESET") throw error;
+    }
+    function send(response, transform, reject) {
+      pipeline(response, transform, error => {
+        if (error) {
+          if (error.code === "ECONNRESET") reject(error);
+          else reject(new Error(\`decompression failed: \${error.message}\`));
+        }
+      });
+    }
+  `;
+  const unrelated = `
+    function sendWithRetries(error) {
+      if (error.code !== "ECONNRESET") throw error;
+      throw new Error(\`request failed: \${error.message}\`);
+    }
+  `;
+
+  const evidence = extractErrorCodeWrappingEvidence({ path: "src/fetch.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].retryCode, "ECONNRESET");
+  assert.deepEqual(extractErrorCodeWrappingEvidence({ path: "src/fetch.ts", content: fixed }), []);
+  assert.deepEqual(extractErrorCodeWrappingEvidence({ path: "src/fetch.ts", content: unrelated }), []);
+});
+
+test("mode default evidence requires an unguarded browser-sensitive assignment", () => {
+  const buggy = `
+    function configure(environment, browserEnabled) {
+      environment.dev.preTransformRequests = false;
+      return environment;
+    }
+  `;
+  const fixed = `
+    function configure(environment, browserEnabled) {
+      if (!browserEnabled)
+        environment.dev.preTransformRequests = false;
+      return environment;
+    }
+  `;
+  const unrelated = buggy.replace("browserEnabled", "workerEnabled");
+
+  const evidence = extractModeDefaultOverrideEvidence({ path: "src/config.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].property, "preTransformRequests");
+  assert.deepEqual(extractModeDefaultOverrideEvidence({ path: "src/config.ts", content: fixed }), []);
+  assert.deepEqual(extractModeDefaultOverrideEvidence({ path: "src/config.ts", content: unrelated }), []);
+});
+
+test("owned browser lifetime evidence requires browser enumeration and an incomplete server close", () => {
+  const buggy = `
+    class PlaywrightServer {
+      private _playwright;
+      list() { return this._playwright.allBrowsers(); }
+      async close() { await this._wsServer.close(); }
+    }
+  `;
+  const fixed = `
+    class PlaywrightServer {
+      private _playwright;
+      list() { return this._playwright.allBrowsers(); }
+      async close() {
+        await this._wsServer.close();
+        for (const browser of this._playwright.allBrowsers())
+          await browser.close();
+      }
+    }
+  `;
+  const unrelated = `
+    class PlaywrightClient {
+      private _playwright;
+      list() { return this._playwright.allBrowsers(); }
+      async close() { await this._transport.close(); }
+    }
+  `;
+
+  const evidence = extractOwnedBrowserLifetimeEvidence({ path: "src/server.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].owner, "this._playwright");
+  assert.deepEqual(extractOwnedBrowserLifetimeEvidence({ path: "src/server.ts", content: fixed }), []);
+  assert.deepEqual(extractOwnedBrowserLifetimeEvidence({ path: "src/client.ts", content: unrelated }), []);
+});
+
+test("nested loop initialization evidence requires lowering without a nested for-init exception", () => {
+  const buggy = `
+    function transformBlockScopedVariable(path, t) {
+      if (isInLoop(path) && !isVarInLoopHead(path)) {
+        for (const decl of path.node.declarations)
+          decl.init ??= t.buildUndefinedNode();
+      }
+    }
+  `;
+  const fixed = `
+    function transformBlockScopedVariable(path, t) {
+      const loopBody = isInLoop(path) && !isVarInLoopHead(path);
+      const nestedForInit = isVarInForStatementInit(path) && isInLoop(path.parentPath);
+      if (loopBody || nestedForInit) {
+        for (const decl of path.node.declarations)
+          decl.init ??= t.buildUndefinedNode();
+      }
+    }
+  `;
+  const unrelated = buggy.replace("t.buildUndefinedNode()", "undefined");
+
+  const evidence = extractNestedLoopInitializationEvidence({ path: "src/scope.ts", content: buggy });
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0].pathParameter, "path");
+  assert.deepEqual(extractNestedLoopInitializationEvidence({ path: "src/scope.ts", content: fixed }), []);
+  assert.deepEqual(extractNestedLoopInitializationEvidence({ path: "src/scope.ts", content: unrelated }), []);
 });

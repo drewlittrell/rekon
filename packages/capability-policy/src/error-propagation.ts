@@ -56,6 +56,17 @@ type AbortReasonDropFlow = {
   signalLine: number;
 };
 
+type ErrorCodeWrappingFlow = {
+  path: string;
+  caller: string;
+  errorIdentifier: string;
+  wrapperExpression: string;
+  retryCode: string;
+  locationLine: number;
+  wrapperLine: number;
+  retryCheckLine: number;
+};
+
 export function evaluateErrorPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -82,14 +93,70 @@ export function evaluateErrorPropagationSignals(
     .filter((flow): flow is AbortReasonDropFlow => flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => abortReasonDropAssessment(flow, evidenceRef));
+  const errorCodeAssessments = errorFacts
+    .map(parseErrorCodeWrappingFlow)
+    .filter((flow): flow is ErrorCodeWrappingFlow => flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => errorCodeWrappingAssessment(flow, evidenceRef));
   return [
     ...mergedIdentityAssessments,
     ...hiddenReasonAssessments,
     ...unforwardedEmitterAssessments,
     ...abortReasonAssessments,
+    ...errorCodeAssessments,
   ].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function errorCodeWrappingAssessment(
+  flow: ErrorCodeWrappingFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    wrapperExpression: flow.wrapperExpression,
+    retryCode: flow.retryCode,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_ERROR_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    impact: "high",
+    title: `Possible retry error-code loss in ${flow.path}`,
+    description:
+      `${flow.caller} replaces a stream error with ${flow.wrapperExpression}, while retry policy in the same source branches on ${flow.retryCode}. Wrapping can remove the code and prevent the intended retry path.`,
+    subjects: [flow.path, flow.caller, flow.retryCode],
+    files: [flow.path],
+    ruleId: SEMANTIC_ERROR_PROPAGATION_RULE_ID,
+    suggestedAction:
+      `Exercise a compressed or transformed stream failure carrying ${flow.retryCode}; preserve the original network error for retry classification and wrap only transform-specific failures.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.94,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a stream error adapter wraps an error through its message, no raw-error rejection exists in that adapter, and the same source branches on a network error code; runtime retry behavior remains to be verified.",
+    },
+    details: {
+      problemClass: "error-propagation",
+      structuredMechanism: "error-code-lost-by-wrapping",
+      caller: flow.caller,
+      errorIdentifier: flow.errorIdentifier,
+      wrapperExpression: flow.wrapperExpression,
+      retryCode: flow.retryCode,
+      sourceEvidence: [...new Set([
+        flow.locationLine,
+        flow.wrapperLine,
+        flow.retryCheckLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function abortReasonDropAssessment(
@@ -417,6 +484,33 @@ function parseAbortReasonDropFlow(fact: EvidenceFactLike): AbortReasonDropFlow |
     locationLine,
     cancellationLine,
     signalLine,
+  };
+}
+
+function parseErrorCodeWrappingFlow(fact: EvidenceFactLike): ErrorCodeWrappingFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "error-code-lost-by-wrapping"
+    || value.action !== "wrap"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.errorIdentifier !== "string"
+    || typeof value.wrapperExpression !== "string"
+    || typeof value.retryCode !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const wrapperLine = locationLineOf(value.wrapperLocation);
+  const retryCheckLine = locationLineOf(value.retryCheckLocation);
+  if (!locationLine || !wrapperLine || !retryCheckLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    errorIdentifier: value.errorIdentifier,
+    wrapperExpression: value.wrapperExpression,
+    retryCode: value.retryCode,
+    locationLine,
+    wrapperLine,
+    retryCheckLine,
   };
 }
 

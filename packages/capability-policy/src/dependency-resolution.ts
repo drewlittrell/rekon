@@ -62,6 +62,16 @@ type DependencyExplicitSourceFlow = {
   expansionLine: number;
 };
 
+type AutoImportPathPreferenceFlow = {
+  path: string;
+  caller: string;
+  importedFileBinding: string;
+  candidateBinding: string;
+  guardExpression: string;
+  locationLine: number;
+  guardLine: number;
+};
+
 export function evaluateDependencyResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -89,9 +99,63 @@ export function evaluateDependencyResolutionSignals(
       flow !== undefined && !isNonProductionPath(flow.path))
     .sort((left, right) => left.path.localeCompare(right.path) || left.locationLine - right.locationLine)
     .map((flow) => dependencyExplicitSourceAssessment(flow, evidenceRef));
-  return [...overwriteAssessments, ...bypassAssessments, ...ambiguityAssessments, ...explicitSourceAssessments].sort((left, right) =>
+  const pathPreferenceAssessments = dependencyFacts
+    .map(parseAutoImportPathPreferenceFlow)
+    .filter((flow): flow is AutoImportPathPreferenceFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => autoImportPathPreferenceAssessment(flow, evidenceRef));
+  return [...overwriteAssessments, ...bypassAssessments, ...ambiguityAssessments, ...explicitSourceAssessments, ...pathPreferenceAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function autoImportPathPreferenceAssessment(
+  flow: AutoImportPathPreferenceFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    importedFileBinding: flow.importedFileBinding,
+    candidateBinding: flow.candidateBinding,
+    guardExpression: flow.guardExpression,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    impact: "medium",
+    title: `Possible auto-import path preference mismatch in ${flow.path}`,
+    description:
+      `${flow.caller} admits ${flow.candidateBinding} through ${flow.guardExpression} without a visible auto-import mode exception. A relative path through another package's node_modules can outrank a local monorepo path and produce an inaccessible or non-portable import.`,
+    subjects: [flow.path, flow.caller, flow.candidateBinding],
+    files: [flow.path],
+    ruleId: SEMANTIC_DEPENDENCY_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Exercise auto-import from a symlinked monorepo package where one candidate traverses node_modules, then prefer the locally reachable module specifier.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.88,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves module-specifier ranking uses node_modules membership without an auto-import distinction; the host's actual path candidates and portability outcome remain to be verified.",
+    },
+    details: {
+      problemClass: "dependency-resolution",
+      structuredMechanism: "auto-import-node-modules-relative-preference",
+      caller: flow.caller,
+      importedFileBinding: flow.importedFileBinding,
+      candidateBinding: flow.candidateBinding,
+      guardExpression: flow.guardExpression,
+      sourceEvidence: [
+        { path: flow.path, lineStart: flow.locationLine, lineEnd: flow.locationLine },
+        { path: flow.path, lineStart: flow.guardLine, lineEnd: flow.guardLine },
+      ],
+    },
+  };
 }
 
 function dependencyExplicitSourceAssessment(
@@ -424,6 +488,31 @@ function parseDependencyExplicitSourceFlow(
     explicitModuleExpression: value.explicitModuleExpression,
     locationLine: value.location.line,
     expansionLine: value.expansionLocation.line,
+  };
+}
+
+function parseAutoImportPathPreferenceFlow(
+  fact: EvidenceFactLike,
+): AutoImportPathPreferenceFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "auto-import-node-modules-relative-preference"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.importedFileBinding !== "string"
+    || typeof value.candidateBinding !== "string"
+    || typeof value.guardExpression !== "string"
+    || !isLocation(value.location)
+    || !isLocation(value.guardLocation)) {
+    return undefined;
+  }
+  return {
+    path: value.source,
+    caller: value.caller,
+    importedFileBinding: value.importedFileBinding,
+    candidateBinding: value.candidateBinding,
+    guardExpression: value.guardExpression,
+    locationLine: value.location.line,
+    guardLine: value.guardLocation.line,
   };
 }
 

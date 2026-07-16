@@ -1318,3 +1318,147 @@ test("semantic policies project the expanded structured mechanisms into assessme
     );
   }
 });
+
+test("semantic policies project fifth-case structured mechanisms without promotion", () => {
+  const ref = { type: "EvidenceGraph", id: "fifth-semantic-evidence", schemaVersion: "0.1.0" };
+  const cases = [
+    {
+      mechanism: "validator-zero-freshness-not-stored",
+      evaluate: (fact) => evaluateCacheIntegritySignals([fact], ref),
+      fact: {
+        kind: "cache_flow",
+        value: {
+          source: "src/cache.ts",
+          caller: "determineStaleAt",
+          mechanism: "validator-zero-freshness-not-stored",
+          directiveBinding: "maxAge",
+          staleExpression: "maxAge > 0 ? maxAge * 1000 : undefined",
+          location: { line: 428 },
+          returnLocation: { line: 441 },
+        },
+      },
+    },
+    {
+      mechanism: "pending-callbacks-not-settled-on-close",
+      evaluate: (fact) => evaluateCleanupCompletenessSignals([fact], ref),
+      fact: {
+        kind: "cleanup_flow",
+        value: {
+          source: "src/device.ts",
+          caller: "Device._close",
+          mechanism: "pending-callbacks-not-settled-on-close",
+          callbackCollection: "this._callbacks",
+          registrationMethod: "_send",
+          closeMethod: "_close",
+          location: { line: 260 },
+          registrationLocation: { line: 251 },
+          closeLocation: { line: 260 },
+        },
+      },
+    },
+    {
+      mechanism: "auto-import-node-modules-relative-preference",
+      evaluate: (fact) => evaluateDependencyResolutionSignals([fact], ref),
+      fact: {
+        kind: "dependency_flow",
+        value: {
+          source: "src/moduleSpecifiers.ts",
+          caller: "computeModuleSpecifiers",
+          mechanism: "auto-import-node-modules-relative-preference",
+          importedFileBinding: "importedFileIsInNodeModules",
+          candidateBinding: "modulePath",
+          guardExpression: "!importedFileIsInNodeModules || modulePath.isInNodeModules",
+          location: { line: 353 },
+          guardLocation: { line: 424 },
+        },
+      },
+    },
+    {
+      mechanism: "error-code-lost-by-wrapping",
+      evaluate: (fact) => evaluateErrorPropagationSignals([fact], ref),
+      fact: {
+        kind: "error_flow",
+        value: {
+          source: "src/fetch.ts",
+          caller: "_sendRequest",
+          action: "wrap",
+          mechanism: "error-code-lost-by-wrapping",
+          errorIdentifier: "error",
+          wrapperExpression: "new Error(error.message)",
+          retryCode: "ECONNRESET",
+          location: { line: 524 },
+          wrapperLocation: { line: 526 },
+          retryCheckLocation: { line: 300 },
+        },
+      },
+    },
+    {
+      mechanism: "mode-specific-default-unconditionally-forced",
+      evaluate: (fact) => evaluateOptionPropagationSignals([fact], ref),
+      fact: {
+        kind: "option_flow",
+        value: {
+          source: "src/config.ts",
+          caller: "configure",
+          mechanism: "mode-specific-default-unconditionally-forced",
+          property: "preTransformRequests",
+          defaultExpression: "false",
+          modeSignal: "browserEnabled",
+          assignmentKind: "assignment",
+          location: { line: 83 },
+          modeLocation: { line: 26 },
+        },
+      },
+    },
+    {
+      mechanism: "server-owned-browsers-not-closed",
+      evaluate: (fact) => evaluateResourceLifetimeSignals([fact], ref, { evidenceComplete: false }),
+      fact: {
+        kind: "resource_flow",
+        value: {
+          source: "src/server.ts",
+          caller: "PlaywrightServer.close",
+          action: "retain",
+          mechanism: "server-owned-browsers-not-closed",
+          owner: "this._playwright",
+          browserCollection: "this._playwright.allBrowsers()",
+          transportCloseExpression: "this._wsServer.close()",
+          location: { line: 320 },
+          ownershipLocation: { line: 192 },
+          transportCloseLocation: { line: 321 },
+        },
+      },
+    },
+    {
+      mechanism: "nested-loop-head-reinitialization-missing",
+      evaluate: (fact) => evaluateScopeResolutionSignals([fact], ref),
+      fact: {
+        kind: "scope_model",
+        value: {
+          source: "src/scope.ts",
+          caller: "transformBlockScopedVariable",
+          mechanism: "nested-loop-head-reinitialization-missing",
+          pathParameter: "path",
+          loopCondition: "isInLoop(path) && !isVarInLoopHead(path)",
+          initializationExpression: "t.buildUndefinedNode()",
+          location: { line: 177 },
+          conditionLocation: { line: 196 },
+          initializationLocation: { line: 204 },
+        },
+      },
+    },
+  ];
+
+  for (const entry of cases) {
+    const assessments = entry.evaluate(entry.fact);
+    assert.equal(assessments.length, 1, entry.mechanism);
+    assert.equal(assessments[0].details.structuredMechanism, entry.mechanism);
+    assert.equal(assessments[0].kind, "semantic_claim");
+    assert.equal(assessments[0].confidence.verification, "unverified");
+    assert.deepEqual(
+      entry.evaluate({ ...entry.fact, value: { ...entry.fact.value, mechanism: "unrelated" } }),
+      [],
+      `${entry.mechanism} rejects unrelated facts`,
+    );
+  }
+});

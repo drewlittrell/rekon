@@ -363,6 +363,39 @@ test("defect identity accepts bounded absence evidence for teardown and referenc
   }), false);
 });
 
+test("defect identity accepts bounded lifecycle absence evidence for callbacks and owned browsers", () => {
+  const pendingCallbacks = {
+    details: {
+      structuredMechanism: "pending-callbacks-not-settled-on-close",
+      sourceEvidence: [{ lineStart: 10 }, { lineStart: 20 }, { lineStart: 30 }],
+    },
+  };
+  const ownedBrowsers = {
+    details: {
+      problemClass: "resource-lifetime",
+      structuredMechanism: "server-owned-browsers-not-closed",
+      releaseMatch: "absent-in-close",
+      sourceEvidence: [{ lineStart: 40 }, { lineStart: 50 }, { lineStart: 60 }],
+    },
+  };
+
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: pendingCallbacks,
+    changedLines: new Set(),
+    problemClass: "cleanup-completeness",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: ownedBrowsers,
+    changedLines: new Set(),
+    problemClass: "resource-lifetime",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { ...ownedBrowsers.details, releaseMatch: "matched" } },
+    changedLines: new Set(),
+    problemClass: "resource-lifetime",
+  }), false);
+});
+
 test("paired emission requires defect evidence in every affected buggy path", () => {
   const pair = {
     id: "cleanup-pair",

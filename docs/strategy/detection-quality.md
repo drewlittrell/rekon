@@ -336,18 +336,22 @@ state, and no returned cleanup. The pinned Automerge pair retains the stale
 continuation on the buggy revision and clears after cleanup prevents a
 superseded URL set from overwriting newer state.
 
-A fourth source-grounded pair now covers each semantic class without widening
-generic syntax rules: normalized cache-key guards, teardown scheduling under
-early stop, explicit ambient-module expansion, abort-reason loss, defaults
-after user option spreads, abort-listener settlement cleanup, and class-property
-reference positions. Each mechanism is deterministic evidence projected to an
-assessment, validated against a pinned public fix, and adjudicated by direct
-source review during calibration.
+A fourth source-grounded pair covers normalized cache-key guards, teardown
+scheduling under early stop, explicit ambient-module expansion, abort-reason
+loss, defaults after user option spreads, abort-listener settlement cleanup,
+and class-property reference positions.
 
-All seven semantic classes have four independent positive pairs. All remain
-below the five-adjudication usefulness minimum, which is
-recorded in the compact baseline rather than reduced to fit the available data.
-Its token and cost totals cover the ten model-adjudicated pairs only; eighteen newer
+A fifth pair per class covers revalidation-only cache storage, pending
+callbacks during close, auto-import path ranking, retry-code loss through error
+wrapping, mode-specific defaults, server-owned browser shutdown, and nested
+loop-head initialization. Each mechanism is deterministic evidence projected
+to an assessment, validated against a pinned public fix, and adjudicated by
+direct source review.
+
+All seven semantic classes now meet the five-adjudication usefulness minimum
+and are marked calibrated in the compact baseline. This status measures paired
+emitter usefulness; it does not promote production assessments to findings.
+Token and cost totals cover the ten model-adjudicated pairs only; 25 newer
 pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source

@@ -42,6 +42,17 @@ type TeardownInterruptionFlow = {
   dispatcherLine: number;
 };
 
+type PendingCallbackCleanupFlow = {
+  path: string;
+  caller: string;
+  callbackCollection: string;
+  registrationMethod: string;
+  closeMethod: string;
+  locationLine: number;
+  registrationLine: number;
+  closeLine: number;
+};
+
 const CLEANUP_CALLER_NAMES = new Set([
   "cleanup",
   "close",
@@ -73,9 +84,63 @@ export function evaluateCleanupCompletenessSignals(
     .filter((flow): flow is TeardownInterruptionFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => teardownInterruptionAssessment(flow, evidenceRef));
-  return [...lifecycleAssessments, ...asyncEffectAssessments, ...teardownAssessments].sort((left, right) =>
+  const pendingCallbackAssessments = cleanupFacts
+    .map(parsePendingCallbackCleanupFlow)
+    .filter((flow): flow is PendingCallbackCleanupFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => pendingCallbackCleanupAssessment(flow, evidenceRef));
+  return [...lifecycleAssessments, ...asyncEffectAssessments, ...teardownAssessments, ...pendingCallbackAssessments].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function pendingCallbackCleanupAssessment(
+  flow: PendingCallbackCleanupFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    callbackCollection: flow.callbackCollection,
+    registrationMethod: flow.registrationMethod,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    impact: "high",
+    title: `Possible unsettled callbacks during close in ${flow.path}`,
+    description:
+      `${flow.registrationMethod} stores Promise continuations in ${flow.callbackCollection}, but ${flow.closeMethod} does not visibly reject and clear that collection. In-flight operations can remain pending after the owning resource closes.`,
+    subjects: [flow.path, flow.caller, flow.callbackCollection],
+    files: [flow.path],
+    ruleId: SEMANTIC_CLEANUP_COMPLETENESS_RULE_ID,
+    suggestedAction:
+      `Close the resource with an in-flight ${flow.registrationMethod} call and verify every entry in ${flow.callbackCollection} is rejected and removed.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.93,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves Promise continuation registration in a callback collection and a lifecycle implementation with no visible reject-and-clear drain; whether close can race an in-flight operation remains to be verified.",
+    },
+    details: {
+      problemClass: "cleanup-completeness",
+      structuredMechanism: "pending-callbacks-not-settled-on-close",
+      caller: flow.caller,
+      callbackCollection: flow.callbackCollection,
+      registrationMethod: flow.registrationMethod,
+      closeMethod: flow.closeMethod,
+      sourceEvidence: uniqueLines([
+        flow.locationLine,
+        flow.registrationLine,
+        flow.closeLine,
+      ]).map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function teardownInterruptionAssessment(
@@ -326,6 +391,34 @@ function parseTeardownInterruptionFlow(
     locationLine,
     teardownLine,
     dispatcherLine,
+  };
+}
+
+function parsePendingCallbackCleanupFlow(
+  fact: EvidenceFactLike,
+): PendingCallbackCleanupFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "pending-callbacks-not-settled-on-close"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.callbackCollection !== "string"
+    || typeof value.registrationMethod !== "string"
+    || typeof value.closeMethod !== "string") {
+    return undefined;
+  }
+  const locationLine = locationLineOf(value.location);
+  const registrationLine = locationLineOf(value.registrationLocation);
+  const closeLine = locationLineOf(value.closeLocation);
+  if (!locationLine || !registrationLine || !closeLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    callbackCollection: value.callbackCollection,
+    registrationMethod: value.registrationMethod,
+    closeMethod: value.closeMethod,
+    locationLine,
+    registrationLine,
+    closeLine,
   };
 }
 

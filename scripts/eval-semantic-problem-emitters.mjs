@@ -14,14 +14,19 @@ import {
   extractAsyncEffectContinuationEvidence,
   extractCacheContractEvidence,
   extractCacheKeyNormalizationEvidence,
+  extractCacheRevalidationEvidence,
   extractPromiseCacheRejectionEvidence,
   extractCleanupCompletenessEvidence,
+  extractPendingCallbackCleanupEvidence,
   extractDefaultOptionOverrideEvidence,
+  extractModeDefaultOverrideEvidence,
+  extractAutoImportPathPreferenceEvidence,
   extractDependencyCandidateBypassEvidence,
   extractDependencyExplicitSourceEvidence,
   extractDependencyNamespaceAmbiguityEvidence,
   extractDependencyResolutionEvidence,
   extractErrorControlFlowEvidence,
+  extractErrorCodeWrappingEvidence,
   extractErrorReasonPropagationEvidence,
   extractPromiseEventErrorBridgeEvidence,
   extractOptionFalsyDefaultEvidence,
@@ -29,8 +34,10 @@ import {
   extractRequestSignalForwardingEvidence,
   extractScopeResolutionEvidence,
   extractResourceLifetimeEvidence,
+  extractOwnedBrowserLifetimeEvidence,
   extractTerminalEventListenerEvidence,
   extractReferencePositionEvidence,
+  extractNestedLoopInitializationEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
   extractTeardownInterruptionEvidence,
@@ -151,14 +158,16 @@ for (const pair of selectedPairs) {
   if (pair.claim.category === "cache-integrity"
     && (pair.structuredEvidence === "cache-contract"
       || pair.structuredEvidence === "promise-cache-rejection"
-      || pair.structuredEvidence === "cache-key-normalization")) {
+      || pair.structuredEvidence === "cache-key-normalization"
+      || pair.structuredEvidence === "cache-revalidation")) {
     runs.push(...await evaluateCacheIntegrityPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "cleanup-completeness"
     && (pair.structuredEvidence === "cleanup-contract"
       || pair.structuredEvidence === "async-effect-continuation"
-      || pair.structuredEvidence === "teardown-interruption")) {
+      || pair.structuredEvidence === "teardown-interruption"
+      || pair.structuredEvidence === "pending-callback-cleanup")) {
     runs.push(...await evaluateCleanupContractPair(pair, repository));
     continue;
   }
@@ -169,14 +178,16 @@ for (const pair of selectedPairs) {
   if (pair.claim.category === "option-propagation"
     && (pair.structuredEvidence === "option-falsy-default"
       || pair.structuredEvidence === "request-signal-forwarding"
-      || pair.structuredEvidence === "default-option-override")) {
+      || pair.structuredEvidence === "default-option-override"
+      || pair.structuredEvidence === "mode-default-override")) {
     runs.push(...await evaluateOptionPropagationPair(pair, repository));
     continue;
   }
   if (pair.claim.category === "scope-resolution"
     && (pair.structuredEvidence === "scope-name-resolution"
       || pair.structuredEvidence === "scope-traversal-escape"
-      || pair.structuredEvidence === "reference-position")) {
+      || pair.structuredEvidence === "reference-position"
+      || pair.structuredEvidence === "nested-loop-initialization")) {
     runs.push(...await evaluateScopeResolutionPair(pair, repository));
     continue;
   }
@@ -421,6 +432,7 @@ async function evaluateDependencyResolutionPair(pair, repository) {
     const dependencyCandidateBypass = extractDependencyCandidateBypassEvidence({ path, content: text });
     const dependencyNamespaceAmbiguity = extractDependencyNamespaceAmbiguityEvidence({ path, content: text });
     const dependencyExplicitSource = extractDependencyExplicitSourceEvidence({ path, content: text });
+    const autoImportPathPreference = extractAutoImportPathPreferenceEvidence({ path, content: text });
     const facts = dependencyFlow.map((entry) => ({
       kind: "dependency_flow",
       subject: `${path}:${entry.caller}:${entry.selectedBinding}:${entry.selectionLocation.line}`,
@@ -488,6 +500,19 @@ async function evaluateDependencyResolutionPair(pair, repository) {
         explicitModuleExpression: entry.explicitModuleExpression,
         location: entry.location,
         expansionLocation: entry.expansionLocation,
+      },
+    }))).concat(autoImportPathPreference.map((entry) => ({
+      kind: "dependency_flow",
+      subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        mechanism: entry.mechanism,
+        importedFileBinding: entry.importedFileBinding,
+        candidateBinding: entry.candidateBinding,
+        guardExpression: entry.guardExpression,
+        location: entry.location,
+        guardLocation: entry.guardLocation,
       },
     })));
     const matching = evaluateDependencyResolutionSignals(facts, evidenceRef);
@@ -600,7 +625,9 @@ async function evaluateOptionPropagationPair(pair, repository) {
         fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
       ]);
       const sha256 = createHash("sha256").update(text).digest("hex");
-      const optionFlow = pair.structuredEvidence === "request-signal-forwarding"
+      const optionFlow = pair.structuredEvidence === "mode-default-override"
+        ? extractModeDefaultOverrideEvidence({ path, content: text })
+        : pair.structuredEvidence === "request-signal-forwarding"
         ? extractRequestSignalForwardingEvidence({ path, content: text })
         : pair.structuredEvidence === "default-option-override"
           ? extractDefaultOptionOverrideEvidence({ path, content: text })
@@ -610,7 +637,19 @@ async function evaluateOptionPropagationPair(pair, repository) {
         subject: pair.structuredEvidence === "request-signal-forwarding"
           ? `${path}:${entry.caller}:${entry.requestBinding}:${entry.location.line}`
           : `${path}:${entry.caller}:${entry.property}:${entry.location.line}`,
-        value: pair.structuredEvidence === "request-signal-forwarding"
+        value: pair.structuredEvidence === "mode-default-override"
+          ? {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              property: entry.property,
+              defaultExpression: entry.defaultExpression,
+              modeSignal: entry.modeSignal,
+              assignmentKind: entry.assignmentKind,
+              location: entry.location,
+              modeLocation: entry.modeLocation,
+            }
+          : pair.structuredEvidence === "request-signal-forwarding"
           ? {
               source: path,
               caller: entry.caller,
@@ -776,19 +815,35 @@ async function evaluateScopeResolutionPair(pair, repository) {
       fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
-    const scopeFlow = pair.structuredEvidence === "scope-traversal-escape"
+    const scopeFlow = pair.structuredEvidence === "nested-loop-initialization"
+      ? extractNestedLoopInitializationEvidence({ path, content: text })
+      : pair.structuredEvidence === "scope-traversal-escape"
       ? extractScopeTraversalEscapeEvidence({ path, content: text })
       : pair.structuredEvidence === "reference-position"
         ? extractReferencePositionEvidence({ path, content: text })
         : extractScopeNameResolutionEvidence({ path, content: text });
     const facts = scopeFlow.map((entry) => ({
       kind: "scope_model",
-      subject: pair.structuredEvidence === "scope-traversal-escape"
+      subject: pair.structuredEvidence === "nested-loop-initialization"
+        ? `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`
+        : pair.structuredEvidence === "scope-traversal-escape"
         ? `${path}:${entry.visitor}:${entry.mechanism}:${entry.location.line}`
         : pair.structuredEvidence === "reference-position"
           ? `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`
           : `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
-      value: pair.structuredEvidence === "scope-traversal-escape"
+      value: pair.structuredEvidence === "nested-loop-initialization"
+        ? {
+            source: path,
+            caller: entry.caller,
+            mechanism: entry.mechanism,
+            pathParameter: entry.pathParameter,
+            loopCondition: entry.loopCondition,
+            initializationExpression: entry.initializationExpression,
+            location: entry.location,
+            conditionLocation: entry.conditionLocation,
+            initializationLocation: entry.initializationLocation,
+          }
+        : pair.structuredEvidence === "scope-traversal-escape"
         ? {
             source: path,
             mechanism: entry.mechanism,
@@ -955,7 +1010,21 @@ async function evaluateCacheIntegrityPair(pair, repository) {
       fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
-    const facts = pair.structuredEvidence === "promise-cache-rejection"
+    const facts = pair.structuredEvidence === "cache-revalidation"
+      ? extractCacheRevalidationEvidence({ path, content: text }).map((entry) => ({
+        kind: "cache_flow",
+        subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+        value: {
+          source: path,
+          caller: entry.caller,
+          mechanism: entry.mechanism,
+          directiveBinding: entry.directiveBinding,
+          staleExpression: entry.staleExpression,
+          location: entry.location,
+          returnLocation: entry.returnLocation,
+        },
+      }))
+      : pair.structuredEvidence === "promise-cache-rejection"
       ? extractPromiseCacheRejectionEvidence({ path, content: text }).map((entry) => ({
         kind: "cache_flow",
         subject: `${path}:${entry.caller}:${entry.cacheBinding}:${entry.location.line}`,
@@ -1119,7 +1188,9 @@ async function evaluateCleanupContractPair(pair, repository) {
         fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
       ]);
       const sha256 = createHash("sha256").update(text).digest("hex");
-      const cleanupFlow = pair.structuredEvidence === "async-effect-continuation"
+      const cleanupFlow = pair.structuredEvidence === "pending-callback-cleanup"
+        ? extractPendingCallbackCleanupEvidence({ path, content: text })
+        : pair.structuredEvidence === "async-effect-continuation"
         ? extractAsyncEffectContinuationEvidence({ path, content: text })
         : pair.structuredEvidence === "teardown-interruption"
           ? extractTeardownInterruptionEvidence({ path, content: text })
@@ -1127,7 +1198,19 @@ async function evaluateCleanupContractPair(pair, repository) {
       const facts = cleanupFlow.map((entry) => ({
         kind: "cleanup_flow",
         subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
-        value: pair.structuredEvidence === "async-effect-continuation"
+        value: pair.structuredEvidence === "pending-callback-cleanup"
+          ? {
+              source: path,
+              caller: entry.caller,
+              mechanism: entry.mechanism,
+              callbackCollection: entry.callbackCollection,
+              registrationMethod: entry.registrationMethod,
+              closeMethod: entry.closeMethod,
+              location: entry.location,
+              registrationLocation: entry.registrationLocation,
+              closeLocation: entry.closeLocation,
+            }
+          : pair.structuredEvidence === "async-effect-continuation"
           ? {
               source: path,
               caller: entry.caller,
@@ -1280,6 +1363,7 @@ async function evaluateErrorPropagationPair(pair, repository) {
     const errorReasonPropagation = extractErrorReasonPropagationEvidence({ path, content: text });
     const promiseEventErrorBridges = extractPromiseEventErrorBridgeEvidence({ path, content: text });
     const abortReasonDrops = extractAbortReasonDropEvidence({ path, content: text });
+    const errorCodeWrappers = extractErrorCodeWrappingEvidence({ path, content: text });
     const facts = errorControlFlow.map((entry) => ({
       kind: "error_flow",
       subject: `${path}:${entry.caller}:${entry.action}:${entry.location.line}`,
@@ -1339,6 +1423,21 @@ async function evaluateErrorPropagationPair(pair, repository) {
         location: entry.location,
         cancellationLocation: entry.cancellationLocation,
         signalLocation: entry.signalLocation,
+      },
+    }))).concat(errorCodeWrappers.map((entry) => ({
+      kind: "error_flow",
+      subject: `${path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+      value: {
+        source: path,
+        caller: entry.caller,
+        action: "wrap",
+        mechanism: entry.mechanism,
+        errorIdentifier: entry.errorIdentifier,
+        wrapperExpression: entry.wrapperExpression,
+        retryCode: entry.retryCode,
+        location: entry.location,
+        wrapperLocation: entry.wrapperLocation,
+        retryCheckLocation: entry.retryCheckLocation,
       },
     })));
     const matching = evaluateErrorPropagationSignals(facts, evidenceRef);
@@ -1480,7 +1579,24 @@ async function evaluateResourceLifetimePair(pair, repository) {
     const primary = sourceByPath.get(primaryPath);
     if (!primary) throw new Error(`${pair.id}: missing primary source ${primaryPath}.`);
     const facts = sourceRows.flatMap((source) =>
-      pair.structuredEvidence === "terminal-event-listener"
+      pair.structuredEvidence === "owned-browser-lifetime"
+        ? extractOwnedBrowserLifetimeEvidence({ path: source.path, content: source.text }).map((entry) => ({
+          kind: "resource_flow",
+          subject: `${source.path}:${entry.caller}:${entry.mechanism}:${entry.location.line}`,
+          value: {
+            source: source.path,
+            caller: entry.caller,
+            action: "retain",
+            mechanism: entry.mechanism,
+            owner: entry.owner,
+            browserCollection: entry.browserCollection,
+            transportCloseExpression: entry.transportCloseExpression,
+            location: entry.location,
+            ownershipLocation: entry.ownershipLocation,
+            transportCloseLocation: entry.transportCloseLocation,
+          },
+        }))
+        : pair.structuredEvidence === "terminal-event-listener"
         ? extractTerminalEventListenerEvidence({ path: source.path, content: source.text }).map((entry) => ({
           kind: "resource_flow",
           subject: `${source.path}:${entry.target}:${entry.eventName}:${entry.handlerName}`,

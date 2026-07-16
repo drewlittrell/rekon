@@ -45,6 +45,17 @@ type DefaultOptionOverrideFlow = {
   objectLine: number;
 };
 
+type ModeDefaultOverrideFlow = {
+  path: string;
+  caller: string;
+  property: string;
+  defaultExpression: string;
+  modeSignal: string;
+  assignmentKind: "property" | "assignment";
+  line: number;
+  modeLine: number;
+};
+
 export function evaluateOptionPropagationSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
@@ -65,9 +76,62 @@ export function evaluateOptionPropagationSignals(
     .filter((flow): flow is DefaultOptionOverrideFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
     .map((flow) => defaultOptionOverrideAssessment(flow, evidenceRef));
-  return [...falsyDefaults, ...derivedSignals, ...defaultOverrides].sort((left, right) =>
+  const modeDefaults = optionFacts
+    .map(parseModeDefaultOverride)
+    .filter((flow): flow is ModeDefaultOverrideFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => modeDefaultOverrideAssessment(flow, evidenceRef));
+  return [...falsyDefaults, ...derivedSignals, ...defaultOverrides, ...modeDefaults].sort((left, right) =>
     (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
       || firstEvidenceLine(left) - firstEvidenceLine(right));
+}
+
+function modeDefaultOverrideAssessment(
+  flow: ModeDefaultOverrideFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    caller: flow.caller,
+    property: flow.property,
+    modeSignal: flow.modeSignal,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_OPTION_PROPAGATION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+    impact: "medium",
+    title: `Possible cross-mode default override in ${flow.path}`,
+    description:
+      `${flow.caller} forces ${flow.property} to ${flow.defaultExpression} without a visible ${flow.modeSignal} guard even though the source configures browser and non-browser modes. A Node-specific default can therefore replace the downstream browser default.`,
+    subjects: [flow.path, flow.caller, flow.property, flow.modeSignal],
+    files: [flow.path],
+    ruleId: SEMANTIC_OPTION_PROPAGATION_RULE_ID,
+    suggestedAction:
+      `Resolve ${flow.property} in both browser and non-browser modes, then apply the explicit default only inside the mode where Rekon can prove it is owned.`,
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.9,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves the same source carries a browser-mode signal while assigning a false default outside a mode guard; the downstream framework's defaults remain to be verified.",
+    },
+    details: {
+      problemClass: "option-propagation",
+      structuredMechanism: "mode-specific-default-unconditionally-forced",
+      caller: flow.caller,
+      property: flow.property,
+      defaultExpression: flow.defaultExpression,
+      modeSignal: flow.modeSignal,
+      assignmentKind: flow.assignmentKind,
+      sourceEvidence: [...new Set([flow.line, flow.modeLine])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+    },
+  };
 }
 
 function defaultOptionOverrideAssessment(
@@ -307,6 +371,32 @@ function parseDefaultOptionOverride(fact: EvidenceFactLike): DefaultOptionOverri
     line,
     spreadLine,
     objectLine,
+  };
+}
+
+function parseModeDefaultOverride(fact: EvidenceFactLike): ModeDefaultOverrideFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "mode-specific-default-unconditionally-forced"
+    || typeof value.source !== "string"
+    || typeof value.caller !== "string"
+    || typeof value.property !== "string"
+    || typeof value.defaultExpression !== "string"
+    || typeof value.modeSignal !== "string"
+    || (value.assignmentKind !== "property" && value.assignmentKind !== "assignment")) {
+    return undefined;
+  }
+  const line = locationLineOf(value.location);
+  const modeLine = locationLineOf(value.modeLocation);
+  if (!line || !modeLine) return undefined;
+  return {
+    path: value.source,
+    caller: value.caller,
+    property: value.property,
+    defaultExpression: value.defaultExpression,
+    modeSignal: value.modeSignal,
+    assignmentKind: value.assignmentKind,
+    line,
+    modeLine,
   };
 }
 

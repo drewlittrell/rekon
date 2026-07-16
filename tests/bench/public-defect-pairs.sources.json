@@ -719,6 +719,141 @@
       "structuredEvidence": "reference-position",
       "affectedPaths": ["packages/mocker/src/node/esmWalker.ts"],
       "testPaths": ["test/core/test/injector-mock.test.ts"]
+    },
+    {
+      "id": "undici-revalidation-only-cache-storage",
+      "repository": "undici",
+      "buggyCommit": "cb4c2f1f7231d82bd699aa3a09efb5a235faaa3b",
+      "fixedCommit": "038c4f6d3d2821c252b988114af8d56d6cb20565",
+      "upstream": {
+        "fixUrl": "https://github.com/nodejs/undici/pull/5515",
+        "summary": "Validator-backed responses with no-cache or zero freshness were mapped to an absent stale time and skipped storage before conditional revalidation could occur."
+      },
+      "claim": {
+        "category": "cache-integrity",
+        "proof": "upstream-regression-test",
+        "summary": "ETag and Last-Modified responses that required immediate revalidation could never produce conditional requests because the cache discarded them."
+      },
+      "structuredEvidence": "cache-revalidation",
+      "affectedPaths": ["lib/handler/cache-handler.js"],
+      "testPaths": ["test/interceptors/cache.js"]
+    },
+    {
+      "id": "playwright-android-pending-callback-close",
+      "repository": "playwright",
+      "buggyCommit": "5790370e1b5687b82e25256407e723cfc570a0df",
+      "fixedCommit": "6c6c09da9434ee217a1694766ccaf934279d77b8",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/playwright/pull/40722",
+        "summary": "AndroidDevice close tore down drivers and connections without rejecting Promise continuations retained in its pending callback map."
+      },
+      "claim": {
+        "category": "cleanup-completeness",
+        "proof": "upstream-reproduction",
+        "summary": "An in-flight Android command could remain pending forever after its device closed."
+      },
+      "structuredEvidence": "pending-callback-cleanup",
+      "affectedPaths": ["packages/playwright-core/src/server/android/android.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "typescript-auto-import-node-modules-preference",
+      "repository": "typescript",
+      "buggyCommit": "3116b89afea96c48db0384b4accb6adb47895b9f",
+      "fixedCommit": "2b73f7cdee53422427701eb08188105a951cefc8",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/TypeScript/pull/55969",
+        "proofUrls": ["https://github.com/microsoft/TypeScript/issues/52635"],
+        "summary": "Auto-import module-specifier ranking admitted a relative node_modules path ahead of a local path into a symlinked monorepo package."
+      },
+      "claim": {
+        "category": "dependency-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "Auto-import could emit a non-portable path through another package's node_modules instead of the locally reachable module path."
+      },
+      "structuredEvidence": "auto-import-path-preference",
+      "affectedPaths": ["src/compiler/moduleSpecifiers.ts"],
+      "testPaths": ["tests/cases/fourslash/server/autoImportRelativePathToMonorepoPackage.ts"]
+    },
+    {
+      "id": "playwright-decompression-error-code-propagation",
+      "repository": "playwright",
+      "buggyCommit": "de3aa6a7210b14756079d46ef810414b3ae3f5bd",
+      "fixedCommit": "0278a6c7f270d2075fd7d538293632927e156df5",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/playwright/pull/40946",
+        "summary": "The response decompression pipeline replaced network errors with generic Error objects and removed the code used by request retry logic."
+      },
+      "claim": {
+        "category": "error-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "Compressed requests did not retry ECONNRESET failures because decompression error wrapping discarded the causal code."
+      },
+      "structuredEvidence": "error-code-wrapping",
+      "affectedPaths": ["packages/playwright-core/src/server/fetch.ts"],
+      "testPaths": ["tests/library/browsercontext-fetch.spec.ts"]
+    },
+    {
+      "id": "vitest-browser-pretransform-defaults",
+      "repository": "vitest",
+      "buggyCommit": "941bc836167d6c41ded609ed4819084d52dbb226",
+      "fixedCommit": "02b65883cba789347a652ae09e8f234e132f21a0",
+      "upstream": {
+        "fixUrl": "https://github.com/vitest-dev/vitest/pull/10748",
+        "proofUrls": ["https://github.com/vitest-dev/vitest/issues/10745"],
+        "summary": "Vitest unconditionally disabled pre-transform requests and replaced Vite's browser-mode defaults with the Node-mode setting."
+      },
+      "claim": {
+        "category": "option-propagation",
+        "proof": "upstream-regression-test",
+        "summary": "Browser projects inherited a forced false preTransformRequests value instead of preserving the browser client's downstream default."
+      },
+      "structuredEvidence": "mode-default-override",
+      "affectedPaths": [
+        "packages/vitest/src/node/plugins/runnerTransform.ts",
+        "packages/vitest/src/node/plugins/server.ts"
+      ],
+      "testPaths": ["test/e2e/test/config/browser-configs.test.ts"]
+    },
+    {
+      "id": "playwright-server-owned-browser-shutdown",
+      "repository": "playwright",
+      "buggyCommit": "33422838502b19f9850e12a5943ad36afbc98fb2",
+      "fixedCommit": "e641322587790e34e16553fd47a691b0cfa040e5",
+      "upstream": {
+        "fixUrl": "https://github.com/microsoft/playwright/pull/40294",
+        "summary": "PlaywrightServer close stopped the WebSocket server but did not close browsers intentionally retained for extension and reuse connections."
+      },
+      "claim": {
+        "category": "resource-lifetime",
+        "proof": "upstream-reproduction",
+        "summary": "Owned browser processes could outlive server shutdown and keep background connections alive until test teardown timed out."
+      },
+      "structuredEvidence": "owned-browser-lifetime",
+      "affectedPaths": ["packages/playwright-core/src/remote/playwrightServer.ts"],
+      "testPaths": []
+    },
+    {
+      "id": "babel-nested-for-head-initialization",
+      "repository": "babel",
+      "buggyCommit": "66096996a0d51c61e8a1da2f03723817f15e9b1d",
+      "fixedCommit": "10bb892ca534e95fbac7b01c1eacb037f5a38453",
+      "upstream": {
+        "fixUrl": "https://github.com/babel/babel/pull/18088",
+        "proofUrls": ["https://github.com/babel/babel/issues/18087"],
+        "summary": "Block-scope lowering initialized loop-body declarations but omitted uninitialized for-statement heads nested inside another loop."
+      },
+      "claim": {
+        "category": "scope-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "A transformed inner let declaration could retain its prior value and skip later outer-loop iterations."
+      },
+      "structuredEvidence": "nested-loop-initialization",
+      "affectedPaths": ["packages/babel-plugin-transform-block-scoping/src/index.ts"],
+      "testPaths": [
+        "packages/babel-plugin-transform-block-scoping/test/fixtures/general/issue-18087/exec.js",
+        "packages/babel-plugin-transform-block-scoping/test/fixtures/general/issue-18087-indirect/exec.js"
+      ]
     }
   ]
 }

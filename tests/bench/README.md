@@ -245,28 +245,33 @@ The dependency-resolution, cache-integrity, cleanup-completeness,
 error-propagation, option-propagation, scope-resolution, and resource-lifetime
 emitters have a bounded live paired check. Resource-lifetime coverage includes
 both retained connection state and request closures attached to reusable socket
-listeners, plus terminal XHR listeners that remain attached after completion.
+listeners, terminal XHR listeners that remain attached after completion, and
+server-owned browser processes omitted from shutdown.
 Cache-integrity coverage includes both compiled-output integrity and a
 parameter-sensitive cross-call cache contract, plus rejected Promises retained
-by lazy member caches and raw guards that disagree with normalized key inputs.
+by lazy member caches, raw guards that disagree with normalized key inputs, and
+validator-backed zero-freshness entries discarded before revalidation.
 Cleanup-completeness coverage includes semantic
 shutdown-hook analysis, structured lifecycle wait contracts, and
 dependency-bearing React effects whose Promise aggregate continuation updates
 state without returned cleanup, plus teardown phases exposed to early-stop
-policy.
+policy and pending callbacks left unsettled during close.
 Dependency-resolution coverage includes conditional candidate overwrite,
 iterated candidate bypass through a generic token lookup, and first-match
 selection across multiple reference namespaces despite a visible ambiguity
 contract, plus explicit bare module sources expanded through re-exports.
+It also covers auto-import ranking between local and node_modules-relative paths.
 Option-propagation coverage includes callback-backed spread overrides and
 logical-OR defaulting that coerces explicit false values, derived abort signals,
 and defaults assigned after user option spreads.
+It also covers mode-specific defaults applied without a browser-mode guard.
 Scope-resolution coverage includes missing lexical boundaries, name-only
 binding ownership that cannot distinguish shadowed reference occurrences, and
 scope-skipping renamers that omit parent-evaluated switch discriminants, plus
 class-property key reference classification. Error propagation includes empty
-abort rejections, and resource lifetime includes abort listeners retained after
-normal Promise settlement.
+abort rejections and retry codes lost through stream error wrapping. Scope
+resolution also covers nested loop-head initialization during block-scope
+lowering.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -323,9 +328,9 @@ aggregate continuation can update state after a newer effect supersedes it.
 The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
 also records positive-pair counts against the five-adjudication minimum. All
-seven semantic classes have four independent positive pairs and remain
-`insufficient-evidence`. Token and cost totals apply only to the ten pairs
-previously run through the model API.
+seven semantic classes now have five independent positive pairs and are marked
+`calibrated`. Token and cost totals apply only to the ten pairs previously run
+through the model API; 25 newer pairs use direct source review.
 
 ## Corpus retention
 

@@ -65,6 +65,11 @@ export function assessmentMatchesDefectEvidence(input) {
     return true;
   }
   if (input.problemClass === "resource-lifetime") {
+    if (input.assessment?.details?.structuredMechanism === "server-owned-browsers-not-closed") {
+      return input.assessment?.details?.releaseMatch === "absent-in-close"
+        && Array.isArray(input.assessment?.details?.sourceEvidence)
+        && input.assessment.details.sourceEvidence.length >= 2;
+    }
     return input.assessment?.details?.problemClass === "resource-lifetime"
       && Array.isArray(input.assessment?.details?.retentionEvidence)
       && input.assessment.details.retentionEvidence.length > 0;
@@ -75,6 +80,10 @@ export function assessmentMatchesDefectEvidence(input) {
         && input.assessment.details.continuationEvidence.length > 0;
     }
     if (input.assessment?.details?.structuredMechanism === "teardown-shares-stop-policy") {
+      return Array.isArray(input.assessment?.details?.sourceEvidence)
+        && input.assessment.details.sourceEvidence.length >= 2;
+    }
+    if (input.assessment?.details?.structuredMechanism === "pending-callbacks-not-settled-on-close") {
       return Array.isArray(input.assessment?.details?.sourceEvidence)
         && input.assessment.details.sourceEvidence.length >= 2;
     }

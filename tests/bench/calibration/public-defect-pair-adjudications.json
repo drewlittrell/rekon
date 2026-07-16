@@ -210,6 +210,55 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms isRefIdentifier excluded noncomputed method and static property keys but not noncomputed PropertyDefinition keys, causing the mock import walker to classify class field names as value references. Rekon emits semantic.scopeResolution on that missing adjacent reference-position rule and clears when the classifier returns true only for the field initializer; the upstream regression covers import injection around class properties."
+    },
+    {
+      "pairId": "undici-revalidation-only-cache-storage",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms determineStaleAt converted max-age=0 and s-maxage=0 to undefined, so CacheHandler returned before storing validator-backed responses. Rekon emits semantic.cacheIntegrity on that zero-freshness omission and clears when validators permit a zero stale time plus bounded retention; upstream tests verify no-cache and max-age=0 responses issue conditional requests and reuse 304 responses."
+    },
+    {
+      "pairId": "playwright-android-pending-callback-close",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms AndroidDevice._send retained Promise continuations in this._callbacks while _close shut down connections, driver, and backend without settling that map. Rekon emits semantic.cleanupCompleteness on the undrained callback collection and clears when _close rejects every pending callback and clears the map; the upstream reproduction identifies indefinitely pending commands after close."
+    },
+    {
+      "pairId": "typescript-auto-import-node-modules-preference",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms computeModuleSpecifiers admitted a candidate when either the imported file was outside node_modules or the candidate path was inside node_modules, without distinguishing auto-import ranking. Rekon emits semantic.dependencyResolution on that guard and clears when auto-import mode admits the local monorepo path; the upstream fourslash regression verifies the local relative specifier is selected."
+    },
+    {
+      "pairId": "playwright-decompression-error-code-propagation",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms compressed response adapters rejected new Error objects built from the original message while retry policy separately depended on ECONNRESET. Rekon emits semantic.errorPropagation on that code-losing stream wrapper and clears when network errors are rejected unchanged; upstream tests verify retries for both immediate and mid-stream compressed connection resets."
+    },
+    {
+      "pairId": "vitest-browser-pretransform-defaults",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms both Vitest configuration paths forced preTransformRequests=false while browser-mode signals were available but did not guard the assignments. Rekon emits semantic.optionPropagation on both buggy paths and clears when the Node default is applied only outside browser mode; upstream tests verify browser values remain unset while Node values remain false."
+    },
+    {
+      "pairId": "playwright-server-owned-browser-shutdown",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms PlaywrightServer enumerated and launched browsers through its Playwright owner, but close only stopped the WebSocket server. Rekon emits semantic.resourceLifetime on that owner-versus-transport shutdown mismatch and clears when close iterates and closes every owned browser; the upstream CI failure tied leaked Edge processes to worker teardown timeouts."
+    },
+    {
+      "pairId": "babel-nested-for-head-initialization",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms transformBlockScopedVariable injected undefined initialization for loop-body declarations while excluding all loop heads, including an uninitialized for head nested inside an outer loop. Rekon emits semantic.scopeResolution on the missing nested-for exception and clears when nested for-statement initializers are included; upstream direct and indirect fixtures verify each outer iteration executes the inner loop."
     }
   ]
 }
