@@ -102,6 +102,12 @@
       "directory": "automerge-repo",
       "url": "https://github.com/automerge/automerge-repo.git",
       "license": "MIT"
+    },
+    {
+      "id": "babel",
+      "directory": "babel",
+      "url": "https://github.com/babel/babel.git",
+      "license": "MIT"
     }
   ],
   "pairs": [
@@ -520,6 +526,28 @@
       "structuredEvidence": "async-effect-continuation",
       "affectedPaths": ["packages/automerge-repo-react-hooks/src/useDocHandles.ts"],
       "testPaths": ["packages/automerge-repo-react-hooks/test/useDocHandles.test.tsx"]
+    },
+    {
+      "id": "babel-switch-discriminant-shadowing",
+      "repository": "babel",
+      "buggyCommit": "cbdc42fef1ccf1091bb80f10106782424b8477ed",
+      "fixedCommit": "b7ab12913e23d207e284f9872a7e368e39b0d22c",
+      "upstream": {
+        "fixUrl": "https://github.com/babel/babel/pull/17685",
+        "summary": "The binding renamer skipped a switch scope when a case shadowed the renamed identifier but did not revisit the parent-evaluated discriminant, leaving stale identifier references in transformed output."
+      },
+      "claim": {
+        "category": "scope-resolution",
+        "proof": "upstream-regression-test",
+        "summary": "A shadowing declaration in a switch case could prevent the switch discriminant from being renamed with its parent binding."
+      },
+      "structuredEvidence": "scope-traversal-escape",
+      "affectedPaths": ["packages/babel-traverse/src/scope/lib/renamer.ts"],
+      "testPaths": [
+        "packages/babel-plugin-transform-block-scoping/test/fixtures/exec/switch-shadowing.js",
+        "packages/babel-plugin-transform-block-scoping/test/fixtures/regression/issue-17684/input.js",
+        "packages/babel-plugin-transform-block-scoping/test/fixtures/regression/issue-17684/output.js"
+      ]
     }
   ]
 }

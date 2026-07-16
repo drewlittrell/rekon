@@ -249,8 +249,8 @@
     {
       "ruleId": "semantic.scopeResolution",
       "outputKinds": ["semantic_claim"],
-      "evidence": "deterministic scope_model facts identify unmodeled lexical boundaries or binding transforms that resolve reference names from one scope anchor",
-      "jurisdiction": "JavaScript and TypeScript source transformers with visible identifier rewriting, lexical-boundary classification, or name-only binding ownership",
+      "evidence": "deterministic scope_model facts identify unmodeled lexical boundaries, binding transforms that resolve reference names from one scope anchor, or scope-skipping renamers that omit a parent-evaluated switch discriminant",
+      "jurisdiction": "JavaScript and TypeScript source transformers with visible identifier rewriting, lexical-boundary classification, name-only binding ownership, or visitor-style scope skipping with explicit traversal exceptions",
       "remediationUnit": "source file and identifier-scope boundary"
     },
     {

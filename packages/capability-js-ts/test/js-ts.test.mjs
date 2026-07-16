@@ -21,6 +21,7 @@ import capability, {
   extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
+  extractScopeTraversalEscapeEvidence,
   jsTsProvider,
 } from "../dist/index.js";
 
@@ -1468,6 +1469,92 @@ test("scope-model evidence identifies name-only reference ownership in binding t
     assert.equal(facts.length, 1);
     assert.equal(facts[0].value.bindTarget, "bindVars");
     assert.equal(facts[0].value.ownerLookup, "scope.find_owner(ref)");
+    assert.equal(facts[0].provenance.line, facts[0].value.location.line);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("scope-model evidence identifies skipped switch discriminants in binding renamers", async () => {
+  const buggySource = [
+    "const renameVisitor: Visitor<Renamer> = {",
+    "  ReferencedIdentifier({ node }, state) {",
+    "    if (node.name === state.oldName) node.name = state.newName;",
+    "  },",
+    "  Scope(path, state) {",
+    "    if (!path.scope.bindingIdentifierEquals(state.oldName, state.binding.identifier)) {",
+    "      path.skip();",
+    "      if (path.isMethod()) {",
+    "        path.requeueComputedKeyAndDecorators();",
+    "      }",
+    "    }",
+    "  },",
+    "};",
+  ].join("\n");
+  const fixedSource = buggySource.replace(
+    "      }\n    }",
+    [
+      "      }",
+      "      if (path.isSwitchStatement()) {",
+      "        path.context.maybeQueue(path.get(\"discriminant\"));",
+      "      }",
+      "    }",
+    ].join("\n"),
+  );
+
+  const evidence = extractScopeTraversalEscapeEvidence({
+    path: "packages/babel-traverse/src/scope/lib/renamer.ts",
+    content: buggySource,
+  });
+  assert.equal(evidence.length, 1);
+  assert.deepEqual({
+    mechanism: evidence[0].mechanism,
+    visitor: evidence[0].visitor,
+    scopeHandler: evidence[0].scopeHandler,
+    pathParameter: evidence[0].pathParameter,
+    modeledExceptions: evidence[0].modeledExceptions,
+    missingParentEvaluatedChildren: evidence[0].missingParentEvaluatedChildren,
+  }, {
+    mechanism: "switch-discriminant-not-requeued",
+    visitor: "renameVisitor",
+    scopeHandler: "Scope",
+    pathParameter: "path",
+    modeledExceptions: ["method-computed-key-and-decorators"],
+    missingParentEvaluatedChildren: ["SwitchStatement.discriminant"],
+  });
+  assert.deepEqual(extractScopeTraversalEscapeEvidence({
+    path: "packages/babel-traverse/src/scope/lib/renamer.ts",
+    content: fixedSource,
+  }), []);
+  assert.deepEqual(extractScopeTraversalEscapeEvidence({
+    path: "src/ordinary.ts",
+    content: "switch (value) { case 1: { const value = 2; break; } }",
+  }), []);
+  assert.deepEqual(extractScopeTraversalEscapeEvidence({
+    path: "src/visitor.ts",
+    content: buggySource.replace("bindingIdentifierEquals", "hasBinding"),
+  }), []);
+  assert.deepEqual(extractScopeTraversalEscapeEvidence({
+    path: "src/visitor.ts",
+    content: buggySource.replace(
+      "      if (path.isMethod()) {\n        path.requeueComputedKeyAndDecorators();\n      }\n",
+      "",
+    ),
+  }), []);
+
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-scope-traversal-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "renamer.ts"), buggySource, "utf8");
+    const facts = (await jsTsProvider.extract({ repoRoot: root, includeTests: false }))
+      .filter((fact) => fact.kind === "scope_model"
+        && fact.value.mechanism === "switch-discriminant-not-requeued");
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].value.visitor, "renameVisitor");
+    assert.deepEqual(
+      facts[0].value.missingParentEvaluatedChildren,
+      ["SwitchStatement.discriminant"],
+    );
     assert.equal(facts[0].provenance.line, facts[0].value.location.line);
   } finally {
     await rm(root, { recursive: true, force: true });

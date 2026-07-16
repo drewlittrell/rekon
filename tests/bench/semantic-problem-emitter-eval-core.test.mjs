@@ -291,6 +291,42 @@ test("scope-resolution defect identity accepts a cited structured classifier anc
   }), false);
 });
 
+test("scope-resolution defect identity accepts an omitted traversal exception when the fix only adds requeueing", () => {
+  const assessment = {
+    details: {
+      structuredMechanism: "switch-discriminant-not-requeued",
+      traversalEvidence: [{
+        path: "src/renamer.ts",
+        visitor: "renameVisitor",
+        skippedBy: "path.skip()",
+        missingChild: "SwitchStatement.discriminant",
+        line: 22,
+      }],
+      sourceEvidence: [
+        { lineStart: 15, lineEnd: 15 },
+        { lineStart: 17, lineEnd: 17 },
+        { lineStart: 22, lineEnd: 22 },
+      ],
+    },
+  };
+  assert.equal(assessmentChangedLineCoverage(assessment, new Set()), 0);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "scope-resolution",
+  }), true);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment: { details: { ...assessment.details, traversalEvidence: [] } },
+    changedLines: new Set(),
+    problemClass: "scope-resolution",
+  }), false);
+  assert.equal(assessmentMatchesDefectEvidence({
+    assessment,
+    changedLines: new Set(),
+    problemClass: "dependency-resolution",
+  }), false);
+});
+
 test("paired emission requires defect evidence in every affected buggy path", () => {
   const pair = {
     id: "cleanup-pair",

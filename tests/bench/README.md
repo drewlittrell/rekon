@@ -244,8 +244,9 @@ Dependency-resolution coverage includes both conditional candidate overwrite
 and iterated candidate bypass through a generic token lookup.
 Option-propagation coverage includes callback-backed spread overrides and
 logical-OR defaulting that coerces explicit false values.
-Scope-resolution coverage includes missing lexical boundaries and name-only
-binding ownership that cannot distinguish shadowed reference occurrences.
+Scope-resolution coverage includes missing lexical boundaries, name-only
+binding ownership that cannot distinguish shadowed reference occurrences, and
+scope-skipping renamers that omit parent-evaluated switch discriminants.
 
 ```bash
 npm run eval:semantic-problem-emitters
@@ -276,6 +277,9 @@ evidence for a temporary `Request` signal forwarded after caller options are
 spread into a normalized request.
 The Vite RSC shadowing pair uses direct review and structured `scope_model`
 evidence for name-only owner lookup.
+The Babel switch-shadowing pair uses direct review and structured `scope_model`
+evidence for a renamer that skips a shadowing switch scope without revisiting
+its parent-evaluated discriminant.
 The Sentry XHR pair uses direct review and source-local `resource_flow` evidence
 for a named terminal listener without same-handler removal.
 The scope-resolution pair
@@ -291,9 +295,9 @@ aggregate continuation can update state after a newer effect supersedes it.
 The durable aggregate is
 `tests/bench/calibration/semantic-problem-emitter-baseline.json`. That aggregate
 also records positive-pair counts against the five-adjudication minimum. Cache
-integrity, cleanup completeness, error propagation, option propagation, and
-resource lifetime have three independent positive pairs; dependency resolution
-and scope resolution have two. All are still `insufficient-evidence`. Token and
+integrity, cleanup completeness, error propagation, option propagation,
+resource lifetime, and scope resolution have three independent positive pairs;
+dependency resolution has two. All are still `insufficient-evidence`. Token and
 cost totals apply only to the ten pairs previously run through the model API.
 
 ## Corpus retention

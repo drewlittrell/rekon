@@ -147,6 +147,13 @@
       "coverage": "captured",
       "recommendedAction": "calibrate-emitter",
       "rationale": "Direct source review confirms that useDocHandles started Promise.allSettled inside a dependency-bearing React effect and called the useState-derived setHandleMap from its continuation without returning cleanup. Rekon emits semantic.cleanupCompleteness on that superseded-effect path and clears after the fixed revision invalidates the old continuation during cleanup; the upstream regression rerenders before the first lookup resolves and verifies the stale URL set cannot overwrite the current map."
+    },
+    {
+      "pairId": "babel-switch-discriminant-shadowing",
+      "claimVerdict": "valid",
+      "coverage": "captured",
+      "recommendedAction": "calibrate-emitter",
+      "rationale": "Direct source review confirms that Babel's renameVisitor skipped child scopes when bindingIdentifierEquals failed and already requeued method keys and decorators, but did not requeue a SwitchStatement discriminant evaluated in the parent scope. Rekon emits semantic.scopeResolution on that omitted traversal exception and clears after the fixed revision queues path.get(\"discriminant\"); upstream fixtures cover identifier, member, binary, and call-expression discriminants under case-local shadowing."
     }
   ]
 }

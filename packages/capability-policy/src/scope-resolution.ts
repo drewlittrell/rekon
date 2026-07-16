@@ -23,18 +23,39 @@ type NameOnlyScopeFlow = {
   ownerLookupLine: number;
 };
 
+type ScopeTraversalEscapeFlow = {
+  path: string;
+  visitor: string;
+  scopeHandler: string;
+  pathParameter: string;
+  bindingCheck: string;
+  skipExpression: string;
+  modeledExceptions: string[];
+  missingParentEvaluatedChildren: string[];
+  handlerLine: number;
+  bindingCheckLine: number;
+  skipLine: number;
+  exceptionLine: number;
+};
+
 export function evaluateScopeResolutionSignals(
   facts: readonly EvidenceFactLike[],
   evidenceRef: ArtifactRef,
 ): Assessment[] {
-  return facts
-    .filter((fact) => fact.kind === "scope_model")
+  const scopeFacts = facts.filter((fact) => fact.kind === "scope_model");
+  const nameOnlyAssessments = scopeFacts
     .map(parseNameOnlyScopeFlow)
     .filter((flow): flow is NameOnlyScopeFlow =>
       flow !== undefined && !isNonProductionPath(flow.path))
-    .sort((left, right) =>
-      left.path.localeCompare(right.path) || left.collectionLine - right.collectionLine)
     .map((flow) => nameOnlyScopeAssessment(flow, evidenceRef));
+  const traversalAssessments = scopeFacts
+    .map(parseScopeTraversalEscapeFlow)
+    .filter((flow): flow is ScopeTraversalEscapeFlow =>
+      flow !== undefined && !isNonProductionPath(flow.path))
+    .map((flow) => scopeTraversalEscapeAssessment(flow, evidenceRef));
+  return [...nameOnlyAssessments, ...traversalAssessments].sort((left, right) =>
+    (left.files?.[0] ?? "").localeCompare(right.files?.[0] ?? "")
+      || firstEvidenceLine(left) - firstEvidenceLine(right));
 }
 
 function nameOnlyScopeAssessment(
@@ -92,6 +113,69 @@ function nameOnlyScopeAssessment(
   };
 }
 
+function scopeTraversalEscapeAssessment(
+  flow: ScopeTraversalEscapeFlow,
+  evidenceRef: ArtifactRef,
+): Assessment {
+  const fingerprint = digestJson({
+    path: flow.path,
+    visitor: flow.visitor,
+    bindingCheck: flow.bindingCheck,
+    skipExpression: flow.skipExpression,
+    missingParentEvaluatedChildren: flow.missingParentEvaluatedChildren,
+  }).slice(0, 16);
+  const rootCauseKey = `${SEMANTIC_SCOPE_RESOLUTION_RULE_ID}:${flow.path}:${fingerprint}`;
+  return {
+    id: `assessment:${rootCauseKey}`,
+    kind: "semantic_claim",
+    type: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    impact: "high",
+    title: `Possible skipped parent-scope expression in ${flow.path}`,
+    description:
+      `${flow.visitor}.${flow.scopeHandler} skips traversal when ${flow.bindingCheck}, while preserving ${flow.modeledExceptions.join(", ")} but not ${flow.missingParentEvaluatedChildren.join(", ")}. A switch body that shadows the renamed binding can therefore prevent the parent-evaluated discriminant from being rewritten.`,
+    subjects: [flow.path, flow.visitor, ...flow.missingParentEvaluatedChildren],
+    files: [flow.path],
+    ruleId: SEMANTIC_SCOPE_RESOLUTION_RULE_ID,
+    suggestedAction:
+      "Add focused transform fixtures where switch cases shadow identifiers used by identifier, member, binary, and call-expression discriminants, then explicitly revisit the discriminant before skipping the child scope.",
+    evidence: [evidenceRef],
+    rootCauseKey,
+    confidence: {
+      score: 0.92,
+      basis: "deterministic",
+      verification: "unverified",
+      rationale:
+        "AST evidence proves a visitor-style Scope handler skips a shadowed binding, already models another parent-evaluated exception, and omits switch discriminant requeueing; concrete transform corruption still requires focused verification.",
+    },
+    details: {
+      problemClass: "scope-resolution",
+      structuredMechanism: "switch-discriminant-not-requeued",
+      visitor: flow.visitor,
+      scopeHandler: flow.scopeHandler,
+      pathParameter: flow.pathParameter,
+      bindingCheck: flow.bindingCheck,
+      skipExpression: flow.skipExpression,
+      modeledExceptions: flow.modeledExceptions,
+      missingParentEvaluatedChildren: flow.missingParentEvaluatedChildren,
+      sourceEvidence: [...new Set([
+        flow.handlerLine,
+        flow.bindingCheckLine,
+        flow.skipLine,
+        flow.exceptionLine,
+      ])]
+        .sort((left, right) => left - right)
+        .map((line) => ({ path: flow.path, lineStart: line, lineEnd: line })),
+      traversalEvidence: [{
+        path: flow.path,
+        visitor: flow.visitor,
+        skippedBy: flow.skipExpression,
+        missingChild: "SwitchStatement.discriminant",
+        line: flow.skipLine,
+      }],
+    },
+  };
+}
+
 function parseNameOnlyScopeFlow(fact: EvidenceFactLike): NameOnlyScopeFlow | undefined {
   const { value } = fact;
   if (value.mechanism !== "name-only-reference-owner"
@@ -124,8 +208,68 @@ function parseNameOnlyScopeFlow(fact: EvidenceFactLike): NameOnlyScopeFlow | und
   };
 }
 
+function parseScopeTraversalEscapeFlow(
+  fact: EvidenceFactLike,
+): ScopeTraversalEscapeFlow | undefined {
+  const { value } = fact;
+  if (value.mechanism !== "switch-discriminant-not-requeued"
+    || typeof value.source !== "string"
+    || typeof value.visitor !== "string"
+    || typeof value.scopeHandler !== "string"
+    || typeof value.pathParameter !== "string"
+    || typeof value.bindingCheck !== "string"
+    || typeof value.skipExpression !== "string") {
+    return undefined;
+  }
+  const modeledExceptions = stringArray(value.modeledExceptions);
+  const missingParentEvaluatedChildren = stringArray(value.missingParentEvaluatedChildren);
+  const handlerLine = locationLineOf(value.handlerLocation);
+  const bindingCheckLine = locationLineOf(value.bindingCheckLocation);
+  const skipLine = locationLineOf(value.skipLocation);
+  const exceptionLine = locationLineOf(value.exceptionLocation);
+  if (!modeledExceptions.includes("method-computed-key-and-decorators")
+    || !missingParentEvaluatedChildren.includes("SwitchStatement.discriminant")
+    || !handlerLine
+    || !bindingCheckLine
+    || !skipLine
+    || !exceptionLine) {
+    return undefined;
+  }
+  return {
+    path: value.source,
+    visitor: value.visitor,
+    scopeHandler: value.scopeHandler,
+    pathParameter: value.pathParameter,
+    bindingCheck: value.bindingCheck,
+    skipExpression: value.skipExpression,
+    modeledExceptions,
+    missingParentEvaluatedChildren,
+    handlerLine,
+    bindingCheckLine,
+    skipLine,
+    exceptionLine,
+  };
+}
+
 function locationLineOf(value: unknown): number | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const line = (value as { line?: unknown }).line;
   return Number.isInteger(line) && (line as number) > 0 ? line as number : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0))]
+    : [];
+}
+
+function firstEvidenceLine(assessment: Assessment): number {
+  const sourceEvidence = assessment.details?.sourceEvidence;
+  if (!Array.isArray(sourceEvidence)) return Number.MAX_SAFE_INTEGER;
+  const first = sourceEvidence[0];
+  if (!first || typeof first !== "object" || Array.isArray(first)) return Number.MAX_SAFE_INTEGER;
+  const lineStart = (first as { lineStart?: unknown }).lineStart;
+  return typeof lineStart === "number" && Number.isInteger(lineStart)
+    ? lineStart
+    : Number.MAX_SAFE_INTEGER;
 }

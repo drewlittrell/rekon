@@ -129,6 +129,12 @@ without returned cleanup. Actual rejection behavior, effect scheduling, and
 retained runtime state remain autonomous judgment or focused verification
 questions.
 
+Scope-resolution policy consumes `scope_model` facts for name-only binding
+ownership and scope-skipping renamers. The traversal mechanism requires an
+existing parent-scope exception for method keys and decorators but no
+corresponding switch-discriminant requeue. Whether a concrete transform emits
+incorrect code remains autonomous judgment or focused verification.
+
 Completed `VerificationRun` artifacts can corroborate repository-native lint,
 test, typecheck, and build failures. A failure remains a risk until the same
 normalized diagnostic is reproduced by two distinct runs on the current

@@ -54,7 +54,7 @@ they may collide with built-ins.
 | `error_flow` | explicit throw/rethrow control flow, an Error-like construction that preserves a cause while selecting the default message, or a Promise/event bridge with no same-emitter error edge |
 | `option_flow` | option precedence, including same-name spread overrides, logical-OR fallback to a visible same-property boolean true default, and temporary `Request` signals forwarded in place of caller-owned abort signals |
 | `resource_flow` | connection-owned request retention, request closures attached to socket listeners, terminal XHR listeners without visible detachment, or explicit release evidence |
-| `scope_model` | source-transform scope classifiers and binding resolution, including unmodeled lexical boundaries or name-only reference ownership |
+| `scope_model` | source-transform scope classifiers and binding resolution, including unmodeled lexical boundaries, name-only reference ownership, or parent-evaluated children omitted by scope-skipping visitors |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
 | `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, validation, listener-lifecycle, async-control-flow, or test-hygiene risk signal |
 

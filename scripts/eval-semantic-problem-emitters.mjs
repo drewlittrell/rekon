@@ -25,6 +25,7 @@ import {
   extractResourceLifetimeEvidence,
   extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
+  extractScopeTraversalEscapeEvidence,
 } from "../packages/capability-js-ts/dist/index.js";
 import {
   SEMANTIC_CACHE_INTEGRITY_RULE_ID,
@@ -139,7 +140,8 @@ for (const pair of selectedPairs) {
     continue;
   }
   if (pair.claim.category === "scope-resolution"
-    && pair.structuredEvidence === "scope-name-resolution") {
+    && (pair.structuredEvidence === "scope-name-resolution"
+      || pair.structuredEvidence === "scope-traversal-escape")) {
     runs.push(...await evaluateScopeResolutionPair(pair, repository));
     continue;
   }
@@ -674,7 +676,7 @@ async function evaluateOptionPropagationPair(pair, repository) {
 
 async function evaluateScopeResolutionPair(pair, repository) {
   if (pair.affectedPaths.length !== 1) {
-    throw new Error(`${pair.id}: scope-name-resolution calibration requires exactly one fix path.`);
+    throw new Error(`${pair.id}: structured scope calibration requires exactly one fix path.`);
   }
   const pairRuns = [];
   const path = pair.affectedPaths[0];
@@ -689,25 +691,46 @@ async function evaluateScopeResolutionPair(pair, repository) {
       fetchText(rawGitHubUrl(repository.url, counterpartCommit, path), options.timeoutMs),
     ]);
     const sha256 = createHash("sha256").update(text).digest("hex");
-    const scopeFlow = extractScopeNameResolutionEvidence({ path, content: text });
+    const scopeFlow = pair.structuredEvidence === "scope-traversal-escape"
+      ? extractScopeTraversalEscapeEvidence({ path, content: text })
+      : extractScopeNameResolutionEvidence({ path, content: text });
     const facts = scopeFlow.map((entry) => ({
       kind: "scope_model",
-      subject: `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
-      value: {
-        source: path,
-        mechanism: entry.mechanism,
-        caller: entry.caller,
-        bindTarget: entry.bindTarget,
-        scopeBinding: entry.scopeBinding,
-        analysisExpression: entry.analysisExpression,
-        referenceCollection: entry.referenceCollection,
-        referenceParameter: entry.referenceParameter,
-        ownerLookup: entry.ownerLookup,
-        location: entry.location,
-        analysisLocation: entry.analysisLocation,
-        collectionLocation: entry.collectionLocation,
-        ownerLookupLocation: entry.ownerLookupLocation,
-      },
+      subject: pair.structuredEvidence === "scope-traversal-escape"
+        ? `${path}:${entry.visitor}:${entry.mechanism}:${entry.location.line}`
+        : `${path}:${entry.caller}:${entry.bindTarget}:${entry.location.line}`,
+      value: pair.structuredEvidence === "scope-traversal-escape"
+        ? {
+            source: path,
+            mechanism: entry.mechanism,
+            visitor: entry.visitor,
+            scopeHandler: entry.scopeHandler,
+            pathParameter: entry.pathParameter,
+            bindingCheck: entry.bindingCheck,
+            skipExpression: entry.skipExpression,
+            modeledExceptions: entry.modeledExceptions,
+            missingParentEvaluatedChildren: entry.missingParentEvaluatedChildren,
+            location: entry.location,
+            handlerLocation: entry.handlerLocation,
+            bindingCheckLocation: entry.bindingCheckLocation,
+            skipLocation: entry.skipLocation,
+            exceptionLocation: entry.exceptionLocation,
+          }
+        : {
+            source: path,
+            mechanism: entry.mechanism,
+            caller: entry.caller,
+            bindTarget: entry.bindTarget,
+            scopeBinding: entry.scopeBinding,
+            analysisExpression: entry.analysisExpression,
+            referenceCollection: entry.referenceCollection,
+            referenceParameter: entry.referenceParameter,
+            ownerLookup: entry.ownerLookup,
+            location: entry.location,
+            analysisLocation: entry.analysisLocation,
+            collectionLocation: entry.collectionLocation,
+            ownerLookupLocation: entry.ownerLookupLocation,
+          },
     }));
     const matching = evaluateScopeResolutionSignals(facts, evidenceRef);
     const changedLines = changedLineNumbers(text, counterpartText);

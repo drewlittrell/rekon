@@ -79,6 +79,10 @@ export function assessmentMatchesDefectEvidence(input) {
       && assessmentOverlapsChangedLines(input.assessment, input.changedLines);
   }
   if (input.problemClass === "scope-resolution") {
+    if (input.assessment?.details?.structuredMechanism === "switch-discriminant-not-requeued") {
+      return Array.isArray(input.assessment?.details?.traversalEvidence)
+        && input.assessment.details.traversalEvidence.length > 0;
+    }
     const anchorLines = new Set(
       (input.scopeResolution ?? [])
         .filter((entry) => Array.isArray(entry.unmodeledLexicalBoundaries)

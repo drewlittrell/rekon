@@ -800,6 +800,58 @@ test("structured scope resolution identifies name-only owner lookup", () => {
   }], ref), []);
 });
 
+test("structured scope resolution identifies skipped parent-evaluated switch discriminants", () => {
+  const ref = { type: "EvidenceGraph", id: "scope-traversal", schemaVersion: "0.1.0" };
+  const fact = {
+    kind: "scope_model",
+    value: {
+      source: "packages/babel-traverse/src/scope/lib/renamer.ts",
+      mechanism: "switch-discriminant-not-requeued",
+      visitor: "renameVisitor",
+      scopeHandler: "Scope",
+      pathParameter: "path",
+      bindingCheck:
+        "!path.scope.bindingIdentifierEquals(state.oldName, state.binding.identifier)",
+      skipExpression: "path.skip()",
+      modeledExceptions: ["method-computed-key-and-decorators"],
+      missingParentEvaluatedChildren: ["SwitchStatement.discriminant"],
+      location: { line: 8, column: 7 },
+      handlerLocation: { line: 15, column: 3 },
+      bindingCheckLocation: { line: 17, column: 8 },
+      skipLocation: { line: 22, column: 7 },
+      exceptionLocation: { line: 24, column: 9 },
+    },
+  };
+
+  const assessments = evaluateScopeResolutionSignals([fact], ref);
+  assert.equal(assessments.length, 1);
+  assert.equal(assessments[0].ruleId, SEMANTIC_SCOPE_RESOLUTION_RULE_ID);
+  assert.equal(
+    assessments[0].details.structuredMechanism,
+    "switch-discriminant-not-requeued",
+  );
+  assert.deepEqual(
+    assessments[0].details.missingParentEvaluatedChildren,
+    ["SwitchStatement.discriminant"],
+  );
+  assert.deepEqual(
+    assessments[0].details.sourceEvidence.map((entry) => entry.lineStart),
+    [15, 17, 22, 24],
+  );
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, modeledExceptions: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, missingParentEvaluatedChildren: [] },
+  }], ref), []);
+  assert.deepEqual(evaluateScopeResolutionSignals([{
+    ...fact,
+    value: { ...fact.value, source: "test/renamer.test.ts" },
+  }], ref), []);
+});
+
 test("cache integrity requires a result parameter omitted from the cache key", () => {
   const ref = { type: "EvidenceGraph", id: "evidence-cache", schemaVersion: "0.1.0" };
   const fact = {

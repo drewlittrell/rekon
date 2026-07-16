@@ -91,6 +91,7 @@ export {
   type TerminalEventListenerEvidence,
   type ScopeNameResolutionEvidence,
   type ScopeResolutionEvidence,
+  type ScopeTraversalEscapeEvidence,
   extractErrorControlFlowEvidence,
   extractPromiseEventErrorBridgeEvidence,
   extractErrorReasonPropagationEvidence,
@@ -107,6 +108,7 @@ export {
   extractTerminalEventListenerEvidence,
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
+  extractScopeTraversalEscapeEvidence,
 } from "./ast-extractor.js";
 export { collectTypeScriptDiagnostics, type TypeScriptDiagnosticEvidence } from "./typescript-diagnostics.js";
 export {
@@ -1458,6 +1460,27 @@ function factsFromAstResult(
         analysisLocation: flow.analysisLocation,
         collectionLocation: flow.collectionLocation,
         ownerLookupLocation: flow.ownerLookupLocation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path, flow.location.line));
+      continue;
+    }
+    if (flow.kind === "scope-traversal-escape") {
+      facts.push(fact("scope_model", `${path}:${flow.visitor}:${flow.mechanism}:${flow.location.line}`, {
+        source: path,
+        mechanism: flow.mechanism,
+        visitor: flow.visitor,
+        scopeHandler: flow.scopeHandler,
+        pathParameter: flow.pathParameter,
+        bindingCheck: flow.bindingCheck,
+        skipExpression: flow.skipExpression,
+        modeledExceptions: flow.modeledExceptions,
+        missingParentEvaluatedChildren: flow.missingParentEvaluatedChildren,
+        location: flow.location,
+        handlerLocation: flow.handlerLocation,
+        bindingCheckLocation: flow.bindingCheckLocation,
+        skipLocation: flow.skipLocation,
+        exceptionLocation: flow.exceptionLocation,
         extractionMethod: "ast" as const,
         confidence: "high" as AstConfidence,
       }, path, flow.location.line));

@@ -98,7 +98,8 @@ The default export is a Rekon capability definition. Its manifest declares the
 `extractPromiseEventErrorBridgeEvidence()`,
 `extractOptionFalsyDefaultEvidence()`, `extractOptionPropagationEvidence()`,
 `extractRequestSignalForwardingEvidence()`,
-`extractScopeNameResolutionEvidence()`, and `extractScopeResolutionEvidence()`
+`extractScopeNameResolutionEvidence()`, `extractScopeResolutionEvidence()`, and
+`extractScopeTraversalEscapeEvidence()`
 expose structured observations used by Rekon's policy and semantic judgment
 pipeline.
 `extractResourceLifetimeEvidence()` exposes the retain/release observations
@@ -183,6 +184,11 @@ Name-only scope evidence is limited to binding or capture variables built by
 filtering a visible `scope.references` collection and calling `find_owner` or
 `findOwner` for each reference name from a scope returned by a map lookup.
 Occurrence-aware reference maps and ordinary scope reads remain silent.
+Scope-traversal escape evidence is limited to visitor-like objects with a
+`Scope` handler that skips after a failed `bindingIdentifierEquals` check,
+already requeues method computed keys and decorators, and does not queue
+`SwitchStatement.discriminant`. Ordinary switch statements, generic visitor
+skips, and handlers that already revisit the discriminant remain silent.
 
 Local async calls are reported only when an unshadowed, locally declared async
 function is used as a bare statement. Focused tests and direct `process.env`

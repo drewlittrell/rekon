@@ -27,6 +27,12 @@ All notable changes to Rekon are documented here.
   reference names from one scope anchor. Policy preserves the shadowing risk as
   an assessment. The pinned Vite RSC pair validates the name-only mechanism
   before and after occurrence-level scope resolution.
+- Added deterministic `scope_model` evidence for visitor-style binding renamers
+  that skip shadowed child scopes, preserve method keys and decorators, but omit
+  the parent-evaluated switch discriminant. The public
+  `extractScopeTraversalEscapeEvidence()` helper exposes the traversal gap, and
+  the pinned Babel pair validates identifier, member, binary, and call
+  discriminants before and after explicit requeueing.
 - Added deterministic `option_flow` evidence for logical-OR fallback from an
   option member to a visible same-property boolean `true` default. Policy now
   preserves the resulting falsy-option coercion as an assessment. The pinned
@@ -53,19 +59,19 @@ All notable changes to Rekon are documented here.
   returned cleanup. The public `extractAsyncEffectContinuationEvidence()`
   helper exposes that observation, and the pinned Automerge pair validates that
   a superseded effect cannot overwrite newer state after cleanup is added. The
-  source-free semantic baseline now passes nineteen pairs. Cache integrity,
-  cleanup completeness, error propagation, option propagation, and resource
-  lifetime have three independent positive pairs; dependency resolution and
-  scope resolution have two.
+  source-free semantic baseline now passes twenty pairs. Cache integrity,
+  cleanup completeness, error propagation, option propagation, resource
+  lifetime, and scope resolution have three independent positive pairs;
+  dependency resolution has two.
 - Added deterministic error-reason evidence for Error-like constructors that
   retain a meaningful cause while selecting a default message. The pinned
   Playwright pair validates the mechanism before and after its upstream fix.
   Direct source review covers the Playwright, VS Code event bridge, Nest
   candidate-bypass, Vite RSC shadowing, webpack falsy-option, and LaunchDarkly
   rejected-Promise-cache, Sentry terminal-listener, Langfuse abort-signal, and
-  Automerge superseded-effect pairs while model API calibration is deferred;
-  existing token and cost totals remain scoped to the ten prior
-  model-adjudicated pairs.
+  Automerge superseded-effect and Babel switch-discriminant pairs while model
+  API calibration is deferred; existing token and cost totals remain scoped to
+  the ten prior model-adjudicated pairs.
 - Expanded resource-lifetime evidence to recognize request-scoped closures
   attached to reusable socket listeners. The pinned docker-modem pair validates
   the listener-retention mechanism before and after its upstream fix.

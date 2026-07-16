@@ -271,6 +271,14 @@ The pinned Vite RSC pair retains the name-only lookup on the buggy revision and
 clears after occurrence-level reference-to-declaration mapping is introduced.
 Direct review of the source and upstream shadowing tests supplies the judgment.
 
+A third scope mechanism covers binding renamers that skip traversal when a
+child scope shadows the active binding. The extractor requires a visitor-style
+`Scope` handler, a failed `bindingIdentifierEquals` guard, `path.skip()`, and an
+existing exception that requeues method keys and decorators. It emits only when
+the corresponding parent-evaluated `SwitchStatement.discriminant` is not
+queued. The pinned Babel pair retains the omitted traversal exception on the
+buggy revision and clears after the discriminant is explicitly revisited.
+
 Resource-lifetime coverage also includes request-scoped closures attached to
 reusable socket listeners from inside request socket callbacks. The
 docker-modem buggy revision is retained by independent judgment, while moving
@@ -314,11 +322,11 @@ state, and no returned cleanup. The pinned Automerge pair retains the stale
 continuation on the buggy revision and clears after cleanup prevents a
 superseded URL set from overwriting newer state.
 All seven semantic classes have at least two independent positive pairs. Cache
-integrity, cleanup completeness, error propagation, option propagation, and
-resource lifetime have three; dependency resolution and scope resolution have
+integrity, cleanup completeness, error propagation, option propagation,
+resource lifetime, and scope resolution have three; dependency resolution has
 two. All remain below the five-adjudication usefulness minimum, which is
 recorded in the compact baseline rather than reduced to fit the available data.
-Its token and cost totals cover the ten model-adjudicated pairs only; nine newer
+Its token and cost totals cover the ten model-adjudicated pairs only; ten newer
 pairs are recorded separately as direct source review.
 
 Corpus checkouts and generated artifact bodies are disposable. Public source

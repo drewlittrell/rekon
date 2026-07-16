@@ -312,6 +312,23 @@ export type ScopeNameResolutionEvidence = {
   ownerLookupLocation: AstLocation;
 };
 
+export type ScopeTraversalEscapeEvidence = {
+  kind: "scope-traversal-escape";
+  mechanism: "switch-discriminant-not-requeued";
+  visitor: string;
+  scopeHandler: "Scope";
+  pathParameter: string;
+  bindingCheck: string;
+  skipExpression: string;
+  modeledExceptions: string[];
+  missingParentEvaluatedChildren: ["SwitchStatement.discriminant"];
+  location: AstLocation;
+  handlerLocation: AstLocation;
+  bindingCheckLocation: AstLocation;
+  skipLocation: AstLocation;
+  exceptionLocation: AstLocation;
+};
+
 export type DependencyResolutionEvidence = {
   kind: "dependency-selection";
   caller: string;
@@ -409,6 +426,7 @@ type AstFlowRecord =
   | TerminalEventListenerEvidence
   | ScopeResolutionEvidence
   | ScopeNameResolutionEvidence
+  | ScopeTraversalEscapeEvidence
   | DependencyResolutionEvidence
   | DependencyCandidateBypassEvidence
   | CacheContractEvidence
@@ -547,6 +565,15 @@ export function extractScopeNameResolutionEvidence(input: AstExtractionInput): S
   if (!astSupportsExtension(extensionForPath(input.path))) return [];
   return extractAstRecords(input).flows.filter(
     (record): record is ScopeNameResolutionEvidence => record.kind === "scope-name-resolution",
+  );
+}
+
+export function extractScopeTraversalEscapeEvidence(
+  input: AstExtractionInput,
+): ScopeTraversalEscapeEvidence[] {
+  if (!astSupportsExtension(extensionForPath(input.path))) return [];
+  return extractAstRecords(input).flows.filter(
+    (record): record is ScopeTraversalEscapeEvidence => record.kind === "scope-traversal-escape",
   );
 }
 
@@ -959,6 +986,7 @@ function extractFlowRecords(sourceFile: ts.SourceFile): AstFlowRecord[] {
   records.push(...terminalEventListenerRecords(sourceFile));
   records.push(...scopeResolutionRecords(sourceFile));
   records.push(...scopeNameResolutionRecords(sourceFile));
+  records.push(...scopeTraversalEscapeRecords(sourceFile));
   return records;
 }
 
@@ -2028,6 +2056,185 @@ function scopeNameResolutionRecords(sourceFile: ts.SourceFile): ScopeNameResolut
   visit(sourceFile);
   return records.sort((left, right) =>
     left.location.line - right.location.line || left.bindTarget.localeCompare(right.bindTarget));
+}
+
+function scopeTraversalEscapeRecords(sourceFile: ts.SourceFile): ScopeTraversalEscapeEvidence[] {
+  const records: ScopeTraversalEscapeEvidence[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer) {
+      const initializer = unwrapExpression(node.initializer);
+      if (ts.isObjectLiteralExpression(initializer)) {
+        const record = scopeTraversalEscapeRecord(node, initializer, sourceFile);
+        if (record) records.push(record);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return records.sort((left, right) =>
+    left.location.line - right.location.line || left.visitor.localeCompare(right.visitor));
+}
+
+function scopeTraversalEscapeRecord(
+  declaration: ts.VariableDeclaration,
+  visitor: ts.ObjectLiteralExpression,
+  sourceFile: ts.SourceFile,
+): ScopeTraversalEscapeEvidence | undefined {
+  if (!ts.isIdentifier(declaration.name)) return undefined;
+  const typeText = declaration.type ? boundedNodeText(declaration.type, sourceFile) : "";
+  if (!/visitor/iu.test(declaration.name.text) && !/\bVisitor\b/u.test(typeText)) return undefined;
+  const scopeHandler = visitor.properties.find((property): property is ts.MethodDeclaration =>
+    ts.isMethodDeclaration(property)
+      && property.name !== undefined
+      && propertyNameText(property.name) === "Scope"
+      && property.body !== undefined);
+  if (!scopeHandler?.body) return undefined;
+  const pathParameter = scopeHandler.parameters[0]?.name;
+  if (!pathParameter || !ts.isIdentifier(pathParameter)) return undefined;
+
+  const shadowBranch = findScopeSkipBranch(scopeHandler.body, pathParameter.text, sourceFile);
+  if (!shadowBranch) return undefined;
+  const methodCheck = findPathCall(
+    shadowBranch.thenStatement,
+    pathParameter.text,
+    ["isMethod"],
+  );
+  const methodRequeue = findPathCall(
+    shadowBranch.thenStatement,
+    pathParameter.text,
+    ["requeueComputedKeyAndDecorators"],
+  );
+  if (!methodCheck || !methodRequeue) return undefined;
+  const handlesSwitch = findPathCall(
+    shadowBranch.thenStatement,
+    pathParameter.text,
+    ["isSwitchStatement"],
+  );
+  const getsDiscriminant = findPathCall(
+    shadowBranch.thenStatement,
+    pathParameter.text,
+    ["get"],
+    "discriminant",
+  );
+  const queuesChild = findMemberCall(
+    shadowBranch.thenStatement,
+    /^(?:maybeQueue|queue|requeue)$/u,
+  );
+  if (handlesSwitch && getsDiscriminant && queuesChild) return undefined;
+
+  return {
+    kind: "scope-traversal-escape",
+    mechanism: "switch-discriminant-not-requeued",
+    visitor: declaration.name.text,
+    scopeHandler: "Scope",
+    pathParameter: pathParameter.text,
+    bindingCheck: boundedNodeText(shadowBranch.expression, sourceFile),
+    skipExpression: boundedNodeText(shadowBranch.skipCall, sourceFile),
+    modeledExceptions: ["method-computed-key-and-decorators"],
+    missingParentEvaluatedChildren: ["SwitchStatement.discriminant"],
+    location: locationOf(declaration.name, sourceFile),
+    handlerLocation: locationOf(scopeHandler.name, sourceFile),
+    bindingCheckLocation: locationOf(shadowBranch.bindingCheck, sourceFile),
+    skipLocation: locationOf(shadowBranch.skipCall, sourceFile),
+    exceptionLocation: locationOf(methodRequeue, sourceFile),
+  };
+}
+
+function findScopeSkipBranch(
+  body: ts.Block,
+  pathParameter: string,
+  sourceFile: ts.SourceFile,
+): {
+  expression: ts.Expression;
+  bindingCheck: ts.CallExpression;
+  skipCall: ts.CallExpression;
+  thenStatement: ts.Statement;
+} | undefined {
+  let match: {
+    expression: ts.Expression;
+    bindingCheck: ts.CallExpression;
+    skipCall: ts.CallExpression;
+    thenStatement: ts.Statement;
+  } | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== body && isFunctionBoundary(node))) return;
+    if (ts.isIfStatement(node)) {
+      const bindingCheck = findPathCall(
+        node.expression,
+        pathParameter,
+        ["scope", "bindingIdentifierEquals"],
+      );
+      const skipCall = findPathCall(node.thenStatement, pathParameter, ["skip"]);
+      if (bindingCheck
+        && skipCall
+        && boundedNodeText(node.expression, sourceFile).includes("!")) {
+        match = {
+          expression: node.expression,
+          bindingCheck,
+          skipCall,
+          thenStatement: node.thenStatement,
+        };
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return match;
+}
+
+function findPathCall(
+  root: ts.Node,
+  pathParameter: string,
+  expectedMembers: readonly string[],
+  stringArgument?: string,
+): ts.CallExpression | undefined {
+  let match: ts.CallExpression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== root && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node)) {
+      const path = memberPath(node.expression);
+      const expectedPath = [pathParameter, ...expectedMembers];
+      if (path?.length === expectedPath.length
+        && path.every((part, index) => part === expectedPath[index])
+        && (stringArgument === undefined
+          || node.arguments.some((argument) =>
+            ts.isStringLiteralLike(argument) && argument.text === stringArgument))) {
+        match = node;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
+  return match;
+}
+
+function findMemberCall(
+  root: ts.Node,
+  memberName: RegExp,
+): ts.CallExpression | undefined {
+  let match: ts.CallExpression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (match || (node !== root && isFunctionBoundary(node))) return;
+    if (ts.isCallExpression(node)
+      && ts.isPropertyAccessExpression(node.expression)
+      && memberName.test(node.expression.name.text)) {
+      match = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
+  return match;
+}
+
+function propertyNameText(name: ts.PropertyName): string | undefined {
+  return ts.isIdentifier(name) || ts.isStringLiteralLike(name)
+    ? name.text
+    : undefined;
 }
 
 function scopeNameResolutionRecord(
