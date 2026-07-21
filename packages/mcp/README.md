@@ -67,6 +67,10 @@ When the MCP tools are available to an agent:
    path, and the pre-edit base ref. Resolve deterministic violations, judge the
    cited semantic obligations yourself, and run the returned checks before
    declaring completion.
+7. If a returned check fails and names an exact unread path or symbol, request
+   that target through `resolve_source_target` with the matching `test` or
+   `dependency` relationship. Rerun the failed check and any selected check not
+   yet green; do not broaden repository search merely because a check failed.
 
 If MCP is unavailable, use `rekon context task --model-context`, `rekon context
 validate-change`, and `rekon artifacts freshness`. The task command performs the same

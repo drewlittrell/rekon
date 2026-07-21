@@ -78,7 +78,8 @@ It advertises `context_for_task`, `resolve_source_target`, and
 identifier found in inspected source, not general search. After editing,
 `validate_change` compares the declared paths with a Git baseline and the
 matched task pact, then returns blocking violations, unresolved semantic
-obligations, and required checks. It does not run those checks. Older
+obligations, and the checks declared by the task and contracts touched by the
+observed diff. It does not run those checks. Older
 orientation, placement, and preflight tool
 names remain accepted for compatibility but are not advertised to coding
 agents; their CLI commands remain available. Task-context calls check source

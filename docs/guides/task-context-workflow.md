@@ -26,7 +26,10 @@ rekon context validate-change --root <repo> \
 Repeat `--changed-path` for every file changed by the task. The result separates
 mechanical blockers from semantic pact and handoff obligations. The acting
 agent resolves both and then runs the returned checks; Rekon does not execute
-them in this command.
+them in this command. The returned list keeps explicit task checks and narrows
+contract checks to the observed diff. If a check failure names an unread exact
+path or symbol, use the refinement command below with relationship `test` or
+`dependency` before broader search.
 
 When the initial reads expose one named unresolved relationship, request a
 bounded delta instead of switching to broad repository search:

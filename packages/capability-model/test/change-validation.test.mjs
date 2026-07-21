@@ -40,6 +40,23 @@ const ownershipMap = {
   ],
 };
 
+function systemContract(id, paths, requiredChecks) {
+  return {
+    header: header("SystemContract", id),
+    contractId: id,
+    authority: "adopted",
+    confidence: 1,
+    source: { sourceId: "fixture" },
+    system: { id, paths },
+    purpose: `Own ${id}.`,
+    userOutcomes: [],
+    invariants: [],
+    prohibitedChanges: [],
+    requiredContextPaths: [],
+    requiredChecks,
+  };
+}
+
 test("a direct, observed change with no semantic clauses passes", () => {
   const result = validateChange({
     task: "change bootstrap",
@@ -208,4 +225,67 @@ test("capability dependency policy blocks a forbidden neighbor", () => {
   assert.equal(result.status, "blocked");
   assert.ok(result.blockingViolations.some((entry) => entry.code === "dependency.forbidden-neighbor"));
   assert.deepEqual(result.requiredChecks, ["npm test"]);
+});
+
+test("check selection retains only contracts touched by the observed diff", () => {
+  const appRef = ref("SystemContract", "app");
+  const runtimeRef = ref("SystemContract", "runtime");
+  const taskPact = pact({
+    contracts: [
+      { contractType: "SystemContract", contractId: "app", authority: "adopted", confidence: 1, freshness: "fresh", ref: appRef },
+      { contractType: "SystemContract", contractId: "runtime", authority: "adopted", confidence: 1, freshness: "fresh", ref: runtimeRef },
+    ],
+    requiredChecks: ["npm run app-test", "npm run runtime-test"],
+  });
+
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact,
+    taskPactRef: ref("TaskPact", "task-pact-fixture"),
+    ownershipMap,
+    systemContracts: [
+      systemContract("app", ["src/index.ts"], ["npm run app-test"]),
+      systemContract("runtime", ["src/runtime.ts"], ["npm run runtime-test"]),
+    ],
+    taskChecks: [{ command: "npm run typecheck", evidenceRefs: ["TaskContextReport:task"] }],
+    files: [{ path: "src/index.ts", status: "modified" }],
+  });
+
+  assert.deepEqual(result.requiredChecks, ["npm run typecheck", "npm run app-test"]);
+  assert.equal(result.checkSelection.strategy, "changed-scope");
+  assert.equal(result.checkSelection.fallbackUsed, false);
+  assert.deepEqual(
+    result.checkSelection.checks.map((check) => check.requirements.map((entry) => entry.sourceType)),
+    [["task-context"], ["system-contract"]],
+  );
+});
+
+test("check selection retains the conservative TaskPact set when contract bodies are unavailable", () => {
+  const taskPact = pact({
+    contracts: [{
+      contractType: "SystemContract",
+      contractId: "app",
+      authority: "adopted",
+      confidence: 1,
+      freshness: "fresh",
+      ref: ref("SystemContract", "app"),
+    }],
+    requiredChecks: ["npm run app-test", "npm run typecheck"],
+  });
+
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact,
+    ownershipMap,
+    files: [{ path: "src/index.ts", status: "modified" }],
+  });
+
+  assert.deepEqual(result.requiredChecks, ["npm run app-test", "npm run typecheck"]);
+  assert.equal(result.checkSelection.fallbackUsed, true);
+  assert.ok(result.checkSelection.checks.every((check) =>
+    check.requirements.some((entry) => entry.sourceType === "task-pact-fallback")));
 });

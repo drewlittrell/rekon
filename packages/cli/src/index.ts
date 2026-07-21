@@ -352,6 +352,7 @@ import {
   type RepositoryContractSourceDocument,
   type SystemContractSource,
   type SystemContract,
+  type TaskContextReport,
   type TaskPact,
   assertContractCandidateReport,
   assertContractJudgmentReport,
@@ -14553,6 +14554,18 @@ async function validateRepositoryChange(
     warnings.push(...current.warnings);
   }
 
+  let taskContextReport: TaskContextReport | undefined;
+  const taskContextEntries = (artifactIndexAvailable ? await store.list("TaskContextReport") : [])
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+  for (const entry of taskContextEntries) {
+    const candidate = await store.read(entry) as TaskContextReport;
+    if (candidate.task.text.trim() !== input.task.trim()) continue;
+    taskContextReport = candidate;
+    addValidationSource(sources, candidate);
+    break;
+  }
+
   const ownershipEntry = artifactIndexAvailable
     ? await pickLatestArtifactEntry(store, "OwnershipMap")
     : undefined;
@@ -14577,12 +14590,18 @@ async function validateRepositoryChange(
     : undefined;
   if (capabilityContract) addValidationSource(sources, capabilityContract);
 
+  const systemContracts: SystemContract[] = [];
   const flowContracts: FlowContract[] = [];
   for (const contract of taskPact?.contracts ?? []) {
-    if (contract.contractType !== "FlowContract") continue;
-    const flow = await store.read(contract.ref) as FlowContract;
-    flowContracts.push(flow);
-    addValidationSource(sources, flow);
+    if (contract.contractType === "SystemContract") {
+      const system = await store.read(contract.ref) as SystemContract;
+      systemContracts.push(system);
+      addValidationSource(sources, system);
+    } else if (contract.contractType === "FlowContract") {
+      const flow = await store.read(contract.ref) as FlowContract;
+      flowContracts.push(flow);
+      addValidationSource(sources, flow);
+    }
   }
 
   const knownPaths = [
@@ -14606,9 +14625,20 @@ async function validateRepositoryChange(
     ...(taskPact ? { taskPact } : {}),
     ...(taskPactRef ? { taskPactRef } : {}),
     ...(ownershipMap ? { ownershipMap } : {}),
+    ...(systemContracts.length > 0 ? { systemContracts } : {}),
     ...(flowContracts.length > 0 ? { flowContracts } : {}),
     ...(capabilityContract ? { capabilityContract } : {}),
     ...(capabilityGraph ? { capabilityGraph } : {}),
+    ...(taskContextReport ? {
+      taskChecks: taskContextReport.verificationHints
+        .filter((hint): hint is typeof hint & { command: string } =>
+          typeof hint.command === "string" && hint.command.trim().length > 0)
+        .map((hint) => ({
+          command: hint.command,
+          sourceId: taskContextReport.header.artifactId,
+          ...(hint.evidenceRefs.length > 0 ? { evidenceRefs: hint.evidenceRefs } : {}),
+        })),
+    } : {}),
     files: evidence.files,
     dependencyChanges: evidence.dependencyChanges,
   });

@@ -48,6 +48,8 @@ test("setup preserves project guidance and installs one managed block", async ()
   assert.match(content, /does not authorize broad search/);
   assert.match(content, /pact constraints and required checks as acceptance criteria/i);
   assert.match(content, /After editing and before declaring the task complete/);
+  assert.match(content, /contracts touched by the observed diff/);
+  assert.match(content, /If a check fails and names an unread exact path or symbol/);
   assert.ok(Buffer.byteLength(content, "utf8") < 3_600, "managed bootstrap should stay bounded");
 });
 
@@ -84,7 +86,7 @@ test("sync replaces stale managed content but preserves surrounding bytes", asyn
   assert.ok(updated.startsWith("# Before\n\n"));
   assert.ok(updated.endsWith("\n\n# After\n"));
   assert.ok(!updated.includes("stale content"));
-  assert.match(updated, /version="1\.9\.0"/);
+  assert.match(updated, /version="1\.9\.1"/);
   assert.match(updated, /rekon contracts maintain --root \. --json/u);
   assert.match(updated, /complete its judgment step yourself/u);
 });
@@ -188,6 +190,6 @@ test("refresh replaces a stale managed block when on-refresh sync is enabled", a
 
   assert.equal(syncStep.status, "passed");
   assert.equal(syncStep.summary.changed, true);
-  assert.match(updated, /version="1\.9\.0"/);
+  assert.match(updated, /version="1\.9\.1"/);
   assert.ok(!updated.includes("\nstale\n"));
 });

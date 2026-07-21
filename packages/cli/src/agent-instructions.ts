@@ -7,7 +7,7 @@ import {
   REKON_AGENT_MCP_STEPS,
 } from "@rekon/mcp";
 
-export const AGENT_INSTRUCTIONS_VERSION = "1.9.0";
+export const AGENT_INSTRUCTIONS_VERSION = "1.9.1";
 export const AGENT_INSTRUCTIONS_TARGET = "AGENTS.md";
 export const AGENT_INSTRUCTIONS_START =
   `<!-- rekon:agent-instructions:start version="${AGENT_INSTRUCTIONS_VERSION}" -->`;

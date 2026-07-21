@@ -46,7 +46,10 @@ verification recording, reconciliation planning, and artifact validation.
   post-compaction rehydration and work-order lineage.
 - Post-edit validation compares declared task paths with Git/current source,
   applies TaskPact scope, ownership, capability dependency policy, and complete
-  flow handoffs, and returns checks without executing them.
+  flow handoffs, and returns changed-scope checks without executing them.
+  Task-declared checks are retained; unavailable scoped contract bodies trigger
+  a conservative TaskPact fallback. Check failures reuse exact source-target
+  resolution rather than adding another model-facing tool.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.

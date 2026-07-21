@@ -118,8 +118,10 @@ After editing, run `rekon context validate-change --task "<task>"
 --changed-path <path> --base-ref HEAD --json`. Repeat `--changed-path` for the
 complete task diff. The command reads Git and current source, reuses the
 matching TaskPact when available, and returns blocking violations, unresolved
-semantic obligations, and required checks. It writes no artifact and executes
-no check.
+semantic obligations, and required checks. The check list preserves explicit
+task checks and narrows contract checks to systems, flows, and capabilities
+touched by the observed diff; missing contract bodies trigger a conservative
+TaskPact fallback. The command writes no artifact and executes no check.
 
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.

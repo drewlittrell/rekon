@@ -111,7 +111,12 @@ TaskPact, ownership, capability policy, and flow contracts. Mechanical scope or
 dependency violations block. Prose invariants, prohibited-change clauses, and
 baton guarantees remain explicit semantic obligations for the acting agent to
 judge against cited source. The call returns required checks but never runs
-them.
+them. Check selection preserves task-declared commands and uses only the
+system, flow, and capability contracts touched by the observed diff. When
+scoped contract bodies are unavailable, it retains the complete TaskPact check
+set rather than guessing. A failed check may use the existing exact
+source-target resolver for a path or symbol named by the failure; failure alone
+does not authorize broad search.
 
 The call is also the rehydration boundary. Managed instructions require a fresh
 task-context request after context compaction or restart and whenever the goal

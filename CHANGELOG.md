@@ -10,8 +10,13 @@ All notable changes to Rekon are documented here.
   policy, and end-to-end handoff contracts; output is limited to blocking
   violations, unresolved semantic obligations, and required checks. No checks,
   artifact writes, source writes, or model calls occur.
-- Updated managed agent instructions to `1.9.0` so coding agents request
-  post-edit validation before declaring completion.
+- Scoped post-edit required checks to the task and repository contracts touched
+  by the observed diff, with an explicit conservative TaskPact fallback when
+  contract bodies are unavailable. Check-selection provenance remains
+  available on the pure `validateChange()` result.
+- Updated managed agent instructions to `1.9.1` so coding agents request
+  post-edit validation before declaring completion and use exact source-target
+  resolution for check-failure context.
 - Added bounded deterministic `sourceSpans` to shared model-context delivery.
   Each span carries an exact path, source SHA-256, line range, excerpt, evidence
   ref, freshness, and routing reason; profile budgets cap count and characters,

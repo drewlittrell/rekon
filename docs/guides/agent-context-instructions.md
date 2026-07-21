@@ -29,6 +29,10 @@ authority boundaries.
    path, and the pre-edit Git base ref. Resolve blocking violations. Judge each
    semantic obligation against its cited source and pact, then run the returned
    checks before completion.
+7. If a check fails and names an exact unread path or symbol, use
+   `resolve_source_target` with that target and the matching `test` or
+   `dependency` relationship. Rerun the failed check and any selected check not
+   yet green.
 
 Returned pact constraints and required checks are acceptance criteria, not
 optional background. `boundaryPaths` are different: preserve them, but inspect

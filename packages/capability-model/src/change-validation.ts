@@ -4,6 +4,7 @@ import type {
   CapabilityEvidenceGraph,
   FlowContract,
   OwnershipMap,
+  SystemContract,
   TaskPact,
 } from "@rekon/kernel-repo-model";
 
@@ -47,6 +48,25 @@ export type ChangeValidationObligation = {
   blockingIfViolated: boolean;
 };
 
+export type ChangeValidationTaskCheck = {
+  command: string;
+  sourceId?: string;
+  evidenceRefs?: string[];
+};
+
+export type ChangeValidationCheckRequirement = {
+  sourceType: "task-context" | "system-contract" | "flow-contract" | "capability-contract" | "task-pact-fallback";
+  sourceId: string;
+  reason: string;
+  paths: string[];
+  evidenceRefs: string[];
+};
+
+export type ChangeValidationSelectedCheck = {
+  command: string;
+  requirements: ChangeValidationCheckRequirement[];
+};
+
 export type ChangeValidationResult = {
   schemaVersion: "1.0.0";
   task: string;
@@ -58,6 +78,11 @@ export type ChangeValidationResult = {
   blockingViolations: ChangeValidationViolation[];
   unresolvedSemanticObligations: ChangeValidationObligation[];
   requiredChecks: string[];
+  checkSelection: {
+    strategy: "changed-scope";
+    fallbackUsed: boolean;
+    checks: ChangeValidationSelectedCheck[];
+  };
   baseline: {
     taskPactRef?: ArtifactRef;
     files: ChangeFileEvidence[];
@@ -77,9 +102,11 @@ export type ValidateChangeInput = {
   taskPact?: TaskPact;
   taskPactRef?: ArtifactRef;
   ownershipMap?: OwnershipMap;
+  systemContracts?: SystemContract[];
   flowContracts?: FlowContract[];
   capabilityContract?: CapabilityContract;
   capabilityGraph?: CapabilityEvidenceGraph;
+  taskChecks?: ChangeValidationTaskCheck[];
   files?: ChangeFileEvidence[];
   dependencyChanges?: ChangeDependencyDelta[];
 };
@@ -196,6 +223,8 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     return owner ? [owner] : [];
   }));
   const affectedSystems = unique([...ownerByPath.values()].filter((owner): owner is string => Boolean(owner)));
+  const affectedSystemContracts = (input.systemContracts ?? []).filter((contract) =>
+    normalizedPaths.some((path) => contract.system.paths.some((scope) => pathMatchesScope(path, scope))));
   const affectedFlowContracts = flowContracts.filter((flow) =>
     normalizedPaths.some((path) => flowPaths(flow).some((scope) => pathMatchesScope(path, scope))));
 
@@ -242,11 +271,14 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
   for (const flow of affectedFlowContracts) addFlowObligations(obligations, flow, normalizedPaths);
   validateDependencyChanges({ input, violations, obligations, ownerByPath, affectedFlowContracts });
 
-  const requiredChecks = unique([
-    ...(input.taskPact?.requiredChecks ?? []),
-    ...affectedFlowContracts.flatMap((flow) => flow.requiredChecks),
-    ...matchedCapabilityContracts(input).flatMap((contract) => contract.requiredChecks ?? []),
-  ]);
+  const checkSelection = selectRequiredChecks({
+    input,
+    changedPaths: normalizedPaths,
+    affectedSystemContracts,
+    affectedFlowContracts,
+    matchedCapabilityContracts: matchedCapabilityContracts(input),
+  });
+  const requiredChecks = checkSelection.checks.map((check) => check.command);
   const dedupedViolations = dedupe(violations, (entry) => `${entry.code}\0${entry.paths.join("\0")}\0${entry.message}`);
   const dedupedObligations = dedupe(obligations, (entry) => entry.id);
 
@@ -265,6 +297,7 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     blockingViolations: dedupedViolations,
     unresolvedSemanticObligations: dedupedObligations,
     requiredChecks,
+    checkSelection,
     baseline: {
       ...(pactRef ? { taskPactRef: pactRef } : {}),
       files: files.sort((left, right) => left.path.localeCompare(right.path)),
@@ -276,6 +309,112 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
       invokedModel: false,
     },
   };
+}
+
+function selectRequiredChecks(input: {
+  input: ValidateChangeInput;
+  changedPaths: string[];
+  affectedSystemContracts: SystemContract[];
+  affectedFlowContracts: FlowContract[];
+  matchedCapabilityContracts: CapabilityContract["contracts"];
+}): ChangeValidationResult["checkSelection"] {
+  const checks = new Map<string, ChangeValidationSelectedCheck>();
+  let fallbackUsed = false;
+  const add = (command: string, requirement: ChangeValidationCheckRequirement): void => {
+    const normalized = command.trim().replace(/\s+/gu, " ");
+    if (!normalized) return;
+    const current = checks.get(normalized);
+    if (!current) {
+      checks.set(normalized, { command: normalized, requirements: [requirement] });
+      return;
+    }
+    const key = requirementKey(requirement);
+    if (!current.requirements.some((entry) => requirementKey(entry) === key)) {
+      current.requirements.push(requirement);
+    }
+  };
+
+  for (const check of input.input.taskChecks ?? []) {
+    add(check.command, {
+      sourceType: "task-context",
+      sourceId: check.sourceId ?? "task-context",
+      reason: "The task or its compiled context explicitly declares this verification check.",
+      paths: input.changedPaths,
+      evidenceRefs: unique(check.evidenceRefs ?? []),
+    });
+  }
+
+  for (const contract of input.affectedSystemContracts) {
+    for (const command of contract.requiredChecks) add(command, {
+      sourceType: "system-contract",
+      sourceId: contract.contractId,
+      reason: `Changed source intersects system contract ${contract.contractId}.`,
+      paths: input.changedPaths.filter((path) =>
+        contract.system.paths.some((scope) => pathMatchesScope(path, scope))),
+      evidenceRefs: [`SystemContract:${contract.header.artifactId}`],
+    });
+  }
+
+  for (const contract of input.affectedFlowContracts) {
+    for (const command of contract.requiredChecks) add(command, {
+      sourceType: "flow-contract",
+      sourceId: contract.contractId,
+      reason: `Changed source intersects end-to-end flow ${contract.contractId}.`,
+      paths: input.changedPaths.filter((path) =>
+        flowPaths(contract).some((scope) => pathMatchesScope(path, scope))),
+      evidenceRefs: [`FlowContract:${contract.header.artifactId}`],
+    });
+  }
+
+  const capabilityArtifactId = input.input.capabilityContract?.header.artifactId;
+  for (const contract of input.matchedCapabilityContracts) {
+    for (const command of contract.requiredChecks ?? []) add(command, {
+      sourceType: "capability-contract",
+      sourceId: contract.id,
+      reason: `Changed source implements capability contract ${contract.id}.`,
+      paths: input.changedPaths,
+      evidenceRefs: [`CapabilityContract:${capabilityArtifactId ?? contract.id}`],
+    });
+  }
+
+  const loadedContracts = new Set([
+    ...input.input.systemContracts?.map((contract) => `SystemContract:${contract.contractId}`) ?? [],
+    ...input.input.flowContracts?.map((contract) => `FlowContract:${contract.contractId}`) ?? [],
+  ]);
+  const pactContracts = input.input.taskPact?.contracts.filter((contract) =>
+    contract.contractType === "SystemContract" || contract.contractType === "FlowContract") ?? [];
+  const scopedBodiesComplete = pactContracts.every((contract) =>
+    loadedContracts.has(`${contract.contractType}:${contract.contractId}`));
+  const pactChecks = input.input.taskPact?.requiredChecks ?? [];
+
+  if (!scopedBodiesComplete || (pactContracts.length === 0 && pactChecks.length > 0)) {
+    fallbackUsed = true;
+    for (const command of pactChecks) add(command, {
+      sourceType: "task-pact-fallback",
+      sourceId: input.input.taskPact?.header.artifactId ?? "task-pact",
+      reason: scopedBodiesComplete
+        ? "No narrower changed-scope check mapping was available, so the TaskPact check set was retained."
+        : "One or more matched contract bodies were unavailable, so Rekon retained the conservative TaskPact check set.",
+      paths: input.changedPaths,
+      evidenceRefs: input.input.taskPactRef
+        ? [`${input.input.taskPactRef.type}:${input.input.taskPactRef.id}`]
+        : [],
+    });
+  }
+
+  return {
+    strategy: "changed-scope",
+    fallbackUsed,
+    checks: [...checks.values()].map((check) => ({
+      ...check,
+      requirements: check.requirements.sort((left, right) =>
+        left.sourceType.localeCompare(right.sourceType) || left.sourceId.localeCompare(right.sourceId)),
+    })),
+  };
+}
+
+function requirementKey(requirement: ChangeValidationCheckRequirement): string {
+  return `${requirement.sourceType}\0${requirement.sourceId}\0${requirement.paths.join("\0")}\0${requirement.evidenceRefs.join("\0")}`;
 }
 
 function addTaskPactObligations(
