@@ -1,0 +1,430 @@
+{
+  "schemaVersion": "1.0.0",
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "src/api/experience-controller.ts" },
+      { "kind": "file", "id": "src/nlu/vocabulary.ts" },
+      { "kind": "file", "id": "src/nlu/tokenize.ts" },
+      { "kind": "file", "id": "src/nlu/atomize.ts" },
+      { "kind": "file", "id": "src/nlu/compose-meaning.ts" },
+      { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+      { "kind": "file", "id": "tests/experience-interpreter.test.ts" },
+      { "kind": "file", "id": "src/api/checkout-controller.ts" },
+      { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+      { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+      { "kind": "file", "id": "src/worker/checkout-worker.ts" },
+      { "kind": "file", "id": "src/receipts/receipt-publisher.ts" },
+      { "kind": "file", "id": "tests/checkout-flow.test.ts" },
+      { "kind": "file", "id": "docs/runbook.md" }
+    ],
+    "claims": [
+      {
+        "id": "claim-experience-controller-interpreter",
+        "subject": { "kind": "file", "id": "src/api/experience-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:experience-controller-interpreter"]
+      },
+      {
+        "id": "claim-interpreter-tokenize",
+        "subject": { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/nlu/tokenize.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:interpreter-tokenize"]
+      },
+      {
+        "id": "claim-interpreter-atomize",
+        "subject": { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/nlu/atomize.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:interpreter-atomize"]
+      },
+      {
+        "id": "claim-interpreter-compose",
+        "subject": { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/nlu/compose-meaning.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:interpreter-compose"]
+      },
+      {
+        "id": "claim-atomize-vocabulary",
+        "subject": { "kind": "file", "id": "src/nlu/atomize.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/nlu/vocabulary.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:atomize-vocabulary"]
+      },
+      {
+        "id": "claim-experience-test",
+        "subject": { "kind": "file", "id": "tests/experience-interpreter.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/nlu/experience-interpreter.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:experience-test"]
+      },
+      {
+        "id": "claim-checkout-controller-service",
+        "subject": { "kind": "file", "id": "src/api/checkout-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-controller-service"]
+      },
+      {
+        "id": "claim-checkout-controller-message",
+        "subject": { "kind": "file", "id": "src/api/checkout-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-controller-message"]
+      },
+      {
+        "id": "claim-checkout-service-message",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-service-message"]
+      },
+      {
+        "id": "claim-checkout-worker-message",
+        "subject": { "kind": "file", "id": "src/worker/checkout-worker.ts" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:checkout-worker-message"]
+      },
+      {
+        "id": "claim-checkout-worker-receipt",
+        "subject": { "kind": "file", "id": "src/worker/checkout-worker.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/receipts/receipt-publisher.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-worker-receipt"]
+      },
+      {
+        "id": "claim-checkout-test-message",
+        "subject": { "kind": "file", "id": "tests/checkout-flow.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:checkout-test-message"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:interpret-experience",
+        "verb": "interpret",
+        "noun": "experience",
+        "implementedBy": [
+          { "kind": "file", "id": "src/nlu/vocabulary.ts" },
+          { "kind": "file", "id": "src/nlu/experience-interpreter.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:interpret-experience"]
+      },
+      {
+        "id": "capability:process-checkout",
+        "verb": "process",
+        "noun": "checkout",
+        "implementedBy": [
+          { "kind": "file", "id": "src/checkout/checkout-message.ts" },
+          { "kind": "file", "id": "src/checkout/checkout-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:process-checkout"]
+      }
+    ]
+  },
+  "repositoryContractSources": [
+    {
+      "path": "rekon.contract.json",
+      "document": {
+        "version": "1.0.0",
+        "sourceId": "repository-law-context-eval",
+        "systems": [
+          {
+            "id": "experience-intelligence",
+            "systemId": "experience-intelligence",
+            "name": "Experience intelligence",
+            "scope": { "paths": ["src/nlu/**"] },
+            "purpose": "Interpret flexible experience language through atomic vocabulary and compositional meaning.",
+            "userOutcomes": ["Equivalent expressions resolve without phrase-by-phrase training."],
+            "invariants": [
+              {
+                "id": "atomic-composition",
+                "statement": "Support new expressions through reusable atomic concepts or syntax, never complete phrase aliases."
+              },
+              {
+                "id": "unknown-evidence",
+                "statement": "Preserve non-connector unknown tokens as evidence for later interpretation."
+              }
+            ],
+            "prohibitedChanges": [
+              {
+                "id": "no-phrase-overfit",
+                "statement": "Do not add a complete user phrase to the vocabulary as a special case."
+              }
+            ],
+            "requiredContextPaths": [
+              "src/nlu/vocabulary.ts",
+              "src/nlu/tokenize.ts",
+              "src/nlu/atomize.ts",
+              "src/nlu/compose-meaning.ts",
+              "src/nlu/experience-interpreter.ts",
+              "tests/experience-interpreter.test.ts"
+            ],
+            "requiredChecks": ["npm test"]
+          },
+          {
+            "id": "checkout-processing",
+            "systemId": "checkout-processing",
+            "name": "Checkout processing",
+            "scope": { "paths": ["src/checkout/**"] },
+            "purpose": "Create and process checkout messages without losing request identity or optional metadata.",
+            "userOutcomes": ["Receipts describe the same checkout request accepted by the API."],
+            "invariants": [
+              {
+                "id": "request-id-preserved",
+                "statement": "Preserve requestId unchanged from CheckoutRequest through receipt publication."
+              },
+              {
+                "id": "optional-campaign",
+                "statement": "campaignId remains optional and must be omitted, not serialized as undefined, when absent."
+              }
+            ],
+            "prohibitedChanges": [
+              {
+                "id": "no-generated-request-id",
+                "statement": "Do not replace the caller-provided requestId inside checkout processing."
+              }
+            ],
+            "requiredContextPaths": [
+              "src/api/checkout-controller.ts",
+              "src/checkout/checkout-message.ts",
+              "src/checkout/checkout-service.ts",
+              "src/worker/checkout-worker.ts",
+              "src/receipts/receipt-publisher.ts",
+              "tests/checkout-flow.test.ts"
+            ],
+            "requiredChecks": ["npm test"]
+          }
+        ],
+        "flows": [
+          {
+            "id": "experience-interpretation-flow",
+            "name": "Experience interpretation",
+            "criticality": "high",
+            "purpose": "Carry user language through tokenization, atomization, and composition without phrase overfitting.",
+            "userOutcomes": ["Users can express familiar concepts in new combinations."],
+            "entryConditions": ["The API receives non-empty experience text."],
+            "completionConditions": ["The interpreter returns composed concepts or explicit unknown tokens."],
+            "systems": ["experience-intelligence"],
+            "paths": [
+              "src/nlu/vocabulary.ts",
+              "src/nlu/tokenize.ts",
+              "src/nlu/atomize.ts",
+              "src/nlu/compose-meaning.ts",
+              "src/nlu/experience-interpreter.ts",
+              "tests/experience-interpreter.test.ts"
+            ],
+            "invariants": [
+              {
+                "id": "phrase-independent",
+                "statement": "A phrase succeeds because its reusable atoms compose, not because the complete phrase is stored."
+              },
+              {
+                "id": "token-accounting",
+                "statement": "Carry every non-connector token into either recognized concepts or unknown-token evidence."
+              }
+            ],
+            "stages": [
+              { "id": "tokenize", "systemId": "experience-intelligence", "paths": ["src/nlu/tokenize.ts"] },
+              { "id": "atomize", "systemId": "experience-intelligence", "paths": ["src/nlu/vocabulary.ts", "src/nlu/atomize.ts"] },
+              { "id": "compose", "systemId": "experience-intelligence", "paths": ["src/nlu/compose-meaning.ts", "src/nlu/experience-interpreter.ts"] }
+            ],
+            "handoffs": [
+              {
+                "id": "tokens-to-atoms",
+                "fromStageId": "tokenize",
+                "toStageId": "atomize",
+                "payload": { "schema": "string[]" },
+                "guarantees": ["Connector tokens are removed while remaining tokens keep their normalized meaning."],
+                "carriedInvariantIds": ["token-accounting"]
+              },
+              {
+                "id": "atoms-to-meaning",
+                "fromStageId": "atomize",
+                "toStageId": "compose",
+                "guarantees": ["Recognized concepts and unknown tokens cross the handoff separately."],
+                "carriedInvariantIds": ["phrase-independent", "token-accounting"]
+              }
+            ],
+            "requiredChecks": ["npm test"]
+          },
+          {
+            "id": "checkout-receipt-flow",
+            "name": "Checkout receipt",
+            "criticality": "critical",
+            "purpose": "Carry checkout identity and optional campaign metadata from request acceptance to receipt publication.",
+            "userOutcomes": ["The receipt can be correlated to the request and its optional campaign."],
+            "entryConditions": ["A valid CheckoutRequest reaches the controller."],
+            "completionConditions": ["A receipt is published for the same request and order."],
+            "systems": ["checkout-processing", "checkout-worker", "receipts"],
+            "paths": [
+              "src/api/checkout-controller.ts",
+              "src/checkout/checkout-message.ts",
+              "src/checkout/checkout-service.ts",
+              "src/worker/checkout-worker.ts",
+              "src/receipts/receipt-publisher.ts",
+              "tests/checkout-flow.test.ts"
+            ],
+            "invariants": [
+              {
+                "id": "flow-request-id",
+                "statement": "Every checkout handoff carries the original requestId unchanged."
+              },
+              {
+                "id": "flow-optional-campaign",
+                "statement": "Every checkout handoff preserves campaignId when present and omits it when absent."
+              }
+            ],
+            "stages": [
+              { "id": "accept", "systemId": "checkout-processing", "paths": ["src/api/checkout-controller.ts", "src/checkout/checkout-service.ts"] },
+              { "id": "queue", "systemId": "checkout-processing", "paths": ["src/checkout/checkout-message.ts"] },
+              { "id": "process", "systemId": "checkout-worker", "paths": ["src/worker/checkout-worker.ts"] },
+              { "id": "publish", "systemId": "receipts", "paths": ["src/receipts/receipt-publisher.ts"] }
+            ],
+            "handoffs": [
+              {
+                "id": "request-to-message",
+                "fromStageId": "accept",
+                "toStageId": "queue",
+                "payload": { "schema": "CheckoutMessage", "requiredFields": ["requestId", "orderId"] },
+                "guarantees": ["The message preserves requestId and only includes campaignId when supplied."],
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+              },
+              {
+                "id": "message-to-worker",
+                "fromStageId": "queue",
+                "toStageId": "process",
+                "payload": { "schema": "CheckoutMessage", "requiredFields": ["requestId", "orderId"] },
+                "guarantees": ["The worker receives the same checkout identity and campaign metadata."],
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+              },
+              {
+                "id": "worker-to-receipt",
+                "fromStageId": "process",
+                "toStageId": "publish",
+                "payload": { "schema": "ReceiptMetadata", "requiredFields": ["requestId", "orderId"] },
+                "guarantees": ["Receipt metadata remains correlated to the original request."],
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+              }
+            ],
+            "requiredChecks": ["npm test"]
+          }
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "atomic-experience-composition",
+      "shape": "system-semantics",
+      "task": "Support the phrase garden concert with friends in experience interpretation. The reported vocabulary path is src/nlu/vocabulary.ts.",
+      "paths": ["src/nlu/vocabulary.ts"],
+      "profile": "compact",
+      "expect": {
+        "systemContractIds": ["experience-intelligence"],
+        "flowContractIds": ["experience-interpretation-flow"],
+        "contextPaths": [
+          "src/nlu/vocabulary.ts",
+          "src/nlu/tokenize.ts",
+          "src/nlu/atomize.ts",
+          "src/nlu/compose-meaning.ts",
+          "src/nlu/experience-interpreter.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "allowedContextPaths": [
+          "src/api/experience-controller.ts",
+          "src/nlu/vocabulary.ts",
+          "src/nlu/tokenize.ts",
+          "src/nlu/atomize.ts",
+          "src/nlu/compose-meaning.ts",
+          "src/nlu/experience-interpreter.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "constraintFragments": [
+          "reusable atomic concepts or syntax",
+          "non-connector unknown tokens",
+          "complete phrase is stored",
+          "every non-connector token"
+        ],
+        "forbiddenConstraintFragments": ["requestId", "campaignId"],
+        "commands": ["npm test"],
+        "minPathRecallLift": 0.4,
+        "minConstraintRecallLift": 1,
+        "maxProjectedTokens": 700
+      }
+    },
+    {
+      "id": "checkout-baton-preservation",
+      "shape": "cross-system-flow",
+      "task": "Add optional campaignId to CheckoutRequest and carry it into receipt metadata while preserving requestId and omission compatibility.",
+      "paths": ["src/checkout/checkout-message.ts"],
+      "profile": "compact",
+      "expect": {
+        "systemContractIds": ["checkout-processing"],
+        "flowContractIds": ["checkout-receipt-flow"],
+        "contextPaths": [
+          "src/api/checkout-controller.ts",
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "allowedContextPaths": [
+          "src/api/checkout-controller.ts",
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "constraintFragments": [
+          "requestId unchanged",
+          "omitted, not serialized as undefined",
+          "every checkout handoff carries",
+          "preserves campaignId when present"
+        ],
+        "forbiddenConstraintFragments": ["phrase aliases", "unknown tokens"],
+        "commands": ["npm test"],
+        "minPathRecallLift": 0.15,
+        "minConstraintRecallLift": 1,
+        "maxProjectedTokens": 700
+      }
+    },
+    {
+      "id": "unrelated-runbook-update",
+      "shape": "unrelated-documentation",
+      "task": "Correct the local startup command in docs/runbook.md.",
+      "paths": ["docs/runbook.md"],
+      "profile": "compact",
+      "expect": {
+        "systemContractIds": [],
+        "flowContractIds": [],
+        "contextPaths": ["docs/runbook.md"],
+        "allowedContextPaths": ["docs/runbook.md"],
+        "constraintFragments": [],
+        "forbiddenConstraintFragments": ["phrase aliases", "requestId", "campaignId"],
+        "commands": [],
+        "minPathRecallLift": 0,
+        "minConstraintRecallLift": 0,
+        "maxProjectedTokens": 200
+      }
+    }
+  ]
+}

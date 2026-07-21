@@ -29,6 +29,46 @@ export {
 } from "./capability-contract.js";
 
 export {
+  type BuildRepositoryContractProjectionInput,
+  type RepositoryContractProjection,
+  type RepositoryContractProjectionSource,
+  buildRepositoryContractProjection,
+} from "./repository-contract-projection.js";
+
+export {
+  type BuildRepositoryIntelligenceGraphInput,
+  type RepositoryIntelligenceGraphCapability,
+  type RepositoryIntelligenceGraphClaim,
+  type RepositoryIntelligenceGraphRef,
+  type RepositoryIntelligenceGraphView,
+  buildRepositoryIntelligenceGraph,
+} from "./repository-intelligence-graph.js";
+
+export {
+  type DiscoverRepositoryContractCandidatesInput,
+  discoverRepositoryContractCandidates,
+} from "./repository-contract-discovery.js";
+
+export {
+  REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+  REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+  type RepositoryContractJudgmentDraft,
+  type RepositoryContractJudgmentDraftCitation,
+  buildRepositoryContractJudgmentPrompt,
+  coerceRepositoryContractJudgmentDrafts,
+} from "./repository-contract-judgment.js";
+
+export {
+  type BuildRepositoryContractDriftInput,
+  buildRepositoryContractDriftReport,
+} from "./repository-contract-drift.js";
+
+export {
+  type BuildTaskPactInput,
+  buildTaskPact,
+} from "./task-pact.js";
+
+export {
   type BuildCapabilityArchitectureLintReportInput,
   CAPABILITY_ARCHITECTURE_LINT_ARTIFACT_ID_PREFIX,
   CAPABILITY_ARCHITECTURE_LINT_FINDING_CATEGORY,
@@ -211,11 +251,19 @@ export {
   type TaskContextGraphLike,
   type TaskContextRetrievalResultLike,
   type BuildTaskContextReportInput,
+  type DeclaredTaskConstraint,
+  type DeclaredTaskContextPath,
+  type DeclaredTaskVerificationHint,
   TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX,
   DEFAULT_LEXICAL_FALLBACK_LIMIT,
   buildTaskContextReport,
   selectLexicalGraphContextPaths,
 } from "./task-context-report.js";
+
+export {
+  type TaskContractGuidance,
+  selectTaskContractGuidance,
+} from "./task-contract-guidance.js";
 
 export {
   type BuildApprovedPreparedIntentPlanInput,
@@ -347,6 +395,42 @@ export {
   selectTaskContextReports,
   summarizeTaskContext,
 } from "./task-context.js";
+
+export {
+  type ContextProfile,
+  type ContextBudget,
+  type ContextTrustClass,
+  type ContextPacketItem,
+  type ContextTraceEntry,
+  type CompiledContextPacket,
+  type CompileTaskContextInput,
+  type CompileTaskContextResult,
+  type ModelContextProjection,
+  type ModelContextProjectionItem,
+  type ModelContextDelivery,
+  type ModelContextDeliveryPolicy,
+  type ModelContextRouteSummary,
+  type ProjectModelContextDeliveryOptions,
+  CONTEXT_BUDGETS,
+  TASK_CONTEXT_READ_BEFORE_EDITING,
+  compileTaskContext,
+  projectModelContext,
+  projectModelContextDelivery,
+  estimateModelContextDeliveryTokens,
+  renderTaskContextMarkdown,
+} from "./context-compiler.js";
+
+export {
+  TASK_CONTEXT_REFINEMENT_RELATIONSHIPS,
+  type TaskContextRefinementRelationship,
+  type TaskContextRefinementDirection,
+  type TaskContextRefinementCandidate,
+  type TaskContextRefinementTraceEntry,
+  type TaskContextRefinementResult,
+  type SelectTaskContextRefinementInput,
+  type TaskContextRefinementGuidance,
+  selectTaskContextRefinement,
+} from "./context-refinement.js";
 
 export {
   type BuildIntentWorkOrderHandoffInput,

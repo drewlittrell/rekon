@@ -9,6 +9,12 @@ audited. Agents and humans should be able to see where a recommendation came
 from, which artifacts support it, which checks are required, and which actions
 are only plans rather than proof.
 
+Its primary model-facing outcome is to give an engineering model the smallest
+sufficient repository context for a correct, repository-native change while
+preserving declared intent, architecture, and verification contracts. Findings
+and opportunities are context signals within that system; universal bug-finding
+parity is not the product objective.
+
 ## What Rekon Is
 
 Rekon is a local-first system for building repository intelligence:
@@ -22,6 +28,8 @@ Rekon is a local-first system for building repository intelligence:
 - Capabilities observe source, project models, evaluate policy, resolve
   context, publish guidance, record memory, prepare work, and reconcile
   artifact-first changes.
+- Rekon installs a bounded bootstrap in a managed repository's `AGENTS.md` so
+  models know how to request current, task-shaped context through MCP or CLI.
 
 ## What Rekon Is Not
 
@@ -64,6 +72,10 @@ lower-layer truth.
 Docs are publications, not canonical truth. Memory enriches resolver output; it
 does not rewrite ownership or rule facts. Reconciliation is permissioned and
 artifact-first.
+
+The `AGENTS.md` bootstrap is an interface contract, not a repository snapshot.
+Dynamic ownership, pacts, findings, and checks remain typed artifacts selected
+for the task at hand.
 
 ## Open Source Principles
 

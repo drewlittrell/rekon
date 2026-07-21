@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-21T00:37:48Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "comparedPolicies": ["full", "summary-aware-v1", "summary-aware-v2"],
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "aecba962c3498ba6ffae5dbc35a33e4b879533ab266544093e403793717f6e9f",
+  "selectionSha256": "ef1e6a97a5338640305f6750242bafa2db710da66df074753c58b74a9267edf8",
+  "deliverySha256": {
+    "summaryAwareV1": "5427511ac1e7c2dfad77bd7131adcdfcb74094ba9a04e8fed7cb0d05b5e20276",
+    "summaryAwareV2": "3e51549477d9a4502ce8d00a339d66b6094a9041e5d3481ee64b734d0e41ec80"
+  },
+  "batchReportSha256": {
+    "summaryAwareV1": "939600f8b851956c3e1a9cc80f6e70f3d105c576525a4aa4e01d9478fe67b760",
+    "summaryAwareV2": "c627c9f7a901ffbf5d6e890c63a9c1cd29b4885a3a971386c6c00b4331b48c47"
+  },
+  "comparisonDesign": "three managed Rekon-only Sol/xhigh repeats per summary policy on the same isolated additive-helper task and hidden oracle as the retained full-policy baseline; v1 omitted conditional paths and supplied pathless relationship summaries, while v2 also marked each condition not triggered and skip unless triggered",
+  "sourceRetention": "fixture, selection, delivery, and local batch-report digests plus aggregate counts and scores only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "task": {
+    "caseId": "batch-log-formatting",
+    "shape": "additive-helper-with-visible-imports-to-unchanged-dependency-and-caller",
+    "selectedPaths": 4,
+    "requiredReadPaths": 2,
+    "pathlessRouteSummaries": 2,
+    "oracleOptionalPaths": 2
+  },
+  "variants": {
+    "full": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 5,
+      "averageCommands": 5,
+      "averageElapsedMs": 52644,
+      "optionalRoutesOffered": 6,
+      "optionalRoutesInspected": 4,
+      "optionalRoutesReported": 3,
+      "optionalRoutesUsed": 5,
+      "optionalRoutesSkipped": 1,
+      "reportedTokens": 452954,
+      "nonCachedInputTokens": 59139,
+      "visibleEstimatedTokens": 8010
+    },
+    "summaryAwareV1": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 5,
+      "averageCommands": 5.3333,
+      "averageElapsedMs": 75287.3333,
+      "optionalRoutesOffered": 6,
+      "optionalRoutesInspected": 6,
+      "optionalRoutesReported": 3,
+      "optionalRoutesUsed": 6,
+      "optionalRoutesSkipped": 0,
+      "reportedTokens": 445509,
+      "nonCachedInputTokens": 73906,
+      "visibleEstimatedTokens": 8374
+    },
+    "summaryAwareV2": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 5,
+      "averageCommands": 5.6667,
+      "averageElapsedMs": 60614.3333,
+      "optionalRoutesOffered": 6,
+      "optionalRoutesInspected": 6,
+      "optionalRoutesReported": 3,
+      "optionalRoutesUsed": 6,
+      "optionalRoutesSkipped": 0,
+      "reportedTokens": 447824,
+      "nonCachedInputTokens": 75901,
+      "visibleEstimatedTokens": 8505
+    }
+  },
+  "comparisonsAgainstFull": {
+    "summaryAwareV1": {
+      "explorationPathReduction": 0,
+      "commandReduction": -0.0667,
+      "elapsedReduction": -0.4301,
+      "optionalRouteUseReduction": -0.2,
+      "reportedTokenReduction": 0.0164,
+      "nonCachedInputTokenReduction": -0.2497,
+      "visibleEstimatedTokenReduction": -0.0454
+    },
+    "summaryAwareV2": {
+      "explorationPathReduction": 0,
+      "commandReduction": -0.1333,
+      "elapsedReduction": -0.1514,
+      "optionalRouteUseReduction": -0.2,
+      "reportedTokenReduction": 0.0113,
+      "nonCachedInputTokenReduction": -0.2834,
+      "visibleEstimatedTokenReduction": -0.0618
+    }
+  },
+  "judgment": {
+    "classification": "quality-preserved-pathless-summaries-do-not-reduce-source-use",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "pathOmissionClaimAccepted": true,
+    "optionalRouteSkippingClaimAccepted": false,
+    "contextReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "Both summary variants passed all six changes with exact scope, public checks, hidden behavior, and managed MCP adoption. Neither reduced exploration or optional-route use. Sol inspected both omitted routes in every run after their imports became visible in the two required files. V2's explicit condition-not-triggered decision did not change that behavior. Small reported-token reductions conflicted with 25-28% more non-cached input, 5-6% more visible-estimate tokens, and command overhead, so no efficiency claim is accepted. The production full policy remains unchanged."
+  }
+}

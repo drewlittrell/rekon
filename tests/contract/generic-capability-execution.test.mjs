@@ -243,6 +243,24 @@ test("config validate fails on malformed JSON", async () => {
   });
 });
 
+test("config validate rejects invalid managed agent-instruction settings", async () => {
+  await withFixture(async (root) => {
+    runCli(["init", "--root", root, "--json"]);
+    const configPath = join(root, ".rekon", "config.json");
+    const config = JSON.parse(await readFile(configPath, "utf8"));
+    config.agentInstructions = { enabled: "yes", target: "CLAUDE.md", sync: "always" };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+    const result = runCliRaw(["config", "validate", "--root", root, "--json"]);
+    assert.notEqual(result.status, 0);
+    const parsed = JSON.parse(result.stdout);
+
+    assert.ok(parsed.issues.some((issue) => issue.code === "agent-instructions-enabled-invalid"));
+    assert.ok(parsed.issues.some((issue) => issue.code === "agent-instructions-target-invalid"));
+    assert.ok(parsed.issues.some((issue) => issue.code === "agent-instructions-sync-invalid"));
+  });
+});
+
 async function withFixture(callback) {
   const root = await mkdtemp(join(tmpdir(), "rekon-generic-cap-"));
 

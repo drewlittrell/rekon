@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-20T22:22:12Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "contextPolicy": "tiered",
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "bfc602a704076b55421b828f4462286ea0ee4ab2de3e5bcfeb95fbe5e8d6decb",
+  "contextFixtureSha256": "788af2683afeff586e6a6703c43eef6ada3bf4f00efb929f2b874ff21deca4e5",
+  "selectionSha256": "943401ff54584f2e5e1b15b4d12e83deec1cce1fe9e3761993d3626df253ea90",
+  "deliveryDigests": [
+    {
+      "caseId": "atomic-experience-composition",
+      "sha256": "a8095803f35f5ad8a3291eeb7ae7237d58ad79c2b91e6ad0c967a9903fe49892"
+    },
+    {
+      "caseId": "checkout-baton-preservation",
+      "sha256": "f42a507022ece3fb84e78115e44fc2a6c26f7b19d655e1369196080ef89e6a59"
+    }
+  ],
+  "batchReportSha256": [
+    "75c8e9a1eb542af3eb9e58c4451e1e579b21b21e1692643d054f632d4ef87c2a",
+    "4a743ae40bc234d72c8a273311b41e43cab7fc72d5c81ef90d733aba9055fcd7"
+  ],
+  "comparisonDesign": "one paired exploratory repeat per task followed by one Rekon-only canary per task after clarifying that supporting routes are conditional",
+  "sourceRetention": "fixture, selection, and delivery digests plus aggregate counts, paths, scores, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "variants": [
+    {
+      "id": "initial-tier-language",
+      "pairedRuns": 2,
+      "baselinePasses": 2,
+      "rekonPasses": 2,
+      "candidatePairs": 2,
+      "baselineAverageExplorationPaths": 17.5,
+      "rekonAverageExplorationPaths": 7.5,
+      "baselineAverageCommands": 5,
+      "rekonAverageCommands": 4.5,
+      "supportingRoutesOffered": 8,
+      "supportingRoutesInspected": 8,
+      "tokenUsage": {
+        "baselineReportedTokens": 245656,
+        "rekonReportedTokens": 358575,
+        "reportedTokenReduction": -0.4597,
+        "baselineVisibleEstimatedTokens": 8648,
+        "rekonVisibleEstimatedTokens": 7119,
+        "visibleEstimatedTokenReduction": 0.1768
+      }
+    },
+    {
+      "id": "conditional-tier-language",
+      "rekonRuns": 2,
+      "rekonPasses": 2,
+      "rekonAdoptionPasses": 2,
+      "rekonAverageExplorationPaths": 7,
+      "rekonAverageCommands": 5,
+      "supportingRoutesOffered": 8,
+      "supportingRoutesInspected": 8,
+      "rekonReportedTokens": 275054,
+      "rekonVisibleEstimatedTokens": 7351
+    }
+  ],
+  "summary": {
+    "rekonRuns": 4,
+    "rekonPasses": 4,
+    "rekonAdoptionPasses": 4,
+    "supportingRoutesOffered": 16,
+    "supportingRoutesInspected": 16,
+    "supportingRoutesSkipped": 0,
+    "rekonAverageExplorationPaths": 7.25,
+    "rekonAverageCommands": 4.75
+  },
+  "judgment": {
+    "classification": "quality-preserved-no-context-read-reduction",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "contextReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "Tiering preserved behavior, exact scope, checks, and managed adoption, but Sol inspected every offered supporting route under both instruction variants. Tier labels alone did not reduce source consumption on tasks whose selected repository law described a complete system or end-to-end flow."
+  }
+}

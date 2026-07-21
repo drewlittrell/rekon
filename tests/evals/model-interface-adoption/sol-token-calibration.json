@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-19T04:30:03.000Z",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "instructionVersion": "1.7.2",
+  "fixtureSha256": "72b459e3f9a96c392c68dc0199d7ad7632198be991d678e5f08fee3eeb829357",
+  "sourceRetention": "aggregate counts, paths, scores, and tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "measurement": {
+    "subscriptionReported": "Codex turn.completed aggregate counts; inputTokens includes cachedInputTokens",
+    "visibleEstimate": "UTF-8 bytes divided by four across prompt, tool output, model actions, and final response"
+  },
+  "primary": {
+    "cases": 6,
+    "pairedRuns": 6,
+    "baselinePasses": 6,
+    "rekonPasses": 6,
+    "candidatePairs": 6,
+    "baseline": {
+      "averageExplorationPaths": 34.3333,
+      "averageCommands": 6.1667,
+      "subscriptionReportedTotalTokens": 997956,
+      "visibleEstimatedTotalTokens": 25914
+    },
+    "rekon": {
+      "averageExplorationPaths": 5.1667,
+      "averageCommands": 4.1667,
+      "subscriptionReportedTotalTokens": 983970,
+      "visibleEstimatedTotalTokens": 26229,
+      "managedAdoptionPasses": 5,
+      "managedRuns": 6,
+      "unexpectedRefinementRuns": 1
+    },
+    "relative": {
+      "explorationPathReduction": 0.8495,
+      "commandReduction": 0.3243,
+      "subscriptionReportedTokenReduction": 0.014,
+      "visibleEstimatedTokenReduction": -0.0122
+    }
+  },
+  "selectiveRepeats": {
+    "purpose": "Repeat the three highest-variance primary cases without rerunning the full corpus.",
+    "pairedRuns": 3,
+    "baselinePasses": 3,
+    "rekonPasses": 3,
+    "candidatePairs": 3,
+    "subscriptionReportedTokenReduction": 0.0499,
+    "visibleEstimatedTokenReduction": 0.2841,
+    "patterns": [
+      {
+        "caseId": "implementation-user-deactivation",
+        "subscriptionReportedTokenReductionByRun": [-0.231, -0.058],
+        "classification": "repeatable-overhead"
+      },
+      {
+        "caseId": "cross-system-account-suspension",
+        "subscriptionReportedTokenReductionByRun": [-0.425, -0.484],
+        "unexpectedRefinementRuns": 2,
+        "classification": "repeatable-refinement-overhead"
+      },
+      {
+        "caseId": "policy-refund-authorization",
+        "subscriptionReportedTokenReductionByRun": [0.366, 0.36],
+        "classification": "repeatable-savings"
+      }
+    ]
+  },
+  "decision": {
+    "classification": "correctness-preserving-exploration-gain-token-neutral-primary",
+    "tokenSavingsClaimAccepted": false,
+    "reason": "The primary Sol/xhigh run reduced exploration by 85% and preserved all outcomes, but reported tokens fell only 1.4% while the visible estimate increased 1.2%. Selective repeats confirmed material case-level variance and repeatable unnecessary-refinement overhead."
+  }
+}

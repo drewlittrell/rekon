@@ -1,0 +1,214 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "scripts/test-all.mjs",
+      "src/api/checkout-controller.ts",
+      "src/checkout/checkout-service.ts",
+      "src/checkout/order-repository.ts",
+      "src/events/order-event-publisher.ts",
+      "src/events/order-event-serializer.ts",
+      "src/events/order-event.ts",
+      "tests/checkout-service.test.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "src/api/checkout-controller.ts" },
+      { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+      { "kind": "file", "id": "src/checkout/order-repository.ts" },
+      { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+      { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+      { "kind": "file", "id": "src/events/order-event.ts" },
+      { "kind": "file", "id": "tests/checkout-service.test.ts" }
+    ],
+    "claims": [
+      {
+        "id": "claim-checkout-repository",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/order-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-repository"]
+      },
+      {
+        "id": "claim-checkout-publisher",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-publisher"]
+      },
+      {
+        "id": "claim-checkout-event-type",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports_type",
+        "object": { "kind": "file", "id": "src/events/order-event.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-event-type"]
+      },
+      {
+        "id": "claim-checkout-test",
+        "subject": { "kind": "file", "id": "tests/checkout-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:checkout-test"]
+      },
+      {
+        "id": "claim-publisher-runtime-serializer",
+        "subject": { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+        "predicate": "runtime_implementation",
+        "object": { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+        "source": "runtime",
+        "evidenceRefs": ["RuntimeTruth:order-event-serializer-binding"]
+      },
+      {
+        "id": "claim-serializer-event-type",
+        "subject": { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+        "predicate": "imports_type",
+        "object": { "kind": "file", "id": "src/events/order-event.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:serializer-event-type"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:checkout-order-created-event",
+        "verb": "publish",
+        "noun": "checkout order-created event",
+        "implementedBy": [
+          { "kind": "file", "id": "src/checkout/checkout-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:checkout-order-created-event"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-refinement-positive-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-refinement-positive-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-18T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-refinement-positive-eval" },
+      "producer": { "id": "@rekon/model-interface-refinement-positive-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-refinement-positive-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" }
+    },
+    "source": {
+      "capabilityMapRef": {
+        "type": "CapabilityMap",
+        "id": "model-interface-refinement-positive-map",
+        "schemaVersion": "0.1.0"
+      }
+    },
+    "summary": {
+      "total": 1,
+      "configured": 1,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 1,
+      "withPlacementRules": 0,
+      "withPreservationRules": 1
+    },
+    "contracts": [
+      {
+        "id": "checkout-order-created-event-law",
+        "capabilityRef": {
+          "capabilityMapRef": {
+            "type": "CapabilityMap",
+            "id": "model-interface-refinement-positive-map",
+            "schemaVersion": "0.1.0"
+          },
+          "phraseCapabilityId": "capability:checkout-order-created-event"
+        },
+        "match": {
+          "verb": "publish",
+          "noun": "checkout order-created event"
+        },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Propagate the optional checkout channel into the deployed order-created event payload.",
+          "Omit channel from legacy payloads when the request does not provide it; do not serialize channel as undefined.",
+          "Keep the checkout controller public contract stable.",
+          "Add regression coverage for channel propagation and legacy omission."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "checkout-runtime-serializer-refinement",
+      "task": "Propagate the optional checkout channel from src/checkout/checkout-service.ts into the deployed order-created event payload. Omit channel from legacy payloads, keep the public checkout controller stable, and add regression coverage.",
+      "paths": ["src/checkout/checkout-service.ts"],
+      "profile": "compact",
+      "managedExpectations": {
+        "requireRefinement": true,
+        "maxRefinementCalls": 1,
+        "requiredRefinementRelationship": "implementation",
+        "requiredRefinementAnchorPath": "src/events/order-event-publisher.ts"
+      },
+      "oracle": {
+        "requiredContextPaths": [
+          "src/checkout/checkout-service.ts",
+          "src/events/order-event-publisher.ts",
+          "src/events/order-event.ts",
+          "tests/checkout-service.test.ts"
+        ],
+        "requiredRefinementPaths": [
+          "src/events/order-event-serializer.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/api/checkout-controller.ts",
+          "src/checkout/checkout-service.ts",
+          "src/checkout/order-repository.ts",
+          "src/events/order-event-publisher.ts",
+          "src/events/order-event.ts",
+          "tests/checkout-service.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/checkout/checkout-service.ts",
+          "src/events/order-event-serializer.ts",
+          "tests/checkout-service.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/checkout/checkout-service.ts",
+          "src/events/order-event-serializer.ts",
+          "tests/checkout-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/checkout-controller.ts"],
+        "constraintFragments": [
+          "channel",
+          "deployed order-created event payload",
+          "omit channel",
+          "checkout controller"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-refinement-positive/oracles/checkout-runtime-serializer.test.mjs"
+        ],
+        "planConcepts": [
+          ["channel", "checkout"],
+          ["event", "payload"],
+          ["serializer"],
+          ["legacy", "omit"],
+          ["test", "coverage"]
+        ]
+      }
+    }
+  ]
+}

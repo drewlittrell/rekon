@@ -19,6 +19,7 @@ The CLI is the user surface for the local lifecycle:
 - `rekon observe`
 - `rekon project`
 - `rekon evaluate`
+- `rekon contracts bootstrap/compile/discover/judge/adopt/reconcile`
 - `rekon checks ingest --junit <report.xml>`
 - `rekon checks ingest --eslint-json <report.json>`
 - `rekon security ingest --sarif <report.sarif>`
@@ -43,6 +44,66 @@ The CLI is the user surface for the local lifecycle:
 - `rekon verify coverage plan`
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
+
+`rekon contracts bootstrap` prepares a previously unmanaged repository for
+contract judgment without calling a model or evaluating findings. It observes
+and projects the repository, compiles any existing contract sources, discovers
+bounded system and flow candidates, writes a snapshot, and installs the managed
+agent instructions. A coding agent then inspects the cited source and submits
+judgments through `rekon contracts judge`; source adoption remains explicitly
+permission-gated.
+
+## Model Interface
+
+`rekon setup` installs a versioned Rekon block in the repository's root
+`AGENTS.md`. `rekon init` and `rekon refresh` keep that block current. Rekon
+preserves project-owned text outside its markers.
+
+```sh
+rekon agent-instructions check
+rekon agent-instructions sync
+rekon agent-instructions remove
+```
+
+Configure this behavior in `.rekon/config.json`:
+
+```json
+{
+  "agentInstructions": {
+    "enabled": true,
+    "target": "AGENTS.md",
+    "sync": "on-refresh"
+  }
+}
+```
+
+The v1 target is the root `AGENTS.md`. Use `sync: "manual"` to stop automatic
+refresh updates, or `enabled: false` to opt out. `rekon agent-contract export`
+continues to support standalone files such as `AGENTS.rekon.md`; it will not
+replace protected instruction files.
+
+`rekon context task --profile compact|standard|deep` and MCP
+`context_for_task` share the same budgeted compiler. MCP is read-only; CLI owns
+artifact writes and lifecycle changes. When the capability graph binds a
+requested path to a configured `CapabilityContract`, both surfaces include its
+declared pacts and required checks. When adopted system or flow law matches the
+task paths, both surfaces also build the same `TaskPact`; the CLI persists it
+for work-order lineage and MCP derives it read-only.
+
+Managed instructions require this request at task start, after context
+compaction or restart, and whenever the goal or known path scope materially
+changes. Dynamic repository law stays out of the root instruction file.
+
+Use `rekon context task ... --model-context` for the minimal JSON payload sent
+to a model. Normal `--json` retains the full audit-oriented `agentContext`,
+including evidence, routing reasons, budgets, and selection trace.
+
+Use `rekon context refine` only after the initial reads expose a specific
+unresolved source identifier. Supply `--question`, the exact `--target`,
+`--relationship`, an `--anchor-path` or `--anchor-symbol`, and repeatable
+`--already-read` paths. The command returns only new deterministic neighbors
+and matched contract guidance; it does not invoke embedding or model providers
+and does not write an artifact.
 
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.

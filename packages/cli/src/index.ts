@@ -72,6 +72,15 @@ import modelCapability, {
   buildCapabilityLintFindingBridgeReport,
   buildFindingReportWritePreview,
   buildCapabilityContract,
+  buildRepositoryIntelligenceGraph,
+  buildRepositoryContractProjection,
+  buildRepositoryContractJudgmentPrompt,
+  buildRepositoryContractDriftReport,
+  buildTaskPact,
+  coerceRepositoryContractJudgmentDrafts,
+  discoverRepositoryContractCandidates,
+  REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+  REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
   buildStepCapabilityGraph,
   parseStepCapabilityGraphConfig,
   buildHandoffContract,
@@ -198,14 +207,24 @@ import modelCapability, {
   type EmbeddingSimilarityForGraph,
   type EmbeddingNeighborSearchStats,
   type EvidenceGraphForChunks,
-  buildTaskContextReport,
+  compileTaskContext,
+  projectModelContext,
+  projectModelContextDelivery,
+  renderTaskContextMarkdown,
+  type ContextProfile,
   selectLexicalGraphContextPaths,
+  selectTaskContextRefinement,
+  selectTaskContractGuidance,
+  TASK_CONTEXT_REFINEMENT_RELATIONSHIPS,
+  type TaskContextRefinementRelationship,
   type TaskContextGraphLike,
   type TaskContextRetrievalResultLike,
   selectTaskContextReports,
   summarizeTaskContext,
   type TaskContextReportLike,
   type TaskContextSelection,
+  type BuildRepositoryIntelligenceGraphInput,
+  type RepositoryContractJudgmentDraftCitation,
 } from "@rekon/capability-model";
 import {
   RekonLlmRouter,
@@ -269,15 +288,17 @@ import {
   recordIssueMergeDecision,
   validateArtifactFreshness,
   validateArtifactIndex,
+  loadRepositoryContractSources,
+  writeRepositoryContractSource,
 } from "@rekon/runtime";
-import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import { digestJson, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   createRulebook,
   validateRulebook,
   type Rule,
   type Rulebook,
 } from "@rekon/kernel-rulebook";
-import { runMcpServer } from "@rekon/mcp";
+import { runMcpServer, TASK_CONTEXT_REFINEMENT_INSTRUCTION } from "@rekon/mcp";
 import { buildDocsFreshnessReport, renderDocsIndex } from "@rekon/capability-docs";
 import {
   IntentArtifactLineageError,
@@ -311,6 +332,24 @@ import {
   type LintReport,
   type TestReport,
   type StepCapabilityGraph,
+  type CapabilityEvidenceGraph,
+  type ContractAdoptionOperation,
+  type ContractCandidateReport,
+  type ContractJudgmentCitation,
+  type ContractJudgmentReport,
+  type ContractDriftReport,
+  type EffectiveContractRegistry,
+  type FlowContractSource,
+  type FlowContract,
+  type RepositoryContractSourceDocument,
+  type SystemContractSource,
+  type SystemContract,
+  type TaskPact,
+  assertContractCandidateReport,
+  assertContractJudgmentReport,
+  createContractAdoptionReport,
+  createContractJudgmentReport,
+  createEffectiveContractRegistry,
   INTENT_TASK_KINDS,
   isIntentTaskKind,
 } from "@rekon/kernel-repo-model";
@@ -370,6 +409,12 @@ import {
   SEMANTIC_FILE_UNDERSTANDING_PROMPT_VERSION,
   buildSemanticFileUnderstandingPrompt,
 } from "./semantic-file-understanding.js";
+import {
+  checkAgentInstructions,
+  removeAgentInstructions,
+  syncAgentInstructions,
+  type AgentInstructionsOptions,
+} from "./agent-instructions.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -553,6 +598,7 @@ function rekonIntentWorkflow(): string[] {
     "rekon scan",
     "rekon intent context prepare",
     "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
+    "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "rekon intent plan review",
     "rekon intent plan answer",
     "rekon intent assess",
@@ -589,7 +635,7 @@ function renderWelcome(brand: string): string {
     "Boundaries:",
     "  Rekon does not run Circe.",
     "  Rekon does not execute commands.",
-    "  Rekon does not write source files.",
+    "  Rekon does not edit implementation source; setup manages one bounded AGENTS.md block.",
     "  intent:go remains deferred.",
   );
   return lines.join("\n");
@@ -609,16 +655,13 @@ type RekonSetupPlan = {
     createdVerificationPlan: false;
     runsCirce: false;
     executesCommands: false;
-    writesSourceFiles: false;
+    writesSourceFiles: true;
     implementsIntentGo: false;
   };
 };
 
-// Detect workspace state for `rekon setup` WITHOUT running a scan or creating
-// `.rekon/`. When `.rekon/` is absent the filesystem is not touched at all
-// (so setup never creates `.rekon/` before the first scan); when it is present
-// the artifact store is opened (idempotently) only to read whether a snapshot
-// exists.
+// Detect workspace state for `rekon setup` without running a scan or creating
+// `.rekon/`. Setup may manage the root AGENTS.md bootstrap separately.
 async function detectSetupWorkspaceState(root: string): Promise<RekonSetupWorkspaceState> {
   const dotRekon = resolve(root, ".rekon");
   let initialized = true;
@@ -660,7 +703,7 @@ function buildSetupPlan(input: { state: RekonSetupWorkspaceState; root: string }
       createdVerificationPlan: false,
       runsCirce: false,
       executesCommands: false,
-      writesSourceFiles: false,
+      writesSourceFiles: true,
       implementsIntentGo: false,
     },
   };
@@ -681,7 +724,413 @@ export async function main(argv: string[]): Promise<void> {
     const store = createLocalArtifactStore(root);
     await store.init();
     await writeConfigIfMissing(root);
-    writeOutput({ root, config: ".rekon/config.json" }, json);
+    const config = await readConfig(root);
+    const agentInstructions = await syncAgentInstructions(root, agentInstructionOptions(config));
+    writeOutput({ root, config: ".rekon/config.json", agentInstructions }, json);
+    return;
+  }
+
+  if (command === "agent-instructions" && subcommand === "sync") {
+    const config = await readConfig(root);
+    const result = await syncAgentInstructions(root, agentInstructionOptions(config));
+    writeOutput(result, json);
+    return;
+  }
+
+  if (command === "agent-instructions" && subcommand === "check") {
+    const config = await readConfig(root);
+    const result = await checkAgentInstructions(root, agentInstructionOptions(config));
+    writeOutput(result, json);
+    if (result.status !== "current" && result.status !== "disabled") process.exitCode = 1;
+    return;
+  }
+
+  if (command === "agent-instructions" && subcommand === "remove") {
+    const config = await readConfig(root);
+    const result = await removeAgentInstructions(root, { target: config.agentInstructions?.target });
+    writeOutput(result, json);
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "bootstrap") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    await writeConfigIfMissing(root);
+    const configValidation = await validateConfig(root);
+    if (!configValidation.valid) {
+      writeOutput({ command: "contracts bootstrap", status: "failed", issues: configValidation.issues }, json);
+      process.exitCode = 1;
+      return;
+    }
+    const runtime = await createDefaultRuntime(root);
+    const evidenceRef = await runtime.runObserve();
+    const capabilityGraph = await buildRefreshCapabilityEvidenceGraph(root, store);
+    const projectionRefs = await runtime.runProject();
+    const compiled = await compileRepositoryContracts(root, store);
+    if (!compiled.valid) {
+      writeOutput({ command: "contracts bootstrap", status: "failed", compiled }, json);
+      process.exitCode = 1;
+      return;
+    }
+    const intelligence = await loadRepositoryContractIntelligence(store);
+    const candidates = discoverRepositoryContractCandidates({
+      repoId: root,
+      graph: intelligence.graph,
+      observedRepo: intelligence.observedRepo,
+      ownershipMap: intelligence.ownershipMap,
+      capabilityMap: intelligence.capabilityMap,
+      effectiveRegistry: intelligence.effectiveRegistry,
+      maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+      maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+    });
+    const candidateRef = await store.write(candidates, { category: "actions" });
+    const snapshotRef = await runtime.runSnapshot({
+      artifactRefs: [
+        evidenceRef,
+        capabilityGraph.ref,
+        ...projectionRefs,
+        ...compiled.contracts,
+        ...(compiled.registry ? [compiled.registry] : []),
+        candidateRef,
+      ],
+    });
+    const config = await readConfig(root);
+    const agentInstructions = await syncAgentInstructions(root, agentInstructionOptions(config));
+    const prompt = candidates.summary.total > 0
+      ? buildRepositoryContractJudgmentPrompt(candidates)
+      : undefined;
+    writeOutput({
+      command: "contracts bootstrap",
+      status: candidates.summary.total > 0 ? "judgment-required" : "current",
+      artifacts: {
+        evidence: evidenceRef,
+        capabilityGraph: capabilityGraph.ref,
+        projections: projectionRefs,
+        registry: compiled.registry,
+        candidates: candidateRef,
+        snapshot: snapshotRef,
+      },
+      summary: candidates.summary,
+      unresolved: candidates.unresolved,
+      graphWarnings: intelligence.graph.warnings,
+      agentInstructions,
+      ...(prompt ? {
+        judgment: {
+          promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+          prompt,
+          schema: REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+          next: [
+            `Inspect the cited source and write repository-native judgments for ContractCandidateReport:${candidateRef.id}.`,
+            `rekon contracts judge --candidate-report ${candidateRef.id} --input <judgment.json> --root . --json`,
+            "rekon contracts adopt --root . --json",
+          ],
+        },
+      } : {}),
+      boundaries: {
+        calledModel: false,
+        evaluatedFindings: false,
+        wroteContractSource: false,
+        executedRepositoryCommands: false,
+      },
+    }, json);
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "compile") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const compiled = await compileRepositoryContracts(root, store);
+    writeOutput({ command: "contracts compile", ...compiled }, json);
+    if (!compiled.valid) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "discover") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const { graph, observedRepo, ownershipMap, capabilityMap, effectiveRegistry } = await loadRepositoryContractIntelligence(store);
+    const report = discoverRepositoryContractCandidates({
+      repoId: root,
+      graph,
+      observedRepo,
+      ownershipMap,
+      capabilityMap,
+      effectiveRegistry,
+      maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+      maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+    });
+    const artifact = await store.write(report, { category: "actions" });
+    writeOutput({
+      command: "contracts discover",
+      artifact,
+      summary: report.summary,
+      unresolved: report.unresolved.length,
+      graphWarnings: graph.warnings,
+      authority: "inferred",
+      adopted: false,
+    }, json);
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "judge") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const candidateEntry = await selectContractArtifactEntry(
+      store,
+      "ContractCandidateReport",
+      parsed.flags["candidate-report"],
+    );
+    const candidateReport = assertContractCandidateReport(await store.read(candidateEntry));
+    const candidateReportRef = artifactIndexRef(candidateEntry);
+    const prompt = buildRepositoryContractJudgmentPrompt(candidateReport);
+    const inputPath = typeof parsed.flags.input === "string" ? parsed.flags.input.trim() : "";
+    if (!inputPath) {
+      writeOutput({
+        command: "contracts judge",
+        candidateReport: candidateReportRef,
+        promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+        prompt,
+        schema: REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+        next: "Write the agent judgment JSON under the repository and rerun with --input <path>.",
+      }, json);
+      return;
+    }
+
+    const draftInput = await readRepositoryJsonInput(root, inputPath);
+    const drafts = coerceRepositoryContractJudgmentDrafts(draftInput, candidateReport);
+    const candidateById = new Map(candidateReport.candidates.map((candidate) => [candidate.id, candidate]));
+    const judgments = [];
+    for (const draft of drafts) {
+      const candidate = candidateById.get(draft.candidateId);
+      if (!candidate) throw new Error(`Judgment references unknown candidate ${draft.candidateId}.`);
+      judgments.push({
+        candidateId: draft.candidateId,
+        decision: draft.decision,
+        confidence: draft.confidence,
+        rationale: draft.rationale,
+        citations: await bindContractJudgmentCitations(root, draft.citations),
+        evidenceRefs: candidate.evidenceRefs,
+        ...(draft.proposed ? { proposed: draft.proposed } : {}),
+      });
+    }
+    const judgeMode = contractJudgeMode(parsed.flags.mode);
+    const model = typeof parsed.flags.model === "string" && parsed.flags.model.trim()
+      ? parsed.flags.model.trim()
+      : undefined;
+    if (judgeMode === "provider" && !model) throw new Error("Provider contract judgments require --model <id>.");
+    const generatedAt = new Date().toISOString();
+    const report = createContractJudgmentReport({
+      header: {
+        artifactType: "ContractJudgmentReport",
+        artifactId: `contract-judgment-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
+        schemaVersion: "1.0.0",
+        generatedAt,
+        subject: { repoId: root },
+        producer: { id: "@rekon/cli.contract-judge", version: "1.0.0" },
+        inputRefs: [candidateReportRef],
+        supersession: { key: `contract-judgments:${candidateReportRef.id}` },
+        freshness: { status: "fresh" },
+        provenance: {
+          confidence: judgments.length > 0 ? Math.max(...judgments.map((judgment) => judgment.confidence)) : 0,
+          notes: ["agent judgment bound to current source digests"],
+        },
+      },
+      candidateReportRef,
+      judge: {
+        id: typeof parsed.flags["judge-id"] === "string" ? parsed.flags["judge-id"] : "rekon-agent",
+        version: typeof parsed.flags["judge-version"] === "string" ? parsed.flags["judge-version"] : "1.0.0",
+        mode: judgeMode,
+        ...(model ? { model } : {}),
+        promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+      },
+      judgments,
+    });
+    const artifact = await store.write(report, { category: "actions" });
+    writeOutput({ command: "contracts judge", artifact, summary: report.summary, judge: report.judge }, json);
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "adopt") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const judgmentEntry = await selectContractArtifactEntry(
+      store,
+      "ContractJudgmentReport",
+      parsed.flags["judgment-report"],
+    );
+    const judgmentReport = assertContractJudgmentReport(await store.read(judgmentEntry));
+    const candidateEntry = await selectContractArtifactEntry(
+      store,
+      "ContractCandidateReport",
+      typeof parsed.flags["candidate-report"] === "string"
+        ? parsed.flags["candidate-report"]
+        : judgmentReport.candidateReportRef.id,
+    );
+    const candidateReport = assertContractCandidateReport(await store.read(candidateEntry));
+    const candidateReportRef = artifactIndexRef(candidateEntry);
+    const judgmentReportRef = artifactIndexRef(judgmentEntry);
+    assertArtifactRefLineage(judgmentReport.candidateReportRef, candidateReportRef, "Contract judgment candidate lineage");
+
+    const config = await readConfig(root);
+    const adoption = config.contracts?.adoption;
+    const apply = parsed.flags.apply === true;
+    if (apply && adoption?.allowSourceWrites !== true) {
+      throw new Error("Contract source adoption is disabled. Set contracts.adoption.allowSourceWrites to true in .rekon/config.json before using --apply.");
+    }
+    const minimumConfidence = boundedConfigConfidence(adoption?.minimumConfidence, 0.8);
+    const allowedJudgeModes = new Set(adoption?.allowedJudgeModes ?? ["agent", "provider"]);
+    const judgments = new Map(judgmentReport.judgments.map((judgment) => [judgment.candidateId, judgment]));
+    const effectiveRegistry = await readLatestArtifactOrUndefined<EffectiveContractRegistry>(store, "EffectiveContractRegistry");
+    const existingSourceByContract = new Map<string, string>();
+    for (const entry of effectiveRegistry?.entries ?? []) {
+      if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
+      const existing = await store.read(entry.ref) as SystemContract | FlowContract;
+      if (existing.source.path) existingSourceByContract.set(`${entry.contractType}:${entry.contractId}`, existing.source.path);
+    }
+    const operations: ContractAdoptionOperation[] = [];
+
+    for (const candidate of candidateReport.candidates) {
+      const judgment = judgments.get(candidate.id);
+      const contractType = candidate.kind === "system" ? "SystemContract" : "FlowContract";
+      const existingSourcePath = existingSourceByContract.get(`${contractType}:${candidate.targetId}`);
+      const sourcePath = existingSourcePath ?? repositoryContractAdoptionPath(candidate.kind, candidate.targetId);
+      if (!judgment) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "No judgment exists for this candidate." });
+        continue;
+      }
+      if (!allowedJudgeModes.has(judgmentReport.judge.mode)) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judge mode ${judgmentReport.judge.mode} is not allowed by adoption policy.` });
+        continue;
+      }
+      if (judgment.decision !== "accept") {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "skipped", reason: `Judgment decision is ${judgment.decision}.` });
+        continue;
+      }
+      if (judgment.confidence < minimumConfidence) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judgment confidence ${judgment.confidence} is below ${minimumConfidence}.` });
+        continue;
+      }
+      if (!judgment.proposed) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Accepted judgment has no repository-native contract proposal." });
+        continue;
+      }
+      if (existingSourcePath && !existingSourcePath.startsWith("rekon/contracts/")) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Rekon will not automatically replace a co-located or externally configured contract source.", sourcePath });
+        continue;
+      }
+      const citationsCurrent = await contractJudgmentCitationsAreCurrent(root, judgment.citations);
+      if (!citationsCurrent) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "One or more judgment citations no longer match current source." });
+        continue;
+      }
+      const document = contractSourceDocumentForAdoption(candidate.kind, candidate.targetId, judgment.proposed);
+      const sourceDigest = digestJson(document);
+      if (!apply) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "planned", reason: "Accepted judgment is eligible for adoption.", sourcePath, sourceDigest });
+        continue;
+      }
+      try {
+        const written = await writeRepositoryContractSource({ repoRoot: root, path: sourcePath, document, overwrite: Boolean(existingSourcePath) });
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "adopted", reason: "Accepted agent judgment was written as committed repository law.", sourcePath: written.path, sourceDigest: written.digest });
+      } catch (error) {
+        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: error instanceof Error ? error.message : String(error), sourcePath, sourceDigest });
+      }
+    }
+
+    const generatedAt = new Date().toISOString();
+    const report = createContractAdoptionReport({
+      header: {
+        artifactType: "ContractAdoptionReport",
+        artifactId: `contract-adoption-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
+        schemaVersion: "1.0.0",
+        generatedAt,
+        subject: { repoId: root },
+        producer: { id: "@rekon/cli.contract-adopt", version: "1.0.0" },
+        inputRefs: [candidateReportRef, judgmentReportRef],
+        supersession: { key: `contract-adoption:${candidateReportRef.id}` },
+        freshness: { status: operations.some((operation) => operation.status === "blocked") ? "partial" : "fresh" },
+        provenance: { notes: [apply ? "permissioned source adoption" : "source adoption dry-run"] },
+      },
+      candidateReportRef,
+      judgmentReportRef,
+      mode: apply ? "apply" : "dry-run",
+      operations,
+    });
+    const artifact = await store.write(report, { category: "actions" });
+    const compiled = apply && report.summary.adopted > 0
+      ? await compileRepositoryContracts(root, store)
+      : undefined;
+    writeOutput({ command: "contracts adopt", artifact, summary: report.summary, operations: report.operations, compiled }, json);
+    if (report.summary.blocked > 0 || compiled?.valid === false) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "reconcile") {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    let intelligence = await loadRepositoryContractIntelligence(store);
+    if (!intelligence.effectiveRegistry) {
+      const compiled = await compileRepositoryContracts(root, store);
+      if (!compiled.valid) {
+        writeOutput({ command: "contracts reconcile", status: "blocked", compiled }, json);
+        process.exitCode = 1;
+        return;
+      }
+      intelligence = await loadRepositoryContractIntelligence(store);
+    }
+    const registry = intelligence.effectiveRegistry;
+    if (!registry) throw new Error("Contract reconciliation could not create an effective registry.");
+    const registryEntry = await pickLatestArtifactEntry(store, "EffectiveContractRegistry");
+    if (!registryEntry) throw new Error("Contract reconciliation could not resolve the effective registry artifact.");
+    const loadedSources = await loadRepositoryContractSources({ repoRoot: root });
+    if (!loadedSources.valid) {
+      writeOutput({ command: "contracts reconcile", status: "blocked", issues: loadedSources.issues }, json);
+      process.exitCode = 1;
+      return;
+    }
+    const contracts: Array<SystemContract | FlowContract> = [];
+    for (const entry of registry.entries) {
+      if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
+      contracts.push(await store.read(entry.ref) as SystemContract | FlowContract);
+    }
+    const drift = buildRepositoryContractDriftReport({
+      repoId: root,
+      registry,
+      registryRef: artifactIndexRef(registryEntry),
+      contracts,
+      sources: loadedSources.sources.map((source) => ({ path: source.path, digest: source.digest })),
+      graph: intelligence.graph,
+      observedRepo: intelligence.observedRepo,
+      ownershipMap: intelligence.ownershipMap,
+    });
+    const driftRef = await store.write(drift, { category: "actions" });
+    const reconsiderContractIds = drift.entries
+      .filter((entry) => entry.status !== "current")
+      .map((entry) => `${entry.contractType}:${entry.contractId}`);
+    const candidates = discoverRepositoryContractCandidates({
+      repoId: root,
+      graph: intelligence.graph,
+      observedRepo: intelligence.observedRepo,
+      ownershipMap: intelligence.ownershipMap,
+      capabilityMap: intelligence.capabilityMap,
+      effectiveRegistry: registry,
+      reconsiderContractIds,
+      maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+      maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+    });
+    const candidateRef = await store.write(candidates, { category: "actions" });
+    writeOutput({
+      command: "contracts reconcile",
+      status: drift.summary.drifted > 0 ? "drifted" : drift.summary.unverified > 0 ? "unverified" : "current",
+      drift: { artifact: driftRef, summary: drift.summary, entries: drift.entries },
+      candidates: { artifact: candidateRef, summary: candidates.summary },
+      next: candidates.summary.total > 0
+        ? `rekon contracts judge --candidate-report ${candidateRef.id}`
+        : undefined,
+    }, json);
+    if (parsed.flags["fail-on-drift"] === true && drift.summary.drifted > 0) process.exitCode = 1;
     return;
   }
 
@@ -884,6 +1333,7 @@ export async function main(argv: string[]): Promise<void> {
     // final AssessmentReport used by downstream refresh stages.
     let assessmentJudgmentLayer: AssessmentJudgmentLayerResult | undefined;
     const refresh = await runRefresh(root, {
+      syncAgentInstructions: false,
       seedArtifactRefs: [...semanticDebtLayer.artifacts, ...semanticLayer.artifacts],
       afterEvaluate: async () => {
         const judgmentStore = createLocalArtifactStore(root);
@@ -1042,20 +1492,20 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "setup") {
-    // `rekon setup [--root <path>] [--json] [--no-banner]` — a non-interactive,
-    // read-only setup-plan command (Rekon Setup / Welcome UI Implementation). It
-    // detects the workspace state WITHOUT running a scan or creating `.rekon/`,
-    // then prints a deterministic plan of recommended next actions. It does NOT
-    // prompt, run scan, generate docs/agent/CI, create a VerificationPlan,
-    // execute commands, write source files, run Circe, or implement intent:go.
+    // `rekon setup [--root <path>] [--json] [--no-banner]` installs the bounded
+    // Rekon bootstrap in AGENTS.md and otherwise remains a non-interactive setup
+    // planner. It does not scan, create `.rekon/`, execute commands, or generate
+    // dynamic repository context.
     // ASCII art never appears in `--json`.
     const noBanner = Boolean(parsed.flags["no-banner"]);
     const stdoutIsTTY = process.stdout.isTTY === true;
     const state = await detectSetupWorkspaceState(root);
     const plan = buildSetupPlan({ state, root });
+    const config = await readConfig(root);
+    const agentInstructions = await syncAgentInstructions(root, agentInstructionOptions(config));
 
     if (json) {
-      writeOutput(plan, true);
+      writeOutput({ ...plan, agentInstructions }, true);
     } else {
       const brand = rekonBrandPrefix({ json, noBanner, stdoutIsTTY, env: process.env });
       const lines: string[] = [];
@@ -1068,7 +1518,8 @@ export async function main(argv: string[]): Promise<void> {
         "Recommended next action:",
         ...plan.recommendedNextActions.map((action) => `  ${action}`),
         "",
-        "This command does not run scans, create docs, add CI, execute commands, write source files, or implement intent:go.",
+        `Agent instructions: ${agentInstructions.changed ? "installed" : "current"} (${agentInstructions.target})`,
+        "This command does not run scans, create dynamic docs, add CI, execute commands, or implement intent:go.",
       );
       writeOutput(lines.join("\n"), false);
     }
@@ -1991,6 +2442,174 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (command === "context" && subcommand === "refine") {
+    const question = typeof parsed.flags.question === "string" ? parsed.flags.question.trim() : "";
+    if (question.length === 0) {
+      throw new Error("rekon context refine requires --question <text>.");
+    }
+    const target = typeof parsed.flags.target === "string" ? parsed.flags.target.trim() : "";
+    if (target.length === 0) {
+      throw new Error("rekon context refine requires --target <source-identifier>.");
+    }
+    const relationshipValue = typeof parsed.flags.relationship === "string"
+      ? parsed.flags.relationship.trim()
+      : "";
+    if (!TASK_CONTEXT_REFINEMENT_RELATIONSHIPS.includes(relationshipValue as TaskContextRefinementRelationship)) {
+      throw new Error(
+        `rekon context refine --relationship must be one of: ${TASK_CONTEXT_REFINEMENT_RELATIONSHIPS.join(", ")}.`,
+      );
+    }
+    const anchorPath = typeof parsed.flags["anchor-path"] === "string"
+      ? parsed.flags["anchor-path"].trim()
+      : "";
+    const anchorSymbol = typeof parsed.flags["anchor-symbol"] === "string"
+      ? parsed.flags["anchor-symbol"].trim()
+      : "";
+    if (anchorPath.length === 0 && anchorSymbol.length === 0) {
+      throw new Error("rekon context refine requires --anchor-path <path> or --anchor-symbol <path#symbol>.");
+    }
+    const alreadyRead = parseRepeatableFlag(parsed.flags["already-read"])
+      .map((path) => path.trim())
+      .filter((path) => path.length > 0);
+    const limitRaw = parsed.flags.limit;
+    const limit = limitRaw === undefined ? undefined : Number.parseInt(String(limitRaw), 10);
+    if (limit !== undefined && (!Number.isFinite(limit) || limit < 1 || limit > 8)) {
+      throw new Error(`rekon context refine --limit must be an integer from 1 to 8 (got "${String(limitRaw)}").`);
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const graphEntries = await store.list("CapabilityEvidenceGraph");
+    const latestGraphEntry = graphEntries[graphEntries.length - 1];
+    if (!latestGraphEntry) {
+      throw new Error("rekon context refine: no CapabilityEvidenceGraph found. Run `rekon capability graph build` first.");
+    }
+    const rawGraph = (await store.read(latestGraphEntry)) as unknown as TaskContextGraphLike;
+    const graph: TaskContextGraphLike = {
+      ...rawGraph,
+      claims: (rawGraph.claims ?? []).filter((claim) => claim.source !== "llm"),
+    };
+    const refinement = selectTaskContextRefinement({
+      question,
+      relationship: relationshipValue as TaskContextRefinementRelationship,
+      ...(anchorPath ? { anchorPath } : {}),
+      ...(anchorSymbol ? { anchorSymbol } : {}),
+      ...(alreadyRead.length > 0 ? { alreadyRead } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      graph,
+    });
+
+    const contractEntries = await store.list("CapabilityContract");
+    const latestContractEntry = contractEntries
+      .slice()
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    const capabilityContract = latestContractEntry
+      ? (await store.read(latestContractEntry)) as CapabilityContract
+      : undefined;
+    const refinementContractPaths = [...new Set([
+      ...refinement.readNext.map((candidate) => candidate.path),
+      ...(anchorPath ? [anchorPath] : []),
+      ...(anchorSymbol ? [anchorSymbol.split("#")[0] ?? anchorSymbol] : []),
+    ].filter(Boolean))];
+    const taskPactSelection = await buildCurrentTaskPact(store, {
+      repoId: root,
+      taskText: question,
+      paths: refinementContractPaths,
+      write: false,
+    });
+    const contractGuidance = selectTaskContractGuidance({
+      paths: refinementContractPaths,
+      graph,
+      capabilityContract,
+      capabilityContractRef: latestContractEntry,
+      taskPact: taskPactSelection.pact,
+      taskPactRef: taskPactSelection.ref,
+    });
+    const warnings: string[] = [];
+    const contractFreshness = capabilityContract?.header.freshness?.status ?? "unknown";
+    if (contractGuidance.matchedContractIds.length > 0 && contractFreshness !== "fresh") {
+      warnings.push(
+        `repository-contract-${contractFreshness}: selected CapabilityContract guidance is ${contractFreshness}; verify current repository policy before relying on it`,
+      );
+    }
+    warnings.push(...contractGuidance.warnings);
+    if (refinement.truncated) {
+      warnings.push("additional matching graph relationships were omitted by the bounded refinement limit");
+    }
+    const constraints = contractGuidance.constraints.map((constraint) =>
+      constraint.path ? `${constraint.statement} [path: ${constraint.path}]` : constraint.statement,
+    );
+    const checks = contractGuidance.verificationHints.flatMap((hint) => [
+      ...(hint.command ? [hint.command] : []),
+      ...(hint.artifact ? [`artifact: ${hint.artifact}`] : []),
+    ]);
+    const modelContext = {
+      schemaVersion: refinement.schemaVersion,
+      instruction: TASK_CONTEXT_REFINEMENT_INSTRUCTION,
+      question: refinement.question,
+      target,
+      relationship: refinement.relationship,
+      anchor: refinement.anchor,
+      readNext: refinement.readNext.map((candidate) => ({
+        path: candidate.path,
+        reason: candidate.reason,
+      })),
+      constraints,
+      checks,
+      unresolved: refinement.unresolved,
+      result: refinement.reason,
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
+
+    if (parsed.flags["model-context"] === true) {
+      writeOutput(modelContext, true);
+    } else if (json) {
+      writeOutput({
+        command: "context refine",
+        status: refinement.unresolved ? "unresolved" : warnings.length > 0 ? "partial" : "ok",
+        refinement,
+        constraints: contractGuidance.constraints,
+        verificationHints: contractGuidance.verificationHints,
+        matchedCapabilityContracts: contractGuidance.matchedContractIds,
+        matchedSystemContracts: contractGuidance.matchedSystemContractIds,
+        matchedFlowContracts: contractGuidance.matchedFlowContractIds,
+        taskPact: taskPactSelection.ref
+          ? {
+              artifact: { type: taskPactSelection.ref.type, id: taskPactSelection.ref.id },
+              impactObligations: contractGuidance.impactObligations,
+            }
+          : undefined,
+        warnings,
+        source: { type: latestGraphEntry.type, id: latestGraphEntry.id },
+        boundaries: {
+          proposalNotProof: true,
+          deterministicGraphOnly: true,
+          readOnly: true,
+          executedCommands: false,
+          wroteSourceFiles: false,
+        },
+      }, true);
+    } else {
+      const lines = [
+        `Task context refinement: ${refinement.reason}`,
+        `Question: ${refinement.question}`,
+        `Relationship: ${refinement.relationship}`,
+      ];
+      if (refinement.readNext.length > 0) {
+        lines.push("", "Read next:");
+        for (const candidate of refinement.readNext) {
+          lines.push(`- ${candidate.path}: ${candidate.reason}`);
+        }
+      }
+      if (constraints.length > 0) lines.push("", "Constraints:", ...constraints.map((entry) => `- ${entry}`));
+      if (checks.length > 0) lines.push("", "Checks:", ...checks.map((entry) => `- ${entry}`));
+      if (warnings.length > 0) lines.push("", "Warnings:", ...warnings.map((entry) => `- ${entry}`));
+      lines.push("", "Context refinement is proposal/context, not proof.");
+      writeOutput(lines.join("\n"), false);
+    }
+    return;
+  }
+
   if (command === "context" && subcommand === "task") {
     // `rekon context task --task "<text>" [--path <p> ...] [--provider voyage|mock]
     //  [--model <m>] [--top-k <n>] [--root <path>] [--json]` — TaskContextReport v1,
@@ -2010,6 +2629,7 @@ export async function main(argv: string[]): Promise<void> {
     const paths = parseRepeatableFlag(parsed.flags.path)
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
+    const modelContextOnly = parsed.flags["model-context"] === true;
     // Explicit vs implicit provider selection drives the graph + lexical fallback
     // policy below: an EXPLICIT --provider that fails stays strict; an IMPLICITLY
     // defaulted provider that fails (e.g. `voyage` with no API key) degrades to
@@ -2165,17 +2785,10 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
 
-    const report = buildTaskContextReport({
-      taskText,
-      paths,
-      graph: graphForContext,
-      retrievalResults,
-      ...(lexicalContextPaths.length > 0 ? { lexicalContextPaths } : {}),
-      provider: providerId,
-      model,
-      topK: effectiveTopK,
-      repoId: root,
-    });
+    const profileFlag = typeof parsed.flags.profile === "string" ? parsed.flags.profile.trim() : "compact";
+    if (profileFlag !== "compact" && profileFlag !== "standard" && profileFlag !== "deep") {
+      throw new Error(`rekon context task --profile must be compact, standard, or deep (got "${profileFlag}").`);
+    }
 
     // Keep retrieval honesty visible. Two low-signal cases, both surfaced instead
     // of a silent "ok": (a) retrieval ran but every neighbor scored below the
@@ -2185,7 +2798,13 @@ export async function main(argv: string[]): Promise<void> {
     // Visibility only: selection is unchanged and an ignored neighbor is never
     // promoted into context.
     if (records.length > 0 && retrievalResults.length > 0) {
-      const embeddingItems = report.contextItems.filter((item) => item.source === "embedding_retrieval");
+      const nonIgnored = retrievalResults.filter((item) => item.scoreBand !== "ignored");
+      const hasStrongOrUseful = nonIgnored.some(
+        (item) => item.scoreBand === "strong" || item.scoreBand === "useful",
+      );
+      const embeddingItems = hasStrongOrUseful
+        ? nonIgnored.filter((item) => item.scoreBand === "strong" || item.scoreBand === "useful")
+        : nonIgnored.filter((item) => item.scoreBand === "weak");
       if (embeddingItems.length === 0) {
         const top = retrievalResults[0];
         const topDetail = top
@@ -2203,6 +2822,62 @@ export async function main(argv: string[]): Promise<void> {
       }
     }
 
+    const contractEntries = await store.list("CapabilityContract");
+    const latestContractEntry = contractEntries
+      .slice()
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    const capabilityContract = latestContractEntry
+      ? (await store.read(latestContractEntry)) as CapabilityContract
+      : undefined;
+    const scopedTaskPaths = [...new Set([...paths, ...lexicalContextPaths])];
+    const taskPactSelection = await buildCurrentTaskPact(store, {
+      repoId: root,
+      taskText,
+      paths: scopedTaskPaths,
+      write: true,
+    });
+    const contractGuidance = selectTaskContractGuidance({
+      paths: scopedTaskPaths,
+      graph: graphForContext,
+      capabilityContract,
+      capabilityContractRef: latestContractEntry,
+      taskPact: taskPactSelection.pact,
+      taskPactRef: taskPactSelection.ref,
+    });
+    const contractFreshness = capabilityContract?.header.freshness?.status ?? "unknown";
+    if (contractGuidance.matchedContractIds.length > 0 && contractFreshness !== "fresh") {
+      warnings.push(
+        `repository-contract-${contractFreshness}: selected CapabilityContract guidance is ${contractFreshness}; verify current repository policy before relying on it`,
+      );
+    }
+    warnings.push(...contractGuidance.warnings);
+
+    const compiled = compileTaskContext({
+      taskText,
+      paths,
+      graph: graphForContext,
+      retrievalResults,
+      ...(lexicalContextPaths.length > 0 ? { lexicalContextPaths } : {}),
+      inputRefs: [
+        latestGraphEntry,
+        ...(latestContractEntry && contractGuidance.matchedContractIds.length > 0
+          ? [latestContractEntry]
+          : []),
+        ...(taskPactSelection.ref ? [taskPactSelection.ref] : []),
+      ],
+      declaredConstraints: contractGuidance.constraints,
+      declaredContextPaths: contractGuidance.requiredContextPaths,
+      declaredVerificationHints: contractGuidance.verificationHints,
+      provider: providerId,
+      model,
+      topK: effectiveTopK,
+      repoId: root,
+      profile: profileFlag as ContextProfile,
+      warnings,
+    });
+    const { report } = compiled;
+    const modelContext = projectModelContextDelivery(projectModelContext(compiled.packet));
+
     const ref = await store.write(report, { category: "actions" });
 
     // Retrieval status, surfaced so operators (and agents) can tell ranked
@@ -2213,76 +2888,9 @@ export async function main(argv: string[]): Promise<void> {
         ? { status: "ranked" }
         : { status: "graph-only" };
 
-    // Human + agent consumption surfaces (TaskContextReport Human/Agent Context
-    // Export, slice 177). The TaskContextReport artifact stays canonical; the
-    // human markdown is a rendered VIEW and the JSON `agentContext` block is the
-    // structured source of truth an agent consumes. Both partition the same
-    // context items: CORE = operator input + deterministic graph facts (graph
-    // outranks embedding similarity); SUPPORTING = embedding retrieval + semantic
-    // understanding (proposal/context, never proof). No new artifact, no command
-    // executed, no source written — purely how the existing report is presented.
-    type AgentContextItem = (typeof report.contextItems)[number];
-    const READ_BEFORE_EDITING =
-      "Read this before editing. Task-shaped context is proposal/context, not proof: deterministic graph facts outrank embedding similarity, do-not-touch zones are guidance (not enforced), and verification hints are hints (never executed).";
-    const coreItems = report.contextItems.filter(
-      (item) => item.source === "operator_input" || item.source === "deterministic_graph",
-    );
-    const supportingItems = report.contextItems.filter(
-      (item) => item.source === "embedding_retrieval" || item.source === "semantic_file_understanding",
-    );
-    const itemRef = (item: AgentContextItem): string =>
-      item.path ?? item.symbolId ?? item.capabilityId ?? item.id;
-    // Deduped, sorted evidence refs across every context item / zone / hint — the
-    // "evidence refs are preserved" guarantee, surfaced for humans and agents.
-    const evidenceRefs = Array.from(
-      new Set([
-        ...report.contextItems.flatMap((item) => item.evidenceRefs),
-        ...report.doNotTouch.flatMap((zone) => zone.evidenceRefs),
-        ...report.verificationHints.flatMap((hint) => hint.evidenceRefs),
-      ]),
-    ).sort();
-    const toAgentItem = (item: AgentContextItem) => ({
-      ref: itemRef(item),
-      kind: item.kind,
-      source: item.source,
-      reason: item.reason,
-      ...(item.path !== undefined ? { path: item.path } : {}),
-      ...(item.symbolId !== undefined ? { symbolId: item.symbolId } : {}),
-      ...(item.capabilityId !== undefined ? { capabilityId: item.capabilityId } : {}),
-      ...(item.score !== undefined ? { score: item.score } : {}),
-      ...(item.scoreBand !== undefined ? { scoreBand: item.scoreBand } : {}),
-      evidenceRefs: item.evidenceRefs,
-    });
-    // Agent-facing structured view. Additive only: every existing JSON field is
-    // preserved unchanged below; `agentContext` is a convenience projection plus
-    // the explicit boundary block (all-false, including `approvedPlans` and
-    // `implementedIntentGo`) so an agent can read the limits without re-deriving
-    // them. `executed: false` / `enforced: false` are pinned constants.
-    const agentContext = {
-      readBeforeEditing: READ_BEFORE_EDITING,
-      task: report.task,
-      coreContext: coreItems.map(toAgentItem),
-      supportingContext: supportingItems.map(toAgentItem),
-      doNotTouch: report.doNotTouch.map((zone) => ({
-        reason: zone.reason,
-        ...(zone.path !== undefined ? { path: zone.path } : {}),
-        ...(zone.symbolId !== undefined ? { symbolId: zone.symbolId } : {}),
-        evidenceRefs: zone.evidenceRefs,
-        enforced: false as const,
-      })),
-      verificationHints: report.verificationHints.map((hint) => ({
-        ...(hint.command !== undefined ? { command: hint.command } : {}),
-        ...(hint.artifact !== undefined ? { artifact: hint.artifact } : {}),
-        reason: hint.reason,
-        evidenceRefs: hint.evidenceRefs,
-        executed: false as const,
-      })),
-      warnings,
-      evidence: evidenceRefs,
-      boundaries: report.boundaries,
-    };
-
-    if (json) {
+    if (modelContextOnly) {
+      writeOutput(modelContext, true);
+    } else if (json) {
       writeOutput(
         {
           command: "context task",
@@ -2299,88 +2907,24 @@ export async function main(argv: string[]): Promise<void> {
           graphNeighborhood: report.graphNeighborhood,
           doNotTouch: report.doNotTouch,
           verificationHints: report.verificationHints,
+          matchedCapabilityContracts: contractGuidance.matchedContractIds,
+          matchedSystemContracts: contractGuidance.matchedSystemContractIds,
+          matchedFlowContracts: contractGuidance.matchedFlowContractIds,
+          taskPact: taskPactSelection.ref
+            ? {
+                artifact: { type: taskPactSelection.ref.type, id: taskPactSelection.ref.id },
+                impactObligations: contractGuidance.impactObligations,
+              }
+            : undefined,
           warnings,
           boundaries: report.boundaries,
-          agentContext,
+          agentContext: compiled.packet,
           note: "task-shaped context is proposal/context, not proof; deterministic graph facts outrank embedding similarity; verification hints are hints, not executed commands",
         },
         true,
       );
     } else {
-      // Human "read this before editing" brief: a rendered view of the same
-      // report. The five core sections always render (with explicit "(none)"
-      // fallbacks) so the brief has a stable, self-documenting skeleton; Warnings
-      // render only when present.
-      const lines: string[] = [];
-      lines.push("# Task Context");
-      lines.push("");
-      lines.push(`> ${READ_BEFORE_EDITING}`);
-      lines.push("");
-      lines.push(`Task: ${taskText.replace(/\s+/g, " ").trim()}`);
-      if (report.task.goal) lines.push(`Goal: ${report.task.goal}`);
-      if (report.task.paths.length > 0) lines.push(`Paths: ${report.task.paths.join(", ")}`);
-
-      lines.push("");
-      lines.push("## Core Context");
-      if (coreItems.length > 0) {
-        for (const item of coreItems) lines.push(`- ${itemRef(item)} — ${item.reason}`);
-      } else {
-        lines.push("- (no operator paths or deterministic graph context selected)");
-      }
-
-      lines.push("");
-      lines.push("## Related / Supporting Context");
-      if (supportingItems.length > 0) {
-        for (const item of supportingItems) {
-          const band = item.scoreBand
-            ? ` (band ${item.scoreBand}${typeof item.score === "number" ? `, score ${item.score}` : ""})`
-            : "";
-          lines.push(`- ${itemRef(item)} — ${item.reason}${band}`);
-        }
-      } else {
-        lines.push("- (no embedding or semantic supporting context selected)");
-      }
-
-      lines.push("");
-      lines.push("## Do Not Touch");
-      if (report.doNotTouch.length > 0) {
-        for (const zone of report.doNotTouch) {
-          lines.push(`- ${zone.reason}${zone.path ? ` (${zone.path})` : ""} (guidance, not enforced)`);
-        }
-      } else {
-        lines.push("- (no explicit do-not-touch zones stated in the task text)");
-      }
-
-      lines.push("");
-      lines.push("## Verification Hints");
-      if (report.verificationHints.length > 0) {
-        for (const hint of report.verificationHints) {
-          lines.push(`- ${hint.command ?? hint.artifact ?? "hint"} — ${hint.reason} (hint, not executed)`);
-        }
-      } else {
-        lines.push("- (no verification hints extracted from the task text)");
-      }
-
-      if (warnings.length > 0) {
-        lines.push("");
-        lines.push("## Warnings");
-        for (const warning of warnings) lines.push(`- ${warning}`);
-      }
-
-      lines.push("");
-      lines.push("## Evidence");
-      if (evidenceRefs.length > 0) {
-        for (const refId of evidenceRefs) lines.push(`- ${refId}`);
-      } else {
-        lines.push("- (no evidence refs collected for this context)");
-      }
-
-      lines.push("");
-      lines.push(
-        "Task-shaped context is proposal/context, not proof. Deterministic graph facts outrank embedding similarity. Verification hints are hints, not executed commands. Re-run with --json for the structured agentContext form.",
-      );
-      lines.push(`Report: ${ref.id}`);
-      writeOutput(lines.join("\n"), false);
+      writeOutput(renderTaskContextMarkdown(compiled.packet, ref.id), false);
     }
     return;
   }
@@ -7499,8 +8043,19 @@ export async function main(argv: string[]): Promise<void> {
     const { ref: statusRef, value: statusValue } = await resolveRefWithValue<IntentWorkOrderStatusReportLike>("intent-status", "IntentStatusReport");
     const { ref: freshnessRef, value: freshnessValue } = await resolveRefWithValue<IntentWorkOrderPathFreshnessLike>("path-freshness", "PathFreshnessReport");
     const { ref: driftRef, value: driftValue } = await resolveRefWithValue<IntentWorkOrderRuntimeDriftLike>("runtime-drift", "RuntimeGraphDriftReport");
+    const taskPactPaths = [...new Set([
+      ...(planValue.request?.scope?.paths ?? []),
+      ...(planValue.phases ?? []).flatMap((phase) => phase.paths ?? []),
+    ].filter(Boolean))];
+    const taskPactSelection = await buildCurrentTaskPact(store, {
+      repoId: root,
+      taskText: planValue.request?.goal ?? "Implement prepared intent",
+      paths: taskPactPaths,
+      write: true,
+    });
 
-    const inputRefs = [planRef, statusRef, freshnessRef, driftRef].filter((ref): ref is ArtifactRef => !!ref);
+    const inputRefs = [planRef, statusRef, freshnessRef, driftRef, taskPactSelection.ref]
+      .filter((ref): ref is ArtifactRef => !!ref);
 
     const header: ArtifactHeader = {
       artifactType: "WorkOrder",
@@ -7525,6 +8080,8 @@ export async function main(argv: string[]): Promise<void> {
       pathFreshnessReportRef: freshnessRef,
       runtimeGraphDriftReport: driftValue,
       runtimeGraphDriftReportRef: driftRef,
+      taskPact: taskPactSelection.pact,
+      taskPactRef: taskPactSelection.ref,
     });
 
     if (result.status === "blocked") {
@@ -7555,10 +8112,12 @@ export async function main(argv: string[]): Promise<void> {
           source: {
             preparedIntentPlanRef: planRef,
             ...(statusRef ? { intentStatusReportRef: statusRef } : {}),
+            ...(taskPactSelection.ref ? { taskPactRef: taskPactSelection.ref } : {}),
           },
           phases: handoff.phaseIds.length,
           obligations: handoff.obligationIds.length,
           verificationGuidanceItems: handoff.verificationRequirementIds.length,
+          impactObligations: handoff.impactObligationIds.length,
           blockers: [],
         },
         true,
@@ -12368,7 +12927,26 @@ type RekonConfig = {
   semantic?: {
     mode?: "off" | "auto" | "required";
   };
+  agentInstructions?: {
+    enabled?: boolean;
+    target?: string;
+    sync?: "on-refresh" | "manual";
+  };
+  contracts?: {
+    adoption?: {
+      allowSourceWrites?: boolean;
+      minimumConfidence?: number;
+      allowedJudgeModes?: Array<"deterministic" | "agent" | "provider">;
+    };
+  };
 };
+
+function agentInstructionOptions(config: RekonConfig): AgentInstructionsOptions {
+  return {
+    enabled: config.agentInstructions?.enabled ?? true,
+    target: config.agentInstructions?.target ?? "AGENTS.md",
+  };
+}
 
 const CONFIG_RULEBOOK_PRODUCER_ID = "@rekon/cli.config-rulebook";
 const CONFIG_RULEBOOK_SUPERSESSION_KEY = "config:.rekon/config.json:rulebook";
@@ -12415,6 +12993,7 @@ async function writeConfigIfMissing(root: string): Promise<void> {
   const defaultConfig = {
     capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
     permissions: {},
+    agentInstructions: { enabled: true, target: "AGENTS.md", sync: "on-refresh" },
   };
 
   try {
@@ -12436,6 +13015,7 @@ async function writeConfigIfMissing(root: string): Promise<void> {
         permissions: typeof (existingConfig as RekonConfig).permissions === "object"
           ? (existingConfig as RekonConfig).permissions
           : {},
+        agentInstructions: (existingConfig as RekonConfig).agentInstructions ?? defaultConfig.agentInstructions,
       };
 
       await writeFile(configPath, `${JSON.stringify(mergedConfig, null, 2)}\n`, "utf8");
@@ -12597,11 +13177,14 @@ async function readConfig(root: string): Promise<RekonConfig> {
         : DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
       permissions: parsed.permissions ?? {},
       ...(parsed.semantic ? { semantic: parsed.semantic } : {}),
+      ...(parsed.agentInstructions ? { agentInstructions: parsed.agentInstructions } : {}),
+      ...(parsed.contracts ? { contracts: parsed.contracts } : {}),
     };
   } catch {
     return {
       capabilities: DEFAULT_CAPABILITIES.map((packageName) => ({ package: packageName })),
       permissions: {},
+      agentInstructions: { enabled: true, target: "AGENTS.md", sync: "on-refresh" },
     };
   }
 }
@@ -12810,6 +13393,7 @@ type RefreshStepId =
   | "issues.adjudicate"
   | "coherency.delta"
   | "publish.architecture"
+  | "agent-instructions.sync"
   | "artifacts.validate"
   | "artifacts.freshness";
 
@@ -12843,6 +13427,7 @@ type RefreshOptions = {
   skipFreshness?: boolean;
   changedFiles?: string[];
   seedArtifactRefs?: ArtifactRef[];
+  syncAgentInstructions?: boolean;
   afterEvaluate?: () => Promise<{
     status: "passed" | "failed" | "skipped";
     artifacts?: ArtifactRef[];
@@ -13288,6 +13873,27 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     };
   }
 
+  // Keep the stable model bootstrap synchronized without copying dynamic
+  // repository state into AGENTS.md. `rekon scan` opts out explicitly so its
+  // established artifact-only boundary remains intact.
+  if (options.syncAgentInstructions === false) {
+    steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled for this lifecycle command" });
+  } else {
+    try {
+      const config = await readConfig(root);
+      if (config.agentInstructions?.enabled === false) {
+        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled in .rekon/config.json" });
+      } else if (config.agentInstructions?.sync === "manual") {
+        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "manual sync configured" });
+      } else {
+        const synced = await syncAgentInstructions(root, agentInstructionOptions(config));
+        steps.push({ id: "agent-instructions.sync", status: "passed", summary: synced });
+      }
+    } catch (error) {
+      steps.push({ id: "agent-instructions.sync", status: "failed", message: messageOf(error) });
+    }
+  }
+
   // Final status
   const failedStep = steps.find((step) => step.status === "failed");
 
@@ -13412,9 +14018,9 @@ async function runAgentContractExport(
 
   const protectedPath = isProtectedAgentDocPath(relativeFromRoot);
 
-  if (protectedPath && !options.force) {
+  if (protectedPath) {
     throw new Error(
-      `Refusing to overwrite protected agent instruction file ${relativeFromRoot} without --force.`,
+      `Refusing whole-file export to protected agent instruction file ${relativeFromRoot}. Use \`rekon agent-instructions sync\` for AGENTS.md or export to a standalone file such as AGENTS.rekon.md.`,
     );
   }
 
@@ -13489,9 +14095,7 @@ async function runAgentContractExport(
     wrote: true,
   };
 
-  if (protectedPath) {
-    result.message = "Overwrote protected agent instruction file because --force was provided.";
-  } else if (options.force) {
+  if (options.force) {
     result.message = "Overwrote existing file because --force was provided.";
   }
 
@@ -13645,6 +14249,315 @@ async function readLatestArtifactOrUndefined<T>(
   const latest = sorted[0];
   if (!latest) return undefined;
   return (await store.read(latest)) as T;
+}
+
+async function compileRepositoryContracts(
+  root: string,
+  store: ReturnType<typeof createLocalArtifactStore>,
+) {
+  const loaded = await loadRepositoryContractSources({ repoRoot: root });
+  if (!loaded.valid) {
+    return {
+      valid: false as const,
+      sources: loaded.sources.map((source) => ({ path: source.path, digest: source.digest, sourceId: source.document.sourceId })),
+      contracts: [] as ArtifactRef[],
+      registry: undefined,
+      summary: undefined,
+      issues: loaded.issues,
+    };
+  }
+  const projection = buildRepositoryContractProjection({ repoId: root, sources: loaded.sources });
+  const writtenContracts: ArtifactRef[] = [];
+  for (const contract of [...projection.systemContracts, ...projection.flowContracts]) {
+    writtenContracts.push(await store.write(contract, { category: "actions" }));
+  }
+  const writtenByIdentity = new Map(writtenContracts.map((ref) => [`${ref.type}:${ref.id}`, ref]));
+  const registry = createEffectiveContractRegistry({
+    header: { ...projection.registry.header, inputRefs: writtenContracts },
+    entries: projection.registry.entries.map((entry) => ({
+      ...entry,
+      ref: writtenByIdentity.get(`${entry.ref.type}:${entry.ref.id}`) ?? entry.ref,
+    })),
+  });
+  const registryRef = await store.write(registry, { category: "actions" });
+  return {
+    valid: true as const,
+    sources: loaded.sources.map((source) => ({ path: source.path, digest: source.digest, sourceId: source.document.sourceId })),
+    contracts: writtenContracts,
+    registry: registryRef,
+    summary: registry.summary,
+    issues: loaded.issues,
+  };
+}
+
+async function loadRepositoryContractIntelligence(
+  store: ReturnType<typeof createLocalArtifactStore>,
+) {
+  const [
+    capabilityGraph,
+    observedRepo,
+    ownershipMap,
+    capabilityMap,
+    stepGraph,
+    effectiveRegistry,
+    graphSlices,
+  ] = await Promise.all([
+    readLatestArtifactOrUndefined<CapabilityEvidenceGraph>(store, "CapabilityEvidenceGraph"),
+    readLatestArtifactOrUndefined<ObservedRepo>(store, "ObservedRepo"),
+    readLatestArtifactOrUndefined<OwnershipMap>(store, "OwnershipMap"),
+    readLatestArtifactOrUndefined<CapabilityMap>(store, "CapabilityMap"),
+    readLatestArtifactOrUndefined<StepCapabilityGraph>(store, "StepCapabilityGraph"),
+    readLatestArtifactOrUndefined<EffectiveContractRegistry>(store, "EffectiveContractRegistry"),
+    readCurrentArtifactsByType<NonNullable<BuildRepositoryIntelligenceGraphInput["graphSlices"]>[number]>(store, "GraphSlice"),
+  ]);
+  const graph = buildRepositoryIntelligenceGraph({
+    capabilityGraph,
+    graphSlices,
+    ownershipMap,
+    stepGraph,
+    contractRegistry: effectiveRegistry,
+  });
+  return { graph, observedRepo, ownershipMap, capabilityMap, effectiveRegistry };
+}
+
+type CurrentTaskPact = {
+  pact?: TaskPact;
+  ref?: ArtifactRef;
+  inputRefs: ArtifactRef[];
+  warnings: string[];
+};
+
+async function buildCurrentTaskPact(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  input: { repoId: string; taskText: string; goal?: string; paths: string[]; write: boolean },
+): Promise<CurrentTaskPact> {
+  const registryEntry = await pickLatestArtifactEntry(store, "EffectiveContractRegistry");
+  if (!registryEntry) {
+    return {
+      inputRefs: [],
+      warnings: ["repository-contracts-unavailable: no EffectiveContractRegistry is indexed"],
+    };
+  }
+  const registryRef = artifactIndexRef(registryEntry);
+  const registry = await store.read(registryEntry) as EffectiveContractRegistry;
+  const systemContracts: SystemContract[] = [];
+  const flowContracts: FlowContract[] = [];
+  for (const entry of registry.entries) {
+    if (entry.contractType === "SystemContract") {
+      systemContracts.push(await store.read(entry.ref) as SystemContract);
+    } else if (entry.contractType === "FlowContract") {
+      flowContracts.push(await store.read(entry.ref) as FlowContract);
+    }
+  }
+
+  const driftEntry = await pickLatestArtifactEntry(store, "ContractDriftReport");
+  const latestDrift = driftEntry
+    ? await store.read(driftEntry) as ContractDriftReport
+    : undefined;
+  const driftMatchesRegistry = latestDrift
+    ? sameArtifactIdentity(latestDrift.registryRef, registryRef)
+    : false;
+  const driftReport = driftMatchesRegistry ? latestDrift : undefined;
+  const driftReportRef = driftMatchesRegistry && driftEntry ? artifactIndexRef(driftEntry) : undefined;
+  const pact = buildTaskPact({
+    repoId: input.repoId,
+    taskText: input.taskText,
+    ...(input.goal ? { goal: input.goal } : {}),
+    paths: input.paths,
+    registry,
+    registryRef,
+    systemContracts,
+    flowContracts,
+    ...(driftReport ? { driftReport } : {}),
+    ...(driftReportRef ? { driftReportRef } : {}),
+  });
+  const ref = input.write ? await store.write(pact, { category: "actions" }) : undefined;
+  const warnings = [...pact.warnings];
+  if (latestDrift && !driftMatchesRegistry) {
+    warnings.push("repository-contract-drift-unavailable: latest ContractDriftReport targets an older effective registry");
+  }
+  return {
+    pact,
+    ref,
+    inputRefs: [registryRef, ...(driftReportRef ? [driftReportRef] : []), ...(ref ? [ref] : [])],
+    warnings,
+  };
+}
+
+function sameArtifactIdentity(left: ArtifactRef, right: ArtifactRef): boolean {
+  return left.type === right.type && left.id === right.id && left.schemaVersion === right.schemaVersion;
+}
+
+async function selectContractArtifactEntry(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  artifactType: "ContractCandidateReport" | "ContractJudgmentReport",
+  requested: unknown,
+): Promise<ArtifactIndexEntry> {
+  const entries = await store.list(artifactType);
+  if (entries.length === 0) throw new Error(`No ${artifactType} is indexed.`);
+  if (requested !== undefined && typeof requested !== "string") {
+    throw new Error(`--${artifactType === "ContractCandidateReport" ? "candidate-report" : "judgment-report"} requires an artifact id.`);
+  }
+  if (typeof requested === "string" && requested.trim()) {
+    const id = requested.trim().replace(new RegExp(`^${artifactType}:`, "u"), "");
+    const selected = entries.find((entry) => entry.id === id);
+    if (!selected) throw new Error(`${artifactType} not found: ${requested}.`);
+    return selected;
+  }
+  return [...entries].sort((left, right) => compareArtifactIndexRecency(right, left))[0]!;
+}
+
+function artifactIndexRef(entry: ArtifactIndexEntry): ArtifactRef {
+  return {
+    type: entry.type,
+    id: entry.id,
+    schemaVersion: entry.schemaVersion,
+    path: entry.path,
+    digest: entry.digest,
+  };
+}
+
+async function readRepositoryJsonInput(root: string, path: string): Promise<unknown> {
+  if (isAbsolute(path)) throw new Error("Contract judgment input must be a repository-relative path.");
+  const source = await readCurrentRepoSource(root, path);
+  if (!source) throw new Error(`Contract judgment input is missing, unsafe, or outside the repository: ${path}.`);
+  try {
+    return JSON.parse(source.text) as unknown;
+  } catch (error) {
+    throw new Error(`Contract judgment input is invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function bindContractJudgmentCitations(
+  root: string,
+  drafts: RepositoryContractJudgmentDraftCitation[],
+): Promise<ContractJudgmentCitation[]> {
+  const citations: ContractJudgmentCitation[] = [];
+  for (const draft of drafts) {
+    const source = await readCurrentRepoSource(root, draft.path);
+    if (!source) throw new Error(`Contract judgment citation is missing, unsafe, or outside the repository: ${draft.path}.`);
+    const lines = source.text.split(/\r?\n/u);
+    if (draft.lineStart !== undefined && draft.lineStart > lines.length) {
+      throw new Error(`Contract judgment citation ${draft.path}:${draft.lineStart} is outside the current source.`);
+    }
+    const end = draft.lineEnd ?? draft.lineStart;
+    if (end !== undefined && end > lines.length) {
+      throw new Error(`Contract judgment citation ${draft.path}:${end} is outside the current source.`);
+    }
+    const boundedExcerpt = draft.lineStart === undefined
+      ? undefined
+      : lines.slice(draft.lineStart - 1, end).join("\n");
+    if (draft.excerpt && !(boundedExcerpt ?? source.text).includes(draft.excerpt)) {
+      throw new Error(`Contract judgment citation excerpt no longer matches ${draft.path}.`);
+    }
+    citations.push({
+      path: draft.path,
+      digest: source.sha256,
+      ...(draft.lineStart !== undefined ? { lineStart: draft.lineStart } : {}),
+      ...(draft.lineEnd !== undefined ? { lineEnd: draft.lineEnd } : {}),
+      ...(draft.excerpt ? { excerpt: draft.excerpt } : boundedExcerpt ? { excerpt: boundedExcerpt } : {}),
+    });
+  }
+  return citations;
+}
+
+async function contractJudgmentCitationsAreCurrent(
+  root: string,
+  citations: ContractJudgmentCitation[],
+): Promise<boolean> {
+  if (citations.length === 0) return false;
+  for (const citation of citations) {
+    const source = await readCurrentRepoSource(root, citation.path);
+    if (!source || source.sha256 !== citation.digest) return false;
+    const lines = source.text.split(/\r?\n/u);
+    const end = citation.lineEnd ?? citation.lineStart;
+    if (citation.lineStart !== undefined && (citation.lineStart > lines.length || (end ?? 0) > lines.length)) return false;
+    const range = citation.lineStart === undefined ? source.text : lines.slice(citation.lineStart - 1, end).join("\n");
+    if (citation.excerpt && !range.includes(citation.excerpt)) return false;
+  }
+  return true;
+}
+
+function assertArtifactRefLineage(expected: ArtifactRef, current: ArtifactRef, label: string): void {
+  if (expected.type !== current.type || expected.id !== current.id || expected.schemaVersion !== current.schemaVersion) {
+    throw new Error(`${label} does not match the current indexed artifact.`);
+  }
+  if (expected.digest && current.digest && expected.digest !== current.digest) {
+    throw new Error(`${label} digest does not match the current indexed artifact.`);
+  }
+}
+
+function contractJudgeMode(value: unknown): "deterministic" | "agent" | "provider" {
+  if (value === undefined) return "agent";
+  if (value === "deterministic" || value === "agent" || value === "provider") return value;
+  throw new Error("--mode must be deterministic, agent, or provider.");
+}
+
+function boundedConfigConfidence(value: unknown, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error("contracts.adoption.minimumConfidence must be between 0 and 1.");
+  }
+  return value;
+}
+
+function repositoryContractAdoptionPath(kind: "system" | "flow", id: string): string {
+  const segment = id.replace(/[^a-zA-Z0-9._-]+/gu, "-").replace(/^-+|-+$/gu, "") || "contract";
+  const suffix = digestJson(id).slice(0, 8);
+  return `rekon/contracts/${kind === "system" ? "systems" : "flows"}/${segment}-${suffix}.json`;
+}
+
+function contractSourceDocumentForAdoption(
+  kind: "system" | "flow",
+  targetId: string,
+  proposed: SystemContractSource | FlowContractSource,
+): RepositoryContractSourceDocument {
+  if (proposed.id !== targetId) throw new Error(`Accepted contract proposal id must remain ${targetId}.`);
+  if (kind === "system") {
+    if (!("systemId" in proposed)) throw new Error(`Candidate ${targetId} requires a system contract proposal.`);
+    return { version: "1.0.0", sourceId: `adopted.system.${targetId}`, systems: [proposed] };
+  }
+  if ("systemId" in proposed) throw new Error(`Candidate ${targetId} requires a flow contract proposal.`);
+  return { version: "1.0.0", sourceId: `adopted.flow.${targetId}`, flows: [proposed] };
+}
+
+async function readCurrentArtifactsByType<T>(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  artifactType: string,
+): Promise<T[]> {
+  const entries = [...await store.list(artifactType)].sort(compareArtifactIndexRecency);
+  if (entries.length === 0) return [];
+
+  const latestBySupersessionKey = new Map<string, ArtifactIndexEntry>();
+  let latestUnkeyed: ArtifactIndexEntry | undefined;
+  for (const entry of entries) {
+    if (entry.supersessionKey) latestBySupersessionKey.set(entry.supersessionKey, entry);
+    else latestUnkeyed = entry;
+  }
+
+  const latestOverall = entries.at(-1);
+  const selected = [...latestBySupersessionKey.values()];
+  if (latestUnkeyed && (selected.length === 0 || latestUnkeyed === latestOverall)) {
+    selected.push(latestUnkeyed);
+  }
+
+  return Promise.all(selected
+    .sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`))
+    .map(async (entry) => await store.read(entry) as T));
+}
+
+function compareArtifactIndexRecency(left: ArtifactIndexEntry, right: ArtifactIndexEntry): number {
+  const writtenAt = left.writtenAt.localeCompare(right.writtenAt);
+  return writtenAt !== 0 ? writtenAt : left.id.localeCompare(right.id);
+}
+
+function positiveIntegerFlag(value: unknown, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Expected a positive integer, received ${String(value)}.`);
+  }
+  return parsed;
 }
 
 // ---------------------------------------------------------------
@@ -14738,6 +15651,44 @@ async function validateConfig(root: string): Promise<ConfigValidationResult> {
 
   if ("rulebook" in config) {
     issues.push(...validateConfiguredRulebook(config.rulebook).issues);
+  }
+
+  if ("agentInstructions" in config) {
+    const value = config.agentInstructions;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      issues.push({
+        code: "agent-instructions-not-object",
+        severity: "error",
+        message: "config.agentInstructions must be an object.",
+        path: "agentInstructions",
+      });
+    } else {
+      const instructions = value as Record<string, unknown>;
+      if (instructions.enabled !== undefined && typeof instructions.enabled !== "boolean") {
+        issues.push({
+          code: "agent-instructions-enabled-invalid",
+          severity: "error",
+          message: "config.agentInstructions.enabled must be a boolean.",
+          path: "agentInstructions.enabled",
+        });
+      }
+      if (instructions.target !== undefined && instructions.target !== "AGENTS.md") {
+        issues.push({
+          code: "agent-instructions-target-invalid",
+          severity: "error",
+          message: "config.agentInstructions.target must be 'AGENTS.md' in v1.",
+          path: "agentInstructions.target",
+        });
+      }
+      if (instructions.sync !== undefined && instructions.sync !== "on-refresh" && instructions.sync !== "manual") {
+        issues.push({
+          code: "agent-instructions-sync-invalid",
+          severity: "error",
+          message: "config.agentInstructions.sync must be 'on-refresh' or 'manual'.",
+          path: "agentInstructions.sync",
+        });
+      }
+    }
   }
 
   const valid = issues.every((issue) => issue.severity !== "error");
@@ -16272,15 +17223,22 @@ function usage(): string {
   return [
     "rekon scan [--semantic-files off|auto|required] [--semantic-debt off|auto|required] [--llm-provider <id>] [--llm-model <model>] [--semantic-debt-model <model>] [--semantic-debt-effort none|low|medium|high|xhigh|max] [--semantic-file-limit <n>] [--semantic-file-path <path>] [--semantic-changed-only] [--semantic-debt-file-limit <n>] [--semantic-debt-file-path <path> ...] [--root <path>] [--json]",
     "rekon welcome [--json] [--no-banner]",
-    "rekon setup [--root <path>] [--json] [--no-banner]",
+    "rekon setup [--root <path>] [--json] [--no-banner]  (installs/updates the managed AGENTS.md bootstrap)",
     "rekon init [--root <path>]",
+    "rekon agent-instructions sync|check|remove [--root <path>] [--json]",
     "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
     "rekon paths freshness [--path <path>] [--root <path>] [--json]",
     "rekon config validate [--root <path>] [--json]",
+    "rekon contracts bootstrap [--max-flows <n>] [--max-depth <n>] [--root <path>] [--json]",
+    "rekon contracts compile [--root <path>] [--json]",
+    "rekon contracts discover [--max-flows <n>] [--max-depth <n>] [--root <path>] [--json]",
+    "rekon contracts judge [--candidate-report <id>] [--input <repo-relative.json>] [--mode agent|provider|deterministic] [--model <id>] [--root <path>] [--json]",
+    "rekon contracts adopt [--candidate-report <id>] [--judgment-report <id>] [--apply] [--root <path>] [--json]",
+    "rekon contracts reconcile [--max-flows <n>] [--max-depth <n>] [--fail-on-drift] [--root <path>] [--json]",
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
-    "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio; WO-6)",
+    "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
     "rekon checks ingest (--junit <report.xml> | --eslint-json <report.json>) [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
@@ -16325,8 +17283,10 @@ function usage(): string {
     "rekon intent bundle write [--intent-id <id>] [--target generic|circe] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
     "    (--task-context-ref is repeatable; task context is optional bundle context, not proof — it never approves plans, satisfies gates, executes, or writes source)",
     "rekon intent context prepare [--root <path>] [--json]",
-    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
-    "    (prints a human 'read this before editing' brief: Core Context, Related / Supporting Context, Do Not Touch, Verification Hints, Evidence; --json adds a structured `agentContext` block for agents — context is proposal, not proof)",
+    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json | --model-context]",
+    "    (prints a human brief; --json adds the full audit-oriented `agentContext`; --model-context emits only the compact model-delivery projection)",
+    "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
+    "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",
@@ -16382,16 +17342,16 @@ function usage(): string {
     "",
     "First run:",
     "  rekon welcome — a branded Scan → Snapshot → Act introduction (read-only; no scan, no prompts, no ASCII art in --json).",
-    "  rekon setup — a non-interactive setup plan: detect workspace state and recommend the next action (does not run scan or create .rekon/, does not prompt).",
+    "  rekon setup — install or update the bounded AGENTS.md bootstrap, detect workspace state, and recommend the next action (does not run scan or create .rekon/, does not prompt).",
     "  rekon scan — initialize if needed and run the first (or a repeat) repository scan; the canonical first-run command.",
     "  rekon refresh — expert / compatibility update command (the same lifecycle pipeline scan shares); not the first-run UX.",
-    "  rekon init — create the .rekon/ workspace and config only (no scan).",
+    "  rekon init — create the .rekon/ workspace and config, then sync the bounded AGENTS.md bootstrap (no scan).",
     "",
     "Intent flow:",
     "  scan → intent context prepare → intent plan review → intent plan answer → intent assess → intent prepare (--actionability-report) → intent status → intent approve → intent status transition → intent work-order generate → intent verification-plan generate → intent bundle write",
     "Fresh repo: run `rekon scan` then `rekon intent context prepare` (builds StepCapabilityGraph + runtime/handoff context — not-evaluated where there is no event log) before `rekon intent assess`.",
     "The bundle can then be handed to Circe via: circe rekon-handoff validate/routes/import.",
     "Rekon prepares, proves, packages, and exports; Circe imports and orchestrates.",
-    "Rekon does not run Circe, does not execute commands, and does not write source files, and does not implement intent:go.",
+    "Rekon does not run Circe. Intent preparation does not execute commands or edit implementation source; setup manages one bounded AGENTS.md block, and intent:go remains deferred.",
   ].join("\n");
 }

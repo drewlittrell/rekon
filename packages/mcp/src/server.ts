@@ -1,7 +1,7 @@
-// MCP stdio server loop (WO-6). Minimal in-house JSON-RPC 2.0 over
+// MCP stdio server loop. Minimal in-house JSON-RPC 2.0 over
 // newline-delimited stdio - no third-party protocol code inside the trust
-// boundary (carrier decision in the WO-6 decision memo). Local only: no
-// listeners, no ports, no network egress, no child processes.
+// boundary. Local only: no listeners, ports, network egress, or child
+// processes.
 
 import {
   MCP_PROTOCOL_VERSION,
@@ -18,7 +18,7 @@ type JsonRpcRequest = {
   params?: Record<string, unknown>;
 };
 
-export function handleMcpRequest(repoRoot: string, request: JsonRpcRequest): unknown | undefined {
+export async function handleMcpRequest(repoRoot: string, request: JsonRpcRequest): Promise<unknown | undefined> {
   const { id, method, params } = request;
 
   // Notifications (no id) get no response.
@@ -42,7 +42,7 @@ export function handleMcpRequest(repoRoot: string, request: JsonRpcRequest): unk
     case "tools/call": {
       const name = typeof params?.name === "string" ? params.name : "";
       const args = (params?.arguments as Record<string, unknown>) ?? {};
-      const payload = callTool(repoRoot, name, args);
+      const payload = await callTool(repoRoot, name, args);
 
       return respond({
         content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
@@ -57,6 +57,7 @@ export function handleMcpRequest(repoRoot: string, request: JsonRpcRequest): unk
 /** Run the stdio loop. Reads newline-delimited JSON-RPC from stdin forever. */
 export function runMcpServer(repoRoot: string): void {
   let buffer = "";
+  let requestQueue = Promise.resolve();
 
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk: string) => {
@@ -73,36 +74,38 @@ export function runMcpServer(repoRoot: string): void {
         continue;
       }
 
-      let request: JsonRpcRequest;
-
-      try {
-        request = JSON.parse(line);
-      } catch {
-        process.stdout.write(
-          `${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })}\n`,
-        );
-        continue;
-      }
-
-      let response: unknown | undefined;
-
-      try {
-        response = handleMcpRequest(repoRoot, request);
-      } catch (error) {
-        // Fail closed: tool errors become typed JSON-RPC errors, never crashes.
-        response =
-          request.id === undefined
-            ? undefined
-            : {
-                jsonrpc: "2.0",
-                id: request.id,
-                error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
-              };
-      }
-
-      if (response !== undefined) {
-        process.stdout.write(`${JSON.stringify(response)}\n`);
-      }
+      requestQueue = requestQueue.then(() => processMcpLine(repoRoot, line));
     }
   });
+}
+
+async function processMcpLine(repoRoot: string, line: string): Promise<void> {
+  let request: JsonRpcRequest;
+
+  try {
+    request = JSON.parse(line);
+  } catch {
+    process.stdout.write(
+      `${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })}\n`,
+    );
+    return;
+  }
+
+  let response: unknown | undefined;
+
+  try {
+    response = await handleMcpRequest(repoRoot, request);
+  } catch (error) {
+    response = request.id === undefined
+      ? undefined
+      : {
+          jsonrpc: "2.0",
+          id: request.id,
+          error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
+        };
+  }
+
+  if (response !== undefined) {
+    process.stdout.write(`${JSON.stringify(response)}\n`);
+  }
 }

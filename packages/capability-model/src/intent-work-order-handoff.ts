@@ -15,6 +15,7 @@
 // - docs/concepts/intent-work-order-handoff.md
 
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
+import type { TaskPact, TaskPactImpactObligation } from "@rekon/kernel-repo-model";
 
 /** Stable header `artifactId` prefix for a generated WorkOrder. */
 export const INTENT_WORK_ORDER_ARTIFACT_ID_PREFIX = "work-order-intent-handoff-";
@@ -100,6 +101,7 @@ export type IntentGeneratedWorkOrder = {
   successCriteria: string[];
   relevantFindings: unknown[];
   relevantMemory: unknown[];
+  impactObligations: TaskPactImpactObligation[];
   antiGamingInstruction: string;
   markdown: string;
   source: "intent-handoff";
@@ -110,10 +112,12 @@ export type IntentGeneratedWorkOrder = {
     intentStatusReportRef?: ArtifactRef;
     pathFreshnessReportRef?: ArtifactRef;
     runtimeGraphDriftReportRef?: ArtifactRef;
+    taskPactRef?: ArtifactRef;
     sourceRefs: ArtifactRef[];
     phaseIds: string[];
     obligationIds: string[];
     verificationRequirementIds: string[];
+    impactObligationIds: string[];
     boundary: {
       createsVerificationPlan: false;
       executesCommands: false;
@@ -139,6 +143,8 @@ export type BuildIntentWorkOrderHandoffInput = {
   pathFreshnessReportRef?: ArtifactRef;
   runtimeGraphDriftReport?: IntentWorkOrderRuntimeDriftLike;
   runtimeGraphDriftReportRef?: ArtifactRef;
+  taskPact?: TaskPact;
+  taskPactRef?: ArtifactRef;
 };
 
 const ANTI_GAMING =
@@ -201,6 +207,9 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
   }
   if (!planRef) {
     push("missing-prepared-plan-ref", "missing-source-ref", "A PreparedIntentPlan ref is required.");
+  }
+  if (input.taskPact && !input.taskPactRef) {
+    push("missing-task-pact-ref", "missing-source-ref", "A TaskPact ref is required when TaskPact guidance is supplied.");
   }
 
   const approvalStatus = plan?.approval?.status;
@@ -277,12 +286,21 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
   for (const reason of blockedReasons) {
     if (typeof reason.message === "string" && reason.message.length > 0) riskNotes.push(`Do not start: ${reason.message}`);
   }
+  for (const obligation of input.taskPact?.impactObligations ?? []) {
+    riskNotes.push(obligation.statement);
+  }
+  for (const warning of input.taskPact?.warnings ?? []) {
+    riskNotes.push(`Repository law warning: ${warning}`);
+  }
 
   const requiredChecks: string[] = [];
   for (const requirement of requirements) {
     const command = typeof requirement.command === "string" ? requirement.command : undefined;
     const reason = typeof requirement.reason === "string" ? requirement.reason : "Verify the change.";
     requiredChecks.push(command ? `${command} — ${reason}` : reason);
+  }
+  for (const command of input.taskPact?.requiredChecks ?? []) {
+    requiredChecks.push(`${command} — Required by the matched TaskPact.`);
   }
 
   const successCriteria = [
@@ -294,6 +312,7 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
   const phaseIds = phases.map((p) => String(p.id ?? "")).filter((id) => id.length > 0);
   const obligationIds = obligations.map((o) => String(o.id ?? "")).filter((id) => id.length > 0);
   const verificationRequirementIds = requirements.map((r) => String(r.id ?? "")).filter((id) => id.length > 0);
+  const impactObligationIds = (input.taskPact?.impactObligations ?? []).map((obligation) => obligation.id);
 
   const assessmentRef = plan.source?.intentAssessmentReportRef;
   const sourceRefs: ArtifactRef[] = [planRef];
@@ -301,6 +320,7 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
   if (statusRef) sourceRefs.push(statusRef);
   if (input.pathFreshnessReportRef) sourceRefs.push(input.pathFreshnessReportRef);
   if (input.runtimeGraphDriftReportRef) sourceRefs.push(input.runtimeGraphDriftReportRef);
+  if (input.taskPactRef) sourceRefs.push(input.taskPactRef);
 
   // ---- Markdown guidance ----
   const lines: string[] = [];
@@ -318,6 +338,13 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
   if (riskNotes.length > 0) {
     lines.push("## Preservation constraints", "");
     for (const note of riskNotes) lines.push(`- ${note}`);
+    lines.push("");
+  }
+  if ((input.taskPact?.impactObligations.length ?? 0) > 0) {
+    lines.push("## Repository-law impact obligations", "");
+    for (const obligation of input.taskPact?.impactObligations ?? []) {
+      lines.push(`- [${obligation.kind}] ${obligation.statement}`);
+    }
     lines.push("");
   }
   if (requiredChecks.length > 0) {
@@ -355,6 +382,7 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
     successCriteria,
     relevantFindings: [],
     relevantMemory: [],
+    impactObligations: input.taskPact?.impactObligations ?? [],
     antiGamingInstruction: ANTI_GAMING,
     markdown,
     source: "intent-handoff",
@@ -365,10 +393,12 @@ export function buildIntentWorkOrderHandoff(input: BuildIntentWorkOrderHandoffIn
       ...(statusRef ? { intentStatusReportRef: statusRef } : {}),
       ...(input.pathFreshnessReportRef ? { pathFreshnessReportRef: input.pathFreshnessReportRef } : {}),
       ...(input.runtimeGraphDriftReportRef ? { runtimeGraphDriftReportRef: input.runtimeGraphDriftReportRef } : {}),
+      ...(input.taskPactRef ? { taskPactRef: input.taskPactRef } : {}),
       sourceRefs,
       phaseIds,
       obligationIds,
       verificationRequirementIds,
+      impactObligationIds,
       boundary: { createsVerificationPlan: false, executesCommands: false, writesSourceFiles: false },
     },
   };

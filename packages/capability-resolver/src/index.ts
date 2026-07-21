@@ -118,6 +118,112 @@ type OwnershipResolution = {
   warnings: string[];
 };
 
+export type BuildPreflightPacketInput = {
+  artifacts: ArtifactReader;
+  snapshotRef: ArtifactRef;
+  goal: string;
+  paths: string[];
+  generatedAt?: string;
+};
+
+export async function buildPreflightPacket(input: BuildPreflightPacketInput): Promise<PreflightPacket> {
+  const { artifacts, snapshotRef, goal, paths } = input;
+  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
+  const resolverInputTrace: ResolutionTraceEntry = {
+    step: "resolver.input",
+    sourceType: "ResolverInput",
+    status: "used",
+    message: "Resolved preflight request inputs.",
+    paths,
+    details: { goal },
+  };
+  const ownership = await resolveOwnership({ artifacts, snapshot, paths });
+  const { matchedScopes, ownerSystems } = ownership;
+  const evaluationRefs = Object.values(snapshot.evaluations ?? {}).flat();
+  const findingRefs = evaluationRefs.filter((ref) => ref.type === "FindingReport");
+  const assessmentRefs = evaluationRefs.filter((ref) => ref.type === "AssessmentReport");
+  const relevantFindings = await readRelevantFindings(artifacts, findingRefs, paths);
+  const findingTrace = buildFindingTrace(findingRefs, relevantFindings, paths);
+  const relevantAssessments = await readRelevantAssessments(artifacts, assessmentRefs, paths);
+  const assessmentTrace = buildAssessmentTrace(assessmentRefs, relevantAssessments, paths);
+  const memoryRefs = Object.values(snapshot.publications ?? {})
+    .flat()
+    .filter((ref) => ref.type === "MemorySelection");
+  const applicableMemory = await readMemorySelections(artifacts, memoryRefs, paths, goal);
+  const memoryTrace = buildMemoryTrace(memoryRefs, applicableMemory ?? [], paths);
+  const graphSliceRefs = snapshot.projections.GraphSlice ?? [];
+  const graphImpact = await readGraphImpactContext(artifacts, graphSliceRefs, paths);
+  const { risk, trace: riskTrace } = computeRisk(paths, ownerSystems, matchedScopes, relevantFindings, relevantAssessments);
+  const warnings = [
+    ...ownership.warnings,
+    ...buildFindingWarnings(findingRefs),
+    ...buildWarnings(paths, ownerSystems),
+  ];
+  const ownershipMapRefs = snapshot.projections.OwnershipMap ?? [];
+  const observedRepoRefs = snapshot.projections.ObservedRepo ?? [];
+  const evidenceRefs = snapshot.inputs.EvidenceGraph ?? [];
+
+  return {
+    header: {
+      artifactType: "ResolverPacket",
+      artifactId: `preflight-${Date.parse(generatedAt) || Date.now()}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      supersession: { key: resolverSupersessionKey("resolve.preflight", { goal, paths }) },
+      snapshotId: snapshot.header.artifactId,
+      subject: {
+        repoId: snapshot.repo.id,
+        ref: snapshot.repo.branch,
+        commit: snapshot.repo.commit,
+        paths,
+        systems: ownerSystems,
+      },
+      producer: { id: "@rekon/capability-resolver", version: "0.1.0" },
+      inputRefs: [
+        snapshotRef,
+        ...ownershipMapRefs,
+        ...observedRepoRefs,
+        ...graphSliceRefs,
+        ...evidenceRefs,
+        ...findingRefs,
+        ...assessmentRefs,
+        ...memoryRefs,
+      ],
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: ownerSystems.length > 0 ? 0.8 : 0.4,
+        notes: ["resolve.preflight"],
+      },
+    },
+    goal,
+    paths,
+    ownerSystems,
+    matchedScopes,
+    risk,
+    requiredChecks: ["npm run typecheck", "npm run test", "npm run build"],
+    relevantFindings,
+    relevantAssessments,
+    recommendedContext: [...buildRecommendedContext(paths, ownerSystems), ...graphImpact.context],
+    applicableMemory,
+    warnings,
+    resolutionTrace: [
+      resolverInputTrace,
+      ...ownership.trace,
+      ...findingTrace,
+      ...assessmentTrace,
+      ...memoryTrace,
+      ...graphImpact.trace,
+      ...riskTrace,
+    ],
+    nextSteps: [
+      "Read the owner package docs before editing.",
+      "Keep changes scoped to the requested paths.",
+      "Run the required checks before handoff.",
+    ],
+  };
+}
+
 export const preflightResolver: Resolver = {
   id: "resolve.preflight",
   produces: ["ResolverPacket"],
@@ -134,106 +240,7 @@ export const preflightResolver: Resolver = {
       throw new Error("resolve.preflight requires input.path or input.paths.");
     }
 
-    const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
-    const resolverInputTrace: ResolutionTraceEntry = {
-      step: "resolver.input",
-      sourceType: "ResolverInput",
-      status: "used",
-      message: "Resolved preflight request inputs.",
-      paths,
-      details: {
-        goal,
-      },
-    };
-    const ownership = await resolveOwnership({ artifacts, snapshot, paths });
-    const { matchedScopes, ownerSystems } = ownership;
-    const evaluationRefs = Object.values(snapshot.evaluations ?? {}).flat();
-    const findingRefs = evaluationRefs.filter((ref) => ref.type === "FindingReport");
-    const assessmentRefs = evaluationRefs.filter((ref) => ref.type === "AssessmentReport");
-    const relevantFindings = await readRelevantFindings(artifacts, findingRefs, paths);
-    const findingTrace = buildFindingTrace(findingRefs, relevantFindings, paths);
-    const relevantAssessments = await readRelevantAssessments(artifacts, assessmentRefs, paths);
-    const assessmentTrace = buildAssessmentTrace(assessmentRefs, relevantAssessments, paths);
-    const memoryRefs = Object.values((snapshot as { publications?: Record<string, ArtifactRef[]> }).publications ?? {})
-      .flat()
-      .filter((ref) => ref.type === "MemorySelection");
-    const applicableMemory = await readMemorySelections(artifacts, memoryRefs, paths, goal);
-    const memoryTrace = buildMemoryTrace(memoryRefs, applicableMemory ?? [], paths);
-    const graphSliceRefs = snapshot.projections.GraphSlice ?? [];
-    const graphImpact = await readGraphImpactContext(artifacts, graphSliceRefs, paths);
-    const { risk, trace: riskTrace } = computeRisk(paths, ownerSystems, matchedScopes, relevantFindings, relevantAssessments);
-    const warnings = [
-      ...ownership.warnings,
-      ...buildFindingWarnings(findingRefs),
-      ...buildWarnings(paths, ownerSystems),
-    ];
-    const resolutionTrace = [
-      resolverInputTrace,
-      ...ownership.trace,
-      ...findingTrace,
-      ...assessmentTrace,
-      ...memoryTrace,
-      ...graphImpact.trace,
-      ...riskTrace,
-    ];
-    const ownershipMapRefs = snapshot.projections.OwnershipMap ?? [];
-    const observedRepoRefs = snapshot.projections.ObservedRepo ?? [];
-    const evidenceRefs = snapshot.inputs.EvidenceGraph ?? [];
-    const packet: PreflightPacket = {
-      header: {
-        artifactType: "ResolverPacket",
-        artifactId: `preflight-${Date.now()}`,
-        schemaVersion: "0.1.0",
-        generatedAt: new Date().toISOString(),
-        supersession: { key: resolverSupersessionKey("resolve.preflight", { goal, paths }) },
-        snapshotId: snapshot.header.artifactId,
-        subject: {
-          repoId: snapshot.repo.id,
-          ref: snapshot.repo.branch,
-          commit: snapshot.repo.commit,
-          paths,
-          systems: ownerSystems,
-        },
-        producer: {
-          id: "@rekon/capability-resolver",
-          version: "0.1.0",
-        },
-        inputRefs: [
-          snapshotRef,
-          ...ownershipMapRefs,
-          ...observedRepoRefs,
-          ...graphSliceRefs,
-          ...evidenceRefs,
-          ...findingRefs,
-          ...assessmentRefs,
-          ...memoryRefs,
-        ],
-        freshness: {
-          status: "fresh",
-        },
-        provenance: {
-          confidence: ownerSystems.length > 0 ? 0.8 : 0.4,
-          notes: ["resolve.preflight"],
-        },
-      },
-      goal,
-      paths,
-      ownerSystems,
-      matchedScopes,
-      risk,
-      requiredChecks: ["npm run typecheck", "npm run test", "npm run build"],
-      relevantFindings,
-      relevantAssessments,
-      recommendedContext: [...buildRecommendedContext(paths, ownerSystems), ...graphImpact.context],
-      applicableMemory,
-      warnings,
-      resolutionTrace,
-      nextSteps: [
-        "Read the owner package docs before editing.",
-        "Keep changes scoped to the requested paths.",
-        "Run the required checks before handoff.",
-      ],
-    };
+    const packet = await buildPreflightPacket({ artifacts, snapshotRef, goal, paths });
 
     const ref = await artifacts.write("ResolverPacket", packet);
 

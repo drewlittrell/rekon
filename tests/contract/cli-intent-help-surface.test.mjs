@@ -71,13 +71,13 @@ test("help says Rekon does not run Circe", () => {
 });
 
 // ---------- 10 ----------
-test("help says Rekon does not execute commands", () => {
-  assert.ok(helpText.includes("does not execute commands"), helpText);
+test("help says intent preparation does not execute commands", () => {
+  assert.ok(helpText.includes("Intent preparation does not execute commands"), helpText);
 });
 
 // ---------- 11 ----------
-test("help says Rekon does not write source files", () => {
-  assert.ok(helpText.includes("does not write source files"), helpText);
+test("help says intent preparation does not edit implementation source", () => {
+  assert.ok(helpText.includes("does not execute commands or edit implementation source"), helpText);
 });
 
 // ---------- 12 ----------

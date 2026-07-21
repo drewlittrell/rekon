@@ -1,0 +1,548 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "scripts/test-all.mjs",
+      "config/failover-regions.json",
+      "platform/routing/src/load-region-config.ts",
+      "platform/routing/src/region-policy.ts",
+      "apps/gateway/src/region-controller.ts",
+      "test/routing/region-policy.test.ts",
+      "extensions/log-redaction/src/rules/email.ts",
+      "extensions/log-redaction/src/rules/api-key.ts",
+      "extensions/log-redaction/src/rules/index.ts",
+      "extensions/log-redaction/src/sanitize.ts",
+      "test/log-redaction/sanitize.test.ts",
+      "core/logging/src/logger.ts",
+      "apps/api/src/request-logger.ts",
+      "contracts/audit-record.schema.json",
+      "packages/audit-contracts/src/audit-record.ts",
+      "apps/admin-api/src/audit-emitter.ts",
+      "apps/admin-api/src/audit-controller.ts",
+      "test/audit-contract/audit-emitter.test.ts",
+      "services/audit_archive_py/audit_archive/__init__.py",
+      "services/audit_archive_py/audit_archive/record_reader.py",
+      "services/audit_archive_py/tests/test_record_reader.py",
+      "domains/billing/src/invoice-repository.ts",
+      "domains/billing/src/invoice-service.ts",
+      "apps/billing-api/src/invoice-controller.ts",
+      "test/billing/invoice-service.test.ts",
+      "extensions/metrics/src/counter.ts",
+      "extensions/metrics/src/metric-registry.ts",
+      "test/metrics/counter.test.ts",
+      "services/search_py/search/__init__.py",
+      "services/search_py/search/query.py",
+      "services/search_py/tests/test_query.py",
+      "tools/release/src/changelog.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "config/failover-regions.json" },
+      { "kind": "file", "id": "platform/routing/src/load-region-config.ts" },
+      { "kind": "file", "id": "platform/routing/src/region-policy.ts" },
+      { "kind": "file", "id": "apps/gateway/src/region-controller.ts" },
+      { "kind": "file", "id": "test/routing/region-policy.test.ts" },
+      { "kind": "file", "id": "extensions/log-redaction/src/rules/email.ts" },
+      { "kind": "file", "id": "extensions/log-redaction/src/rules/api-key.ts" },
+      { "kind": "file", "id": "extensions/log-redaction/src/rules/index.ts" },
+      { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+      { "kind": "file", "id": "test/log-redaction/sanitize.test.ts" },
+      { "kind": "file", "id": "core/logging/src/logger.ts" },
+      { "kind": "file", "id": "apps/api/src/request-logger.ts" },
+      { "kind": "file", "id": "contracts/audit-record.schema.json" },
+      { "kind": "file", "id": "packages/audit-contracts/src/audit-record.ts" },
+      { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" },
+      { "kind": "file", "id": "apps/admin-api/src/audit-controller.ts" },
+      { "kind": "file", "id": "test/audit-contract/audit-emitter.test.ts" },
+      { "kind": "file", "id": "services/audit_archive_py/audit_archive/record_reader.py" },
+      { "kind": "file", "id": "services/audit_archive_py/tests/test_record_reader.py" },
+      { "kind": "file", "id": "domains/billing/src/invoice-service.ts" },
+      { "kind": "file", "id": "extensions/metrics/src/metric-registry.ts" },
+      { "kind": "file", "id": "services/search_py/search/query.py" }
+    ],
+    "claims": [
+      {
+        "id": "claim-region-loader-config",
+        "subject": { "kind": "file", "id": "platform/routing/src/load-region-config.ts" },
+        "predicate": "reads",
+        "object": { "kind": "file", "id": "config/failover-regions.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:region-loader-config"]
+      },
+      {
+        "id": "claim-region-policy-config",
+        "subject": { "kind": "file", "id": "platform/routing/src/region-policy.ts" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "config/failover-regions.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:region-policy-config"]
+      },
+      {
+        "id": "claim-region-controller-config-contract",
+        "subject": { "kind": "file", "id": "apps/gateway/src/region-controller.ts" },
+        "predicate": "publishes_contract_from",
+        "object": { "kind": "file", "id": "config/failover-regions.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:region-controller-config-contract"]
+      },
+      {
+        "id": "claim-region-test-config",
+        "subject": { "kind": "file", "id": "test/routing/region-policy.test.ts" },
+        "predicate": "verifies_contract",
+        "object": { "kind": "file", "id": "config/failover-regions.json" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:region-test-config"]
+      },
+      {
+        "id": "claim-region-controller-policy",
+        "subject": { "kind": "file", "id": "apps/gateway/src/region-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "platform/routing/src/region-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:region-controller-policy"]
+      },
+      {
+        "id": "claim-region-controller-config",
+        "subject": { "kind": "file", "id": "apps/gateway/src/region-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "platform/routing/src/load-region-config.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:region-controller-config"]
+      },
+      {
+        "id": "claim-region-test-policy",
+        "subject": { "kind": "file", "id": "test/routing/region-policy.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "platform/routing/src/region-policy.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:region-test-policy"]
+      },
+      {
+        "id": "claim-region-test-controller",
+        "subject": { "kind": "file", "id": "test/routing/region-policy.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "apps/gateway/src/region-controller.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:region-test-controller"]
+      },
+      {
+        "id": "claim-redaction-index-email",
+        "subject": { "kind": "file", "id": "extensions/log-redaction/src/rules/index.ts" },
+        "predicate": "registers",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/rules/email.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:redaction-index-email"]
+      },
+      {
+        "id": "claim-redaction-index-api-key",
+        "subject": { "kind": "file", "id": "extensions/log-redaction/src/rules/index.ts" },
+        "predicate": "registers",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/rules/api-key.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:redaction-index-api-key"]
+      },
+      {
+        "id": "claim-sanitizer-redaction-index",
+        "subject": { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/rules/index.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:sanitizer-redaction-index"]
+      },
+      {
+        "id": "claim-redaction-test-sanitizer",
+        "subject": { "kind": "file", "id": "test/log-redaction/sanitize.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:redaction-test-sanitizer"]
+      },
+      {
+        "id": "claim-logger-sanitizer",
+        "subject": { "kind": "file", "id": "core/logging/src/logger.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:logger-sanitizer"]
+      },
+      {
+        "id": "claim-request-logger-core",
+        "subject": { "kind": "file", "id": "apps/api/src/request-logger.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "core/logging/src/logger.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:request-logger-core"]
+      },
+      {
+        "id": "claim-audit-type-schema",
+        "subject": { "kind": "file", "id": "packages/audit-contracts/src/audit-record.ts" },
+        "predicate": "implements_contract",
+        "object": { "kind": "file", "id": "contracts/audit-record.schema.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:audit-type-schema"]
+      },
+      {
+        "id": "claim-audit-emitter-type",
+        "subject": { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "packages/audit-contracts/src/audit-record.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:audit-emitter-type"]
+      },
+      {
+        "id": "claim-audit-emitter-schema-contract",
+        "subject": { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" },
+        "predicate": "produces_contract",
+        "object": { "kind": "file", "id": "contracts/audit-record.schema.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:audit-emitter-schema-contract"]
+      },
+      {
+        "id": "claim-audit-controller-emitter",
+        "subject": { "kind": "file", "id": "apps/admin-api/src/audit-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:audit-controller-emitter"]
+      },
+      {
+        "id": "claim-audit-test-emitter",
+        "subject": { "kind": "file", "id": "test/audit-contract/audit-emitter.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:audit-test-emitter"]
+      },
+      {
+        "id": "claim-audit-test-schema",
+        "subject": { "kind": "file", "id": "test/audit-contract/audit-emitter.test.ts" },
+        "predicate": "verifies_contract",
+        "object": { "kind": "file", "id": "contracts/audit-record.schema.json" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:audit-test-schema"]
+      },
+      {
+        "id": "claim-archive-consumer-schema",
+        "subject": { "kind": "file", "id": "services/audit_archive_py/audit_archive/record_reader.py" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "contracts/audit-record.schema.json" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:archive-consumer-schema"]
+      },
+      {
+        "id": "claim-archive-test-consumer",
+        "subject": { "kind": "file", "id": "services/audit_archive_py/tests/test_record_reader.py" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "services/audit_archive_py/audit_archive/record_reader.py" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:archive-test-consumer"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:enterprise-region-failover",
+        "verb": "route",
+        "noun": "enterprise failover traffic",
+        "implementedBy": [
+          { "kind": "file", "id": "config/failover-regions.json" },
+          { "kind": "file", "id": "platform/routing/src/region-policy.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:enterprise-region-failover"]
+      },
+      {
+        "id": "capability:log-redaction",
+        "verb": "sanitize",
+        "noun": "log redaction",
+        "implementedBy": [
+          { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+          { "kind": "file", "id": "extensions/log-redaction/src/rules/index.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:log-redaction"]
+      },
+      {
+        "id": "capability:audit-record-emission",
+        "verb": "emit",
+        "noun": "audit records",
+        "implementedBy": [
+          { "kind": "file", "id": "contracts/audit-record.schema.json" },
+          { "kind": "file", "id": "apps/admin-api/src/audit-emitter.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:audit-record-emission"]
+      },
+      {
+        "id": "capability:audit-record-archive",
+        "verb": "archive",
+        "noun": "audit records",
+        "implementedBy": [
+          { "kind": "file", "id": "services/audit_archive_py/audit_archive/record_reader.py" }
+        ],
+        "evidenceRefs": ["CapabilityMap:audit-record-archive"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-independent-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-independent-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-18T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-independent-eval" },
+      "producer": { "id": "@rekon/model-interface-independent-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-independent-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" }
+    },
+    "source": {
+      "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-independent-map", "schemaVersion": "0.1.0" }
+    },
+    "summary": {
+      "total": 3,
+      "configured": 3,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 3,
+      "withPlacementRules": 1,
+      "withPreservationRules": 3
+    },
+    "contracts": [
+      {
+        "id": "enterprise-region-failover-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-independent-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:enterprise-region-failover"
+        },
+        "match": { "verb": "route", "noun": "enterprise failover traffic" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Keep failover targets in configuration; do not hard-code ap-south in routing policy.",
+          "Only route to a configured region when it is both enabled and available.",
+          "Standard tenants remain in their current region when that region is unavailable.",
+          "Keep the gateway public response shape stable.",
+          "Add regression coverage for enterprise ap-south failover and standard-tenant preservation."
+        ]
+      },
+      {
+        "id": "log-redaction-extension-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-independent-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:log-redaction"
+        },
+        "match": { "verb": "sanitize", "noun": "log redaction" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "allowedSystems": ["extensions/log-redaction"],
+        "forbiddenSystems": ["core/logging", "apps/api"],
+        "preservationRules": [
+          "Implement bearer-token redaction as a separate rule beside existing redaction rules and register it through the rule index.",
+          "Match the Bearer authentication scheme case-insensitively while preserving the scheme text.",
+          "Do not change core logging or request logging to add extension behavior.",
+          "Preserve existing email and API-key redaction behavior.",
+          "Add regression coverage for bearer tokens and existing redaction rules."
+        ]
+      },
+      {
+        "id": "audit-record-compatibility-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-independent-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:audit-record-emission"
+        },
+        "match": { "verb": "emit", "noun": "audit records" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "requiredNeighbors": [
+          { "verb": "archive", "noun": "audit records" }
+        ],
+        "preservationRules": [
+          "sourceIp is optional across the JSON schema, TypeScript producer, and Python archive consumer.",
+          "Records that omit sourceIp retain their existing shape; do not emit sourceIp with an undefined value.",
+          "Keep additionalProperties false and preserve unknown-field rejection.",
+          "Keep the audit controller public response contract stable.",
+          "Add TypeScript producer and Python consumer regression coverage for present and omitted sourceIp."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "configured-region-failover",
+      "task": "Enable ap-south as the failover target for enterprise traffic when us-east is unavailable in config/failover-regions.json.",
+      "paths": ["config/failover-regions.json"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "config/failover-regions.json",
+          "platform/routing/src/load-region-config.ts",
+          "platform/routing/src/region-policy.ts",
+          "apps/gateway/src/region-controller.ts",
+          "test/routing/region-policy.test.ts"
+        ],
+        "allowedContextPaths": [
+          "config/failover-regions.json",
+          "platform/routing/src/load-region-config.ts",
+          "platform/routing/src/region-policy.ts",
+          "apps/gateway/src/region-controller.ts",
+          "test/routing/region-policy.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "config/failover-regions.json",
+          "test/routing/region-policy.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "config/failover-regions.json",
+          "test/routing/region-policy.test.ts"
+        ],
+        "protectedPaths": [
+          "platform/routing/src/region-policy.ts",
+          "apps/gateway/src/region-controller.ts"
+        ],
+        "constraintFragments": [
+          "configuration",
+          "enabled and available",
+          "standard tenants",
+          "public response shape",
+          "regression coverage"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-independent/oracles/configured-region-failover.test.mjs"
+        ],
+        "planConcepts": [
+          ["ap-south", "configuration"],
+          ["enabled", "available"],
+          ["standard", "preserve"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "plugin-bearer-redaction",
+      "task": "Add bearer-token redaction to the log sanitization capability using the repository's extension rule layout.",
+      "paths": [],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "extensions/log-redaction/src/sanitize.ts",
+          "extensions/log-redaction/src/rules/index.ts",
+          "extensions/log-redaction/src/rules/api-key.ts",
+          "test/log-redaction/sanitize.test.ts"
+        ],
+        "allowedContextPaths": [
+          "extensions/log-redaction/src/sanitize.ts",
+          "extensions/log-redaction/src/rules/index.ts",
+          "extensions/log-redaction/src/rules/api-key.ts",
+          "extensions/log-redaction/src/rules/email.ts",
+          "test/log-redaction/sanitize.test.ts",
+          "core/logging/src/logger.ts"
+        ],
+        "requiredModifyPaths": [
+          "extensions/log-redaction/src/rules/bearer-token.ts",
+          "extensions/log-redaction/src/rules/index.ts",
+          "test/log-redaction/sanitize.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "extensions/log-redaction/src/rules/bearer-token.ts",
+          "extensions/log-redaction/src/rules/index.ts",
+          "test/log-redaction/sanitize.test.ts"
+        ],
+        "protectedPaths": [
+          "extensions/log-redaction/src/sanitize.ts",
+          "core/logging/src/logger.ts",
+          "apps/api/src/request-logger.ts"
+        ],
+        "constraintFragments": [
+          "separate rule",
+          "rule index",
+          "case-insensitively",
+          "core logging",
+          "email and api-key",
+          "regression coverage"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-independent/oracles/plugin-bearer-redaction.test.mjs"
+        ],
+        "planConcepts": [
+          ["bearer", "rule"],
+          ["register", "index"],
+          ["case", "insensitive"],
+          ["existing", "redaction"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "audit-source-ip-compatibility",
+      "task": "Add optional sourceIp to shared audit records in contracts/audit-record.schema.json while preserving records that omit it.",
+      "paths": ["contracts/audit-record.schema.json"],
+      "profile": "standard",
+      "oracle": {
+        "requiredContextPaths": [
+          "contracts/audit-record.schema.json",
+          "packages/audit-contracts/src/audit-record.ts",
+          "apps/admin-api/src/audit-emitter.ts",
+          "test/audit-contract/audit-emitter.test.ts",
+          "services/audit_archive_py/audit_archive/record_reader.py",
+          "services/audit_archive_py/tests/test_record_reader.py"
+        ],
+        "allowedContextPaths": [
+          "contracts/audit-record.schema.json",
+          "packages/audit-contracts/src/audit-record.ts",
+          "apps/admin-api/src/audit-emitter.ts",
+          "apps/admin-api/src/audit-controller.ts",
+          "test/audit-contract/audit-emitter.test.ts",
+          "services/audit_archive_py/audit_archive/record_reader.py",
+          "services/audit_archive_py/tests/test_record_reader.py"
+        ],
+        "requiredModifyPaths": [
+          "contracts/audit-record.schema.json",
+          "packages/audit-contracts/src/audit-record.ts",
+          "apps/admin-api/src/audit-emitter.ts",
+          "test/audit-contract/audit-emitter.test.ts",
+          "services/audit_archive_py/audit_archive/record_reader.py",
+          "services/audit_archive_py/tests/test_record_reader.py"
+        ],
+        "allowedModifyPaths": [
+          "contracts/audit-record.schema.json",
+          "packages/audit-contracts/src/audit-record.ts",
+          "apps/admin-api/src/audit-emitter.ts",
+          "test/audit-contract/audit-emitter.test.ts",
+          "services/audit_archive_py/audit_archive/record_reader.py",
+          "services/audit_archive_py/tests/test_record_reader.py"
+        ],
+        "protectedPaths": ["apps/admin-api/src/audit-controller.ts"],
+        "constraintFragments": [
+          "sourceip is optional",
+          "omit sourceip",
+          "additionalproperties false",
+          "unknown-field rejection",
+          "controller public response",
+          "regression coverage"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-independent/oracles/audit-source-ip-compatibility.test.mjs"
+        ],
+        "planConcepts": [
+          ["optional", "sourceip"],
+          ["typescript", "producer"],
+          ["python", "consumer"],
+          ["legacy", "omit"],
+          ["unknown", "field"],
+          ["test", "coverage"]
+        ]
+      }
+    }
+  ]
+}

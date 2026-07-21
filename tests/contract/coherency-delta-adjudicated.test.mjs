@@ -297,6 +297,7 @@ test("rekon refresh runs issues.adjudicate between findings.lifecycle and cohere
         "publish.architecture",
         "artifacts.validate",
         "artifacts.freshness",
+        "agent-instructions.sync",
       ],
     );
 

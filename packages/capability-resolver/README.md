@@ -37,7 +37,10 @@ decision-ready packet for agents and humans.
 ## Public Surface
 
 The default export is a Rekon capability definition with a resolver handler.
-The package also exports preflight packet types.
+The package also exports preflight packet types and `buildPreflightPacket()`.
+The pure builder computes the packet from an artifact reader and snapshot ref;
+runtime adapters decide whether to persist it. MCP uses this boundary for
+read-only preflight.
 
 ## Import Boundary
 

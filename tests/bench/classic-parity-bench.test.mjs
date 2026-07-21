@@ -723,7 +723,7 @@ test("end-to-end: bench capture emits a report and preserves protected repositor
   cpSync(fixtureCorpus, corpusCopy, { recursive: true });
 
   const fixtureRepo = join(corpusCopy, "repos/parity-fixture");
-  const before = hashTree(fixtureRepo, { exclude: [".rekon", "reports/junit.xml"] });
+  const before = hashTree(fixtureRepo, { exclude: [".rekon", "AGENTS.md", "reports/junit.xml"] });
 
   const outputDir = join(tempRoot, "output");
   const result = spawnSync(
@@ -829,11 +829,15 @@ test("end-to-end: bench capture emits a report and preserves protected repositor
   assert.match(markdown, /fixture\.unported_rule/);
   assert.match(markdown, /docs\/strategy\/detection-quality\.md#naming-and-anti-patterns/);
 
-  // The bench may replace declared native reports, but protected repository
-  // files must remain byte-identical.
-  const after = hashTree(fixtureRepo, { exclude: [".rekon", "reports/junit.xml"] });
+  // The bench may replace declared native reports and refresh Rekon's bounded
+  // AGENTS.md block, but all other protected repository files stay identical.
+  const after = hashTree(fixtureRepo, { exclude: [".rekon", "AGENTS.md", "reports/junit.xml"] });
 
   assert.deepEqual([...after.entries()].sort(), [...before.entries()].sort());
+  assert.match(
+    readFileSync(join(fixtureRepo, "AGENTS.md"), "utf8"),
+    /<!-- rekon:agent-instructions:start version="1\.8\.0" -->/u,
+  );
   assert.ok(statSync(join(fixtureRepo, ".rekon")).isDirectory(), "refresh should have produced .rekon/ in the corpus copy");
 
   const artifactIndexPath = join(fixtureRepo, ".rekon/registry/artifacts.index.json");

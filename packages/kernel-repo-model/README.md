@@ -17,6 +17,14 @@ This package owns deterministic model artifacts derived from evidence:
 - `ObservedSystem`
 - `OwnershipMap`
 - `CapabilityMap`
+- `SystemContract`
+- `FlowContract`
+- `EffectiveContractRegistry`
+- `ContractCandidateReport`
+- `ContractJudgmentReport`
+- `ContractAdoptionReport`
+- `ContractDriftReport`
+- `TaskPact`
 - `RuntimeGraphObservationReport`
 - `SemanticDebtJudgmentReport`
 - `SecurityScanReport`
@@ -63,3 +71,15 @@ diagnostics without retaining raw tool payloads.
 ## Import Boundary
 
 These are projections, not canonical input truth. They must point back to evidence with `ArtifactRef`s.
+Committed `RepositoryContractSourceDocument` inputs are version-controlled
+declarations compiled into provenance-bearing contract artifacts. Generated
+artifacts never rewrite those sources.
+`TaskPact` is the task-scoped read model over adopted repository law. It carries
+matched contracts, constraints, context paths, checks, freshness, and impact
+obligations without changing the source contracts.
+`TaskContextItem` may also carry a `routeRole`, `necessity`, and
+`necessityReason`. These fields distinguish task targets, repository law,
+implementation, handoff, verification, dependency, compatibility, and
+supporting routes without changing the underlying evidence. Legacy items may
+omit all three fields; when any route field is present, validation requires the
+complete route description.

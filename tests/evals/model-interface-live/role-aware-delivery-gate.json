@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-20T22:55:30Z",
+  "status": "deterministic-ready-not-model-tested",
+  "contextPolicy": "role-aware",
+  "productionDefault": "full",
+  "modelRuns": 0,
+  "fixtureSha256": "72b459e3f9a96c392c68dc0199d7ad7632198be991d678e5f08fee3eeb829357",
+  "selectionSha256": "dd2d21a027decc9c86706897f455d861baafd14b0624f0635b9cc4beb10c4ae9",
+  "sourceRetention": "fixture, selection, and exact delivery digests plus paths, roles, necessity classes, and aggregate counts only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "fullDeliveryDigests": [
+    {
+      "caseId": "implementation-user-deactivation",
+      "sha256": "b12ee25db3c44fe18df57fbb66ed29e8c9aac0604afedff59d918410580cb406"
+    },
+    {
+      "caseId": "debugging-expired-subscription",
+      "sha256": "0f60c50ab8699e140e51594ed7f66b4f464e44e1e5faa40374c8fe3835ab3751"
+    },
+    {
+      "caseId": "refactor-order-review",
+      "sha256": "651b02cd4edaf59afc074f9d3ee83f6de68bea283b962a1b5e066a2bc82bdb6e"
+    },
+    {
+      "caseId": "placement-payment-review",
+      "sha256": "232d69bfd33e93bd4818e4a52059add02b4348829a1877cdcffa38cbad3d02ca"
+    },
+    {
+      "caseId": "cross-system-account-suspension",
+      "sha256": "60175fe1736085539c8d52a611ed91f1e4df464207764c30e2d422a37787deb7"
+    },
+    {
+      "caseId": "policy-refund-authorization",
+      "sha256": "1cf9b8f23460521c39e8f90f03d3d2d478d8af067b93fcb181327a0d437f217d"
+    }
+  ],
+  "roleAwareDeliveryDigests": [
+    {
+      "caseId": "implementation-user-deactivation",
+      "sha256": "07da1d62376b1c5a4acb30dd342be182b1cb377978408cfcb7f02a2b017b9d57"
+    },
+    {
+      "caseId": "debugging-expired-subscription",
+      "sha256": "4552b9a990d38ebf40e5f730401c4a91fa6655ea80237ff207b5d05b1a106569"
+    },
+    {
+      "caseId": "refactor-order-review",
+      "sha256": "252bf1567659c17312c8cce187352eec6975b8df9184dc82f66a5b01e89b9e80"
+    },
+    {
+      "caseId": "placement-payment-review",
+      "sha256": "a77946e1e2fb40d246bed03924b70606073e319d8e5df75b12f455bb2c05dfa8"
+    },
+    {
+      "caseId": "cross-system-account-suspension",
+      "sha256": "12cf3b8f0a2f0f1571aec6e2594bfb7c4beec70adb1b290627e0fe09b2e2f7a5"
+    },
+    {
+      "caseId": "policy-refund-authorization",
+      "sha256": "b0c5de469b0127bd241e319500a8a5f8f9f80112a69790399de090f435afa5a4"
+    }
+  ],
+  "summary": {
+    "cases": 6,
+    "selectedPaths": 30,
+    "fullMandatoryPaths": 25,
+    "roleAwareMandatoryPaths": 15,
+    "roleAwareConditionalPaths": 15,
+    "roleAwareSupportingOnlyPaths": 0,
+    "mandatoryPathReduction": 0.4,
+    "requiredContextRecall": 1,
+    "selectedPathPrecision": 1,
+    "constraintRecall": 1,
+    "commandRecall": 1
+  },
+  "roles": {
+    "task-target": 7,
+    "repository-law": 0,
+    "implementation": 2,
+    "handoff": 0,
+    "verification": 6,
+    "dependency": 10,
+    "compatibility": 5,
+    "supporting": 0
+  },
+  "judgment": {
+    "classification": "deterministic-route-separation-ready-for-independent-model-canary",
+    "selectionCoverageAccepted": true,
+    "routeExplainabilityAccepted": true,
+    "mandatoryPathReductionAccepted": true,
+    "actualSourceReadReductionAccepted": false,
+    "correctnessClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "The role-aware adapter preserves all required and allowed context while reducing the initial mandatory set from 25 to 15 paths. Ten direct dependencies and five compatibility callers remain available with explicit conditional reasons. No model has yet demonstrated that it follows those conditions without losing correctness, so the production default remains full."
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "scripts/test-all.mjs",
+      "apps/admin-web/src/notification-client.ts",
+      "apps/admin-web/src/reporting-client.ts",
+      "apps/order-worker/src/cancellation-controller.ts",
+      "apps/order-worker/src/cancellation-publisher.ts",
+      "packages/event-contracts/src/order-cancellation.ts",
+      "packages/shared-ids/src/index.ts",
+      "services/audit_py/audit/__init__.py",
+      "services/audit_py/audit/order_events.py",
+      "services/audit_py/tests/test_order_events.py",
+      "services/notifications_py/notifications/__init__.py",
+      "services/notifications_py/notifications/api.py",
+      "services/notifications_py/notifications/contact_repository.py",
+      "services/notifications_py/notifications/delivery_gateway.py",
+      "services/notifications_py/notifications/delivery_policy.py",
+      "services/notifications_py/notifications/delivery_service.py",
+      "services/notifications_py/tests/test_delivery_service.py",
+      "services/reporting_py/reporting/__init__.py",
+      "services/reporting_py/reporting/api.py",
+      "services/reporting_py/reporting/export_policy.py",
+      "services/reporting_py/reporting/export_repository.py",
+      "services/reporting_py/reporting/export_service.py",
+      "services/reporting_py/tests/test_export_service.py",
+      "src/api/invoice-controller.ts",
+      "src/billing/invoice-policy.ts",
+      "src/billing/invoice-repository.ts",
+      "src/billing/invoice-service.ts",
+      "tests/invoice-service.test.ts",
+      "tests/order-cancellation-contract.test.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "services/reporting_py/reporting/api.py" },
+      { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" },
+      { "kind": "file", "id": "services/reporting_py/reporting/export_repository.py" },
+      { "kind": "file", "id": "services/reporting_py/reporting/export_policy.py" },
+      { "kind": "file", "id": "services/reporting_py/tests/test_export_service.py" },
+      { "kind": "file", "id": "services/notifications_py/notifications/api.py" },
+      { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+      { "kind": "file", "id": "services/notifications_py/notifications/contact_repository.py" },
+      { "kind": "file", "id": "services/notifications_py/notifications/delivery_policy.py" },
+      { "kind": "file", "id": "services/notifications_py/notifications/delivery_gateway.py" },
+      { "kind": "file", "id": "services/notifications_py/tests/test_delivery_service.py" },
+      { "kind": "file", "id": "packages/event-contracts/src/order-cancellation.ts" },
+      { "kind": "file", "id": "apps/order-worker/src/cancellation-publisher.ts" },
+      { "kind": "file", "id": "apps/order-worker/src/cancellation-controller.ts" },
+      { "kind": "file", "id": "tests/order-cancellation-contract.test.ts" },
+      { "kind": "file", "id": "services/audit_py/audit/order_events.py" },
+      { "kind": "file", "id": "services/audit_py/tests/test_order_events.py" }
+    ],
+    "claims": [
+      {
+        "id": "claim-reporting-api-service",
+        "subject": { "kind": "file", "id": "services/reporting_py/reporting/api.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:reporting-api-service"]
+      },
+      {
+        "id": "claim-reporting-service-repository",
+        "subject": { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/reporting_py/reporting/export_repository.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:reporting-service-repository"]
+      },
+      {
+        "id": "claim-reporting-service-policy",
+        "subject": { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/reporting_py/reporting/export_policy.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:reporting-service-policy"]
+      },
+      {
+        "id": "claim-reporting-test-service",
+        "subject": { "kind": "file", "id": "services/reporting_py/tests/test_export_service.py" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:reporting-test-service"]
+      },
+      {
+        "id": "claim-notification-api-service",
+        "subject": { "kind": "file", "id": "services/notifications_py/notifications/api.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:notification-api-service"]
+      },
+      {
+        "id": "claim-notification-service-repository",
+        "subject": { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/notifications_py/notifications/contact_repository.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:notification-service-repository"]
+      },
+      {
+        "id": "claim-notification-service-policy",
+        "subject": { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "services/notifications_py/notifications/delivery_policy.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:notification-service-policy"]
+      },
+      {
+        "id": "claim-notification-service-gateway",
+        "subject": { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+        "predicate": "calls",
+        "object": { "kind": "file", "id": "services/notifications_py/notifications/delivery_gateway.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:notification-service-gateway"]
+      },
+      {
+        "id": "claim-notification-test-service",
+        "subject": { "kind": "file", "id": "services/notifications_py/tests/test_delivery_service.py" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:notification-test-service"]
+      },
+      {
+        "id": "claim-cancellation-publisher-contract",
+        "subject": { "kind": "file", "id": "apps/order-worker/src/cancellation-publisher.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "packages/event-contracts/src/order-cancellation.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:cancellation-publisher-contract"]
+      },
+      {
+        "id": "claim-cancellation-controller-publisher",
+        "subject": { "kind": "file", "id": "apps/order-worker/src/cancellation-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "apps/order-worker/src/cancellation-publisher.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:cancellation-controller-publisher"]
+      },
+      {
+        "id": "claim-cancellation-test-publisher",
+        "subject": { "kind": "file", "id": "tests/order-cancellation-contract.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "apps/order-worker/src/cancellation-publisher.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:cancellation-test-publisher"]
+      },
+      {
+        "id": "claim-cancellation-test-contract",
+        "subject": { "kind": "file", "id": "tests/order-cancellation-contract.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "packages/event-contracts/src/order-cancellation.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:cancellation-test-contract"]
+      },
+      {
+        "id": "claim-audit-consumer-contract",
+        "subject": { "kind": "file", "id": "services/audit_py/audit/order_events.py" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "packages/event-contracts/src/order-cancellation.ts" },
+        "source": "configured",
+        "evidenceRefs": ["EvidenceGraph:audit-consumer-contract"]
+      },
+      {
+        "id": "claim-audit-test-consumer",
+        "subject": { "kind": "file", "id": "services/audit_py/tests/test_order_events.py" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "services/audit_py/audit/order_events.py" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:audit-test-consumer"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:customer-export",
+        "verb": "export",
+        "noun": "customer records",
+        "implementedBy": [
+          { "kind": "file", "id": "services/reporting_py/reporting/export_service.py" }
+        ],
+        "evidenceRefs": ["CapabilityMap:customer-export"]
+      },
+      {
+        "id": "capability:notification-delivery",
+        "verb": "deliver",
+        "noun": "notifications",
+        "implementedBy": [
+          { "kind": "file", "id": "services/notifications_py/notifications/delivery_service.py" }
+        ],
+        "evidenceRefs": ["CapabilityMap:notification-delivery"]
+      },
+      {
+        "id": "capability:order-cancellation-publish",
+        "verb": "publish",
+        "noun": "order cancellation",
+        "implementedBy": [
+          { "kind": "file", "id": "packages/event-contracts/src/order-cancellation.ts" },
+          { "kind": "file", "id": "apps/order-worker/src/cancellation-publisher.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:order-cancellation-publish"]
+      },
+      {
+        "id": "capability:order-cancellation-audit",
+        "verb": "audit",
+        "noun": "order cancellation",
+        "implementedBy": [
+          { "kind": "file", "id": "services/audit_py/audit/order_events.py" }
+        ],
+        "evidenceRefs": ["CapabilityMap:order-cancellation-audit"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-mixed-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-mixed-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-18T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-mixed-eval" },
+      "producer": { "id": "@rekon/model-interface-mixed-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-mixed-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" }
+    },
+    "source": {
+      "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-mixed-map", "schemaVersion": "0.1.0" }
+    },
+    "summary": {
+      "total": 3,
+      "configured": 3,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 3,
+      "withPlacementRules": 0,
+      "withPreservationRules": 3
+    },
+    "contracts": [
+      {
+        "id": "customer-export-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-mixed-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:customer-export"
+        },
+        "match": { "verb": "export", "noun": "customer records" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Return only fields allowed by ExportPolicy.",
+          "Return a new mapping; never mutate the repository record.",
+          "Preserve the export-not-found domain error.",
+          "Keep ReportingApi response shape stable.",
+          "Add regression coverage for restricted-field filtering and repository-record immutability."
+        ]
+      },
+      {
+        "id": "notification-delivery-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-mixed-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:notification-delivery"
+        },
+        "match": { "verb": "deliver", "noun": "notifications" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Authorize and check opt-out state before calling DeliveryGateway.",
+          "Opted-out delivery returns status suppressed without a gateway call.",
+          "Preserve contact-not-found and not-authorized domain errors.",
+          "Keep NotificationApi response shape stable.",
+          "Add regression coverage proving suppressed and unauthorized delivery never calls DeliveryGateway."
+        ]
+      },
+      {
+        "id": "order-cancellation-publish-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-mixed-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:order-cancellation-publish"
+        },
+        "match": { "verb": "publish", "noun": "order cancellation" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "requiredNeighbors": [
+          { "verb": "audit", "noun": "order cancellation" }
+        ],
+        "preservationRules": [
+          "The TypeScript producer and Python audit consumer must accept the same cancellation sources.",
+          "Add fraud-review without accepting unknown sources.",
+          "Preserve invalid-cancellation-source behavior.",
+          "Keep the cancellation controller public contract stable.",
+          "Add TypeScript producer and Python audit-consumer regression coverage for fraud-review."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "python-export-redaction",
+      "task": "Fix restricted customer export fields in services/reporting_py/reporting/export_service.py.",
+      "paths": ["services/reporting_py/reporting/export_service.py"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "services/reporting_py/reporting/export_service.py",
+          "services/reporting_py/reporting/export_repository.py",
+          "services/reporting_py/reporting/export_policy.py",
+          "services/reporting_py/tests/test_export_service.py"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "scripts/test-all.mjs",
+          "services/reporting_py/reporting/api.py",
+          "services/reporting_py/reporting/export_service.py",
+          "services/reporting_py/reporting/export_repository.py",
+          "services/reporting_py/reporting/export_policy.py",
+          "services/reporting_py/tests/test_export_service.py"
+        ],
+        "requiredModifyPaths": [
+          "services/reporting_py/reporting/export_service.py",
+          "services/reporting_py/tests/test_export_service.py"
+        ],
+        "allowedModifyPaths": [
+          "services/reporting_py/reporting/export_service.py",
+          "services/reporting_py/tests/test_export_service.py"
+        ],
+        "protectedPaths": ["services/reporting_py/reporting/api.py"],
+        "constraintFragments": ["allowed", "new mapping", "never mutate", "export-not-found", "response shape", "regression coverage"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-mixed/oracles/python-export-redaction.test.mjs"
+        ],
+        "planConcepts": [
+          ["allowed", "policy"],
+          ["copy", "new", "mapping"],
+          ["mutat"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "python-notification-suppression",
+      "task": "Fix opted-out notification delivery in services/notifications_py/notifications/delivery_service.py.",
+      "paths": ["services/notifications_py/notifications/delivery_service.py"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "services/notifications_py/notifications/delivery_service.py",
+          "services/notifications_py/notifications/contact_repository.py",
+          "services/notifications_py/notifications/delivery_policy.py",
+          "services/notifications_py/notifications/delivery_gateway.py",
+          "services/notifications_py/tests/test_delivery_service.py"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "scripts/test-all.mjs",
+          "services/notifications_py/notifications/api.py",
+          "services/notifications_py/notifications/delivery_service.py",
+          "services/notifications_py/notifications/contact_repository.py",
+          "services/notifications_py/notifications/delivery_policy.py",
+          "services/notifications_py/notifications/delivery_gateway.py",
+          "services/notifications_py/tests/test_delivery_service.py"
+        ],
+        "requiredModifyPaths": [
+          "services/notifications_py/notifications/delivery_service.py",
+          "services/notifications_py/tests/test_delivery_service.py"
+        ],
+        "allowedModifyPaths": [
+          "services/notifications_py/notifications/delivery_service.py",
+          "services/notifications_py/tests/test_delivery_service.py"
+        ],
+        "protectedPaths": ["services/notifications_py/notifications/api.py"],
+        "constraintFragments": ["before", "DeliveryGateway", "suppressed", "contact-not-found", "not-authorized", "response shape", "regression coverage"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-mixed/oracles/python-notification-suppression.test.mjs"
+        ],
+        "planConcepts": [
+          ["authoriz", "policy"],
+          ["opt", "suppress"],
+          ["before", "gateway", "send"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "cross-language-cancellation-source",
+      "task": "Add fraud-review as an order cancellation source in packages/event-contracts/src/order-cancellation.ts.",
+      "paths": ["packages/event-contracts/src/order-cancellation.ts"],
+      "profile": "standard",
+      "retrievalResults": [
+        {
+          "score": 0.92,
+          "chunkId": "mixed-order-cancellation-contract-test",
+          "kind": "file_summary",
+          "path": "tests/order-cancellation-contract.test.ts",
+          "chunk": {
+            "id": "mixed-order-cancellation-contract-test",
+            "kind": "file_summary",
+            "path": "tests/order-cancellation-contract.test.ts"
+          }
+        }
+      ],
+      "oracle": {
+        "requiredContextPaths": [
+          "packages/event-contracts/src/order-cancellation.ts",
+          "apps/order-worker/src/cancellation-publisher.ts",
+          "tests/order-cancellation-contract.test.ts",
+          "services/audit_py/audit/order_events.py",
+          "services/audit_py/tests/test_order_events.py"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "scripts/test-all.mjs",
+          "packages/event-contracts/src/order-cancellation.ts",
+          "apps/order-worker/src/cancellation-publisher.ts",
+          "apps/order-worker/src/cancellation-controller.ts",
+          "tests/order-cancellation-contract.test.ts",
+          "services/audit_py/audit/order_events.py",
+          "services/audit_py/tests/test_order_events.py"
+        ],
+        "requiredModifyPaths": [
+          "packages/event-contracts/src/order-cancellation.ts",
+          "tests/order-cancellation-contract.test.ts",
+          "services/audit_py/audit/order_events.py",
+          "services/audit_py/tests/test_order_events.py"
+        ],
+        "allowedModifyPaths": [
+          "packages/event-contracts/src/order-cancellation.ts",
+          "apps/order-worker/src/cancellation-publisher.ts",
+          "tests/order-cancellation-contract.test.ts",
+          "services/audit_py/audit/order_events.py",
+          "services/audit_py/tests/test_order_events.py"
+        ],
+        "protectedPaths": ["apps/order-worker/src/cancellation-controller.ts"],
+        "constraintFragments": ["TypeScript", "Python", "same", "fraud-review", "unknown", "invalid-cancellation-source", "controller public contract", "regression coverage"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-mixed/oracles/cross-language-cancellation-source.test.mjs"
+        ],
+        "planConcepts": [
+          ["fraud-review"],
+          ["typescript", "contract", "producer"],
+          ["python", "audit", "consumer"],
+          ["unknown", "invalid-cancellation-source"],
+          ["test", "coverage"]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T20:30:08.000Z",
+  "runner": "codex-subscription",
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.6.0",
+  "comparisonDesign": "accepted isolated baseline controls plus fresh instruction-1.6.0 managed-interface runs over the unchanged fixture",
+  "sourceRetention": "source-free metrics only; no source, prompts, MCP payloads, diffs, raw commands, or free-form model text",
+  "tokenUsage": "not-collected-until-api-phase",
+  "summary": {
+    "cases": 3,
+    "baselinePasses": 2,
+    "managedPasses": 3,
+    "managedAdoptionPasses": 3,
+    "managedFullReadFirstUsePasses": 3,
+    "managedRefinementCalls": 0,
+    "managedUnexpectedRefinementCalls": 0,
+    "baselineAverageQuality": 0.9167,
+    "managedAverageQuality": 1,
+    "baselineAverageExplorationPaths": 12,
+    "managedAverageExplorationPaths": 5.6667,
+    "baselineAverageShellCommands": 3.6667,
+    "managedAverageShellCommands": 3
+  },
+  "cases": [
+    {
+      "id": "python-export-redaction",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 31, "shellCommands": 4 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 5, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "python-notification-suppression",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 3, "shellCommands": 4 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 6, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "cross-language-cancellation-source",
+      "baseline": { "passed": false, "quality": 0.75, "explorationPaths": 2, "shellCommands": 3 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 6, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    }
+  ]
+}

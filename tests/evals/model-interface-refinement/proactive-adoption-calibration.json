@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T22:12:19.808Z",
+  "runner": "codex-subscription",
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.7.1",
+  "fixtureSha256": "0f25067dfcb17f80df50a815d38fec2f05768cf68994b55fd29801e15db54018",
+  "selectionSha256": "be3625bd5d1f124f054752d5398f15f3db9d007cf8aab160d850ca43cf38fee1",
+  "comparisonDesign": "one final instruction-1.7.1 managed-interface run per symbolic implementation, consumer, and producer case after proactive routing and relationship-coverage guidance",
+  "sourceRetention": "source-free metrics and normalized MCP tool names only; no source, prompts, MCP payloads, diffs, raw commands, or free-form model text",
+  "tokenUsage": "not-collected-in-subscription-run",
+  "summary": {
+    "cases": 3,
+    "managedRuns": 3,
+    "managedPasses": 3,
+    "managedAdoptionPasses": 3,
+    "managedFullReadFirstUsePasses": 3,
+    "managedRefinementCalls": 0,
+    "managedUnexpectedRefinementCalls": 0,
+    "managedAverageQuality": 1,
+    "managedAverageExplorationPaths": 4.6667,
+    "managedAverageShellCommands": 3
+  },
+  "cases": [
+    {
+      "id": "job-symbolic-implementation-refinement",
+      "managed": {
+        "passed": true,
+        "quality": 1,
+        "explorationPaths": 4,
+        "shellCommands": 3,
+        "interface": "mcp",
+        "tools": [
+          "context_for_task"
+        ],
+        "contextBeforeExploration": true,
+        "contextBeforeEdit": true,
+        "readFirstRecall": 1,
+        "refinementCalls": 0,
+        "unexpectedRefinement": false
+      }
+    },
+    {
+      "id": "user-event-symbolic-consumer-refinement",
+      "managed": {
+        "passed": true,
+        "quality": 1,
+        "explorationPaths": 5,
+        "shellCommands": 3,
+        "interface": "mcp",
+        "tools": [
+          "context_for_task"
+        ],
+        "contextBeforeExploration": true,
+        "contextBeforeEdit": true,
+        "readFirstRecall": 1,
+        "refinementCalls": 0,
+        "unexpectedRefinement": false
+      }
+    },
+    {
+      "id": "report-symbolic-producer-refinement",
+      "managed": {
+        "passed": true,
+        "quality": 1,
+        "explorationPaths": 5,
+        "shellCommands": 3,
+        "interface": "mcp",
+        "tools": [
+          "context_for_task"
+        ],
+        "contextBeforeExploration": true,
+        "contextBeforeEdit": true,
+        "readFirstRecall": 1,
+        "refinementCalls": 0,
+        "unexpectedRefinement": false
+      }
+    }
+  ],
+  "learnings": [
+    "Deterministic task-signaled symbolic routes belong in the initial packet when their targets are already known.",
+    "A relationship represented by readFirst or boundaryPaths is resolved unless inspected source names another absent target.",
+    "Refinement remains a fallback for a concrete unresolved relationship, not a completeness check."
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuditRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "subject", "actorId"],
+  "properties": {
+    "action": { "type": "string" },
+    "subject": { "type": "string" },
+    "actorId": { "type": "string" }
+  }
+}

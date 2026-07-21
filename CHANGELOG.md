@@ -4,6 +4,261 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added contract discovery, source-cited agent judgment, permissioned adoption,
+  drift reconciliation, and task-scoped pacts for system and end-to-end flow
+  law. CLI and MCP now apply the same TaskPact selection; generated work orders
+  retain its impact obligations and lineage.
+- Added `rekon contracts bootstrap` for deterministic cold-start discovery and
+  agent-owned contract judgment without provider calls or finding evaluation.
+- Added a source-free repository-law context gate and a paired direct/managed
+  model-lift corpus for compositional system semantics and cross-system handoff
+  preservation. Compact packet selection now collapses duplicate evidence
+  routes before enforcing its budget.
+- Ran three paired Sol/xhigh managed repeats per repository-law task. Rekon
+  passed 6/6 changes versus 4/6 baselines and reduced average explored paths
+  from 17.0 to 7.17. Reported tokens rose 36.3% and the visible estimate rose
+  12.2%; the retained source-free calibration accepts correctness and
+  exploration gains while rejecting token-savings, lower-model-lift, and broad
+  generalization claims.
+- Added an opt-in tiered context-delivery probe and source-free route-use
+  accounting. Four Sol/xhigh Rekon runs preserved behavior, exact scope,
+  checks, and MCP adoption, but inspected all 16 offered supporting routes.
+  The full delivery remains the default; no source-read or token-savings claim
+  was accepted.
+- Added deterministic task-context route roles, necessity classes, and
+  necessity reasons. An opt-in `role-aware` adapter reduced the six-case
+  deterministic gate's initial mandatory set from 25 paths to 15 while
+  retaining all 30 selected routes. The full delivery remains the default; no
+  model-behavior, source-read, quality, or token-savings claim is accepted yet.
+- Ran three managed Sol/xhigh repeats per policy on an independent
+  configuration-rollout task. Both `full` and `role-aware` passed exact scope,
+  checks, the hidden oracle, and MCP adoption, but role-aware delivery skipped
+  no conditional routes and used 17.8% more reported and 7.3% more
+  visible-estimate tokens. The policy remains experimental and non-default.
+- Added an isolated optional-route corpus and source-free route-applicability
+  scoring. On three Sol/xhigh runs per policy, both policies passed every
+  quality and adoption gate; role-aware used all six oracle-optional route
+  opportunities while full left one unused, with 14.1% more reported tokens,
+  3.2% more visible-estimate tokens, and 6.7% more commands. Conditional labels
+  remain explanatory metadata rather than a promoted read-reduction policy.
+- Added an experimental `summary-aware` delivery that replaces deterministic
+  conditional paths with bounded, pathless routing decisions. Two three-run
+  Sol/xhigh variants preserved behavior and MCP adoption but still inspected
+  every optional dependency and caller after their imports appeared in required
+  source. Neither variant reduced exploration; both added visible-token,
+  non-cached-input, and command overhead. `full` remains the default.
+- Tested fresh, exact `CapabilityContract` assertions as replacement context.
+  They did not stop Sol from reading optional implementations: all nine route
+  opportunities were inspected across visible-relative and symbolic-import
+  tasks. The symbolic case still reduced broad exploration by 40% and commands
+  by 30%, while reported tokens rose 25%. This supports bounded navigation, not
+  source replacement, token savings, or promotion of `summary-aware` delivery.
+- Added an experimental `navigation-only` delivery and source-free payload-size
+  accounting. The policy retains required paths, normative constraints, checks,
+  and inference support while omitting conditional paths, summaries, and
+  descriptive implementation facts. On three paired Sol/xhigh runs it reduced
+  average repository exposure from 6.33 to 4 paths and preserved quality, but
+  the model still inspected the omitted dependency in every Rekon run; commands
+  and all token measures increased. The policy remains non-default.
+- Updated managed agent instructions to `1.8.0`. Managed agents request fresh
+  task context at task start, after compaction or restart, and when goal or path
+  scope changes.
+
+- Added version-controlled repository contract sources, public
+  `SystemContract`, `FlowContract`, and `EffectiveContractRegistry` artifacts,
+  safe source discovery, and `rekon contracts compile`. Contract authority is
+  explicit from observed through adopted, and generated state cannot replace
+  committed law.
+
+- Ran a pinned Sol/xhigh canary over all three mixed-layout tasks with the
+  instruction `1.7.3` two-tool interface. Rekon passed 3/3 changes versus 1/3
+  baseline and reduced explored paths by 67%, but used 26.5% more reported
+  tokens overall. The equal-correctness pair also retained 19.6% reported and
+  23.3% visible-estimate overhead. The source-free calibration records a
+  correctness and exploration gain with token overhead and rejects a general
+  token-savings claim.
+
+- Updated managed agent instructions to `1.7.3` so preservation-only pact text
+  does not trigger symbolic lookup. The advertised MCP refinement affordance is
+  now `resolve_source_target` and requires an exact source-named target; the old
+  `refine_task_context` name remains an unadvertised compatibility alias. The
+  coding-agent tool list now advertises only task context and source-target
+  resolution; legacy orientation, placement, and preflight calls remain
+  accepted. The managed bootstrap, registry, and repeated preamble were
+  compacted, and packet instructions now ask agents to batch known file reads.
+- Validated the narrowed interface with Sol/xhigh. The affected cross-system
+  task retained full quality, eliminated unnecessary refinement, and reduced
+  reported usage by 19% and the visible estimate by 24% relative to its
+  original managed failure. A true runtime-binding task still used exactly one
+  source-target resolution and passed. The retained calibration does not claim
+  general token savings.
+- Added source-free token accounting to the local Codex subscription evaluator.
+  Executed runs retain aggregate `turn.completed` input, cached-input, output,
+  and reasoning counts plus a separate visible-payload estimate; source,
+  prompts, diffs, commands, MCP payloads, and free-form model text remain
+  ephemeral. Correctness and scope remain hard gates ahead of token reduction.
+- Ran the first pinned GPT-5.6 Sol/xhigh subscription canary across six managed
+  task pairs. Rekon preserved all behavior and scope checks and reduced average
+  explored paths from 34.33 to 5.17, but reported tokens fell only 1.4% while
+  the visible estimate rose 1.2%. Selective repeats confirmed case-level savings
+  and overhead, including repeatable unnecessary cross-system refinement, so
+  the retained source-free calibration does not claim general token savings.
+- Added a positive bounded-refinement corpus for a runtime-bound event
+  serializer that the current compact initial packet does not select. The accepted
+  managed run used all initial context, made one publisher-anchored
+  `implementation` refinement, changed only the required service, serializer,
+  and test files, and passed public and hidden behavior checks without broad
+  search. The source-free calibration is fixture- and selection-digest-bound.
+- Recorded a scoped negative runtime-binding result in the provider-backed
+  structured simulation. Across three repeats each, low-effort GPT-5.6 Luna and
+  Claude Sonnet 5 made zero refinement calls and omitted the deployed serializer.
+  Luna used 7% fewer tokens at lower quality; Sonnet used 33% more at lower
+  quality. The result remains source-free evidence about that model and harness
+  combination, not a general rejection of refinement through a native agent
+  tool loop.
+- Updated managed agent instructions to `1.7.2`: deterministic refinement now
+  precedes repository-wide or symbol text search for a task-required symbolic
+  target whose path is unknown. Search remains a fallback for unresolved or
+  stale refinement evidence. MCP guidance, CLI-managed instructions, docs, and
+  conformance tests use the same rule.
+- Added bounded proactive symbolic routing to the task-context compiler.
+  Task-signaled shared-capability implementations and typed contract
+  producers/consumers now enter `readFirst` directly, capped at two routes;
+  refinement remains the fallback for unresolved targets. Routes do not cross
+  source-language families unless the task signals that boundary.
+- Measured the routing correction with three paired repeats across GPT-5.6
+  Luna and Claude Sonnet 5. Luna used 34% fewer files, 28% fewer turns and
+  tokens, and 26% lower estimated cost than baseline. Sonnet matched baseline
+  files and turns with 9% more tokens. Both models used roughly half the managed
+  tokens of the earlier refinement round trip, with zero unnecessary calls.
+- Added source-free live-report rescoring so a corrected oracle can be applied
+  without another provider call. Command scoring now treats presentation such
+  as `Run npm test.` as the same command while preserving literal pact checks.
+- Updated managed agent instructions to `1.7.1`: a task-relevant relationship
+  already represented in `readFirst` or `boundaryPaths` is resolved unless
+  inspected source names a different absent target. This prevents redundant
+  contract and test-discovery refinement after the compiler has supplied the
+  change boundary. The current source-backed symbolic gate passed all three
+  behavior and adoption checks with full initial-context use and zero
+  refinement calls.
+- Added bounded task-context refinement through MCP `refine_task_context` and
+  CLI `rekon context refine`. Both surfaces share a deterministic selector for
+  dependency, dependent, test, contract, consumer, producer, and implementation
+  relationships, exclude already-read paths, retain matched pacts and checks,
+  and return unresolved instead of broadening silently.
+- Updated managed agent instructions to `1.6.0`: exact source paths are read
+  directly, while refinement is reserved for task-required symbolic targets.
+  All 12 complete-packet managed tasks passed with full initial-context use and
+  zero refinement calls.
+- Replaced the exact-path refinement fixture with symbolic implementation,
+  consumer, and producer cases. Managed agents passed and adopted 9/9 changes
+  versus 3/9 controls, used the intended route on every run, avoided broad
+  search, and reduced average explored paths from 24.22 to 4.67. The nine
+  primary routes made 17 bounded calls, usually adding a follow-up test lookup;
+  token impact remains deferred to the API phase.
+- Extended source-free adoption scoring with normalized relationship/anchor
+  checks, required refined-path use, refinement-call caps, and explicit
+  excessive-refinement metrics. Free-form questions and raw MCP payloads are
+  not retained.
+- Added an independent 35-file model-interface corpus covering configuration
+  rollout, pathless extension placement, and cross-language schema evolution.
+  Rekon passed 9/9 paired runs versus 3/9 baseline and reduced average explored
+  paths from 26.78 to 6.56.
+- Updated managed instructions to `1.4.0`: agents must read every `readFirst`
+  path and treat pacts and checks as acceptance criteria. Adoption scoring now
+  verifies full `readFirst` use while keeping compatibility-only
+  `boundaryPaths` optional unless unresolved.
+- Recalibrated all managed corpora under the finalized instruction: 12/12
+  changes passed behavior and exact scope, called MCP before exploration and
+  editing, and used the complete `readFirst` set.
+- Added a separate 31-file TypeScript/Python model-interface corpus with
+  executable hidden behavior and exact-scope oracles. Pact-corrected Rekon runs
+  passed 9/9 versus 5/9 baseline, reduced average explored paths from 15.89 to
+  6.11, and preserved a cross-language contract in 3/3 runs versus 0/3.
+- Updated the earlier managed-interface calibration to instruction `1.3.0` and made
+  regression coverage explicit repository law when the evaluator requires test
+  edits. Managed dry runs now exclude retrieval context that MCP cannot use.
+- Added `projectModelContextDelivery()` and `--model-context` as the shared,
+  minimal model-facing view for MCP, CLI fallback, and evaluation. The full
+  compiled packet and projection retain routing reasons, provenance, and
+  selection diagnostics for audit.
+- Compressed deterministic model delivery from 400 to 112 estimated tokens on
+  average (697 to 162 maximum) without reducing the 17-case recall or pact
+  gates. Compact unanchored placement no longer promotes compatibility-only
+  callers into the model's read list.
+- Added prioritized model context with `readFirst` implementation evidence and
+  `boundaryPaths` compatibility context, including MCP trust tagging.
+- Added a source-free GPT-5.6 Luna token calibration after delivery
+  compression: Rekon reached full oracle quality in 18/18 runs versus 5/18,
+  reduced average inspection by 47% and turns by 29%, and used 33% fewer total
+  tokens and 41% lower estimated API cost than baseline. Seventeen pairs were
+  candidates; one cross-system repeat remained no-advantage without a
+  correctness regression.
+- Declared Rekon MCP context tools read-only, non-destructive, idempotent, and
+  closed-world in protocol metadata for non-interactive agent clients.
+- Tightened managed agent instructions so listed MCP context tools run before
+  shell exploration, with CLI reserved for absent or failed MCP tools.
+- Added managed-interface adoption evaluation and calibrated exact declared
+  domain-error guidance so agents do not search the repository for analogues.
+- Made `context_for_task` the default MCP entry point and reserved orientation,
+  placement, and preflight calls for tasks that need their additional context.
+- Defined managed-interface adoption around successful task context before
+  exploration; optional MCP tools remain conditional rather than ceremonial.
+- Replaced vague refactor preservation guidance in the outcome corpus with
+  literal abstraction, error, and transition pacts.
+- Added a source-free managed-interface calibration: 6/6 agents obtained Rekon
+  context before exploration, all managed changes passed hidden checks, and
+  average explored paths fell from 34.33 to 7.5 versus baseline.
+- Expanded the credential-free model-interface outcome corpus to six tasks and
+  36 isolated changes covering implementation, debugging, refactor, placement,
+  cross-system coordination, and policy preservation. All 18 corrected pairs
+  pass behavioral and scope checks and qualify as candidates; average explored
+  paths fell from 25.28 to 8.28 and commands from 3.44 to 2.28. Token usage
+  remains deliberately uncollected.
+- Routed `CapabilityContract` required neighbors to graph-declared
+  implementation files and preserved literal pact values in the compact model
+  projection. Calibration showed that exact domain errors must be declared;
+  vague authorization-preservation language did not prevent error-contract
+  drift.
+- Corrected local-agent evaluation so broad discovery paths count toward
+  exploration, both-condition behavior failures are not blamed on Rekon alone,
+  and reports distinguish discovery outside the selected context packet.
+- Added path-scoped repository-contract guidance to `TaskContextReport`, CLI,
+  and MCP. Preservation rules and required checks now reach terse tasks with
+  declared trust, freshness, and artifact provenance. The credential-free
+  three-task outcome corpus passes all 18 isolated changes across nine paired
+  runs; token usage remains deferred to the provider-backed phase.
+- Added Rekon's model interface: a shared budgeted task-context compiler,
+  read-only MCP task-context and preflight tools, and managed downstream
+  `AGENTS.md` instructions with sync, check, removal, opt-out, and protected
+  whole-file export safeguards. CLI and MCP now share context selection rules,
+  trust/freshness metadata, selection traces, and explicit output ceilings.
+- Expanded the model-free context-interface evaluation to 17 tasks spanning
+  implementation, review, refactor, debugging, placement, contract,
+  cross-system, stale-context, documentation, Python, and Go work. The gate now
+  measures model-projection precision, irrelevant paths, warnings, checks, and
+  projected token cost in addition to recall and trust boundaries.
+- Added digest-bound maintainer judgments and a source-free append-only local
+  ledger. Context-selection changes invalidate stale judgments without calling
+  a model provider or retaining repository source.
+- Added a bounded paired provider evaluation with a fixed task oracle,
+  source-free reports, and an append-only keep-or-discard experiment ledger.
+- Corrected task-context graph routing so connected file claims retain the
+  related file path and capability packet items retain capability identity.
+  The deterministic model-interface gate now checks related-path recall, and
+  exact test commands no longer receive a redundant inferred `npm test` hint.
+  Explicit `without changing` and preservation language now survives as pact
+  context without mislabeling an earlier editable path as protected.
+- Added `projectModelContext()` as a compact delivery view of the auditable
+  task-context packet. It preserves model-actionable routing and pact data while
+  leaving evidence inventories and selection diagnostics in the full packet.
+  MCP `context_for_task` now returns this compact view by default.
+- Ranked bounded graph expansion so deterministic, task-specific, verification,
+  and outgoing dependency edges survive high-degree files before incidental
+  incoming callers. Calibration reduced the per-path graph-claim cap from six
+  to four while retaining all required paths across the 17-case corpus.
+- Preserved explicit `pytest` and `go test` verification commands and recognized
+  `preserving` clauses as operator-provided pact context.
 - Calibrated all seven semantic problem classes against five independent public
   defect pairs. New structured evidence covers revalidation-only cache entries,
   pending callbacks during close, auto-import path ranking, retry-code loss

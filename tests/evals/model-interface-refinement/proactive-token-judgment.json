@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "judgedAt": "2026-07-18T21:45:00.000Z",
+  "subject": {
+    "calibration": "tests/evals/model-interface-refinement/proactive-token-calibration.json",
+    "sha256": "bd2171d69b8b04a3557a95424b3c1ff6c282eebe7da6b822abc585007a0399c7",
+    "fixtureSha256": "9e5d292a42479aadf5e32cc75143c1229815af86e9a2986c5d27e7f2fba62a12"
+  },
+  "scope": "structured change plans only; no source bodies, prompts, model prose, or credentials retained",
+  "automated": {
+    "managedRuns": 18,
+    "managedCompleted": 18,
+    "strictManagedPasses": 15,
+    "discardPairs": 1,
+    "inconclusivePairs": 1,
+    "refinementCalls": 0
+  },
+  "judge": {
+    "acceptedManagedPlans": 18,
+    "rejectedManagedPlans": 0,
+    "reviewedStrictMisses": 3,
+    "decision": "keep-proactive-routing"
+  },
+  "notes": [
+    "Each strict miss named the correct cleanup function, return shape, active-session behavior, stable registry ID requirement, test update, and verification command.",
+    "The strict scorer withheld credit when a plan preserved the stable ID without repeating its full literal value. That measurement remains visible and was not weakened into a passing automated score.",
+    "This judgment accepts context acquisition and plan correctness; it does not claim that source changes were executed in the provider harness."
+  ]
+}

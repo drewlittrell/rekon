@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-18T21:14:20.847Z",
+  "pricingAsOf": "2026-07-15",
+  "runner": "provider-backed-structured-tool-simulation",
+  "corpus": "refinement",
+  "cases": 3,
+  "repeatsPerCase": 3,
+  "pairedRuns": 18,
+  "sourceRetention": "none",
+  "models": [
+    {
+      "id": "gpt-5.6-luna@low",
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "effort": "low",
+      "pairedRuns": 9,
+      "decisions": {
+        "candidate": 2,
+        "no-advantage": 6,
+        "discard": 0,
+        "inconclusive": 1
+      },
+      "baseline": {
+        "runs": 9,
+        "completed": 8,
+        "passes": 2,
+        "averageQuality": 0.7963,
+        "averageInspectedFiles": 6.5556,
+        "averageTurns": 2.8889,
+        "averageLatencyMs": 8702.1,
+        "usage": {
+          "inputTokens": 28051,
+          "outputTokens": 8777,
+          "reasoningTokens": 2521,
+          "cachedInputTokens": 9669,
+          "cacheWriteInputTokens": 11296,
+          "totalTokens": 36828
+        },
+        "estimatedCostUsd": 0.074836
+      },
+      "rekon": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 7,
+        "averageQuality": 0.9907,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 4,
+        "averageLatencyMs": 9674.2,
+        "usage": {
+          "inputTokens": 38849,
+          "outputTokens": 9112,
+          "reasoningTokens": 1932,
+          "cachedInputTokens": 21576,
+          "cacheWriteInputTokens": 9221,
+          "totalTokens": 47961
+        },
+        "estimatedCostUsd": 0.076408
+      },
+      "refinement": {
+        "requiredRuns": 9,
+        "passedRuns": 9,
+        "targetMatchedRuns": 9,
+        "calls": 9,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0.4407,
+        "turnReduction": -0.3846,
+        "totalTokenReduction": -0.3023,
+        "estimatedCostReduction": -0.021
+      }
+    },
+    {
+      "id": "claude-sonnet-5@low",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "pairedRuns": 9,
+      "decisions": {
+        "candidate": 0,
+        "no-advantage": 9,
+        "discard": 0,
+        "inconclusive": 0
+      },
+      "baseline": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 6,
+        "averageQuality": 0.9661,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 2,
+        "averageLatencyMs": 10977.3,
+        "usage": {
+          "inputTokens": 35484,
+          "outputTokens": 6841,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 42325
+        },
+        "estimatedCostUsd": 0.139378
+      },
+      "rekon": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 7,
+        "averageQuality": 0.9815,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 4,
+        "averageLatencyMs": 17931,
+        "usage": {
+          "inputTokens": 80277,
+          "outputTokens": 10213,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 90490
+        },
+        "estimatedCostUsd": 0.262684
+      },
+      "refinement": {
+        "requiredRuns": 9,
+        "passedRuns": 9,
+        "targetMatchedRuns": 9,
+        "calls": 9,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0,
+        "turnReduction": -1,
+        "totalTokenReduction": -1.138,
+        "estimatedCostReduction": -0.8847
+      }
+    }
+  ],
+  "limitations": [
+    "The aggregate retains no prompts, source bodies, structured model responses, raw paths, or credentials.",
+    "The refinement fixture is bounded; tool-round-trip costs may differ in larger repositories and native agent tool loops."
+  ]
+}

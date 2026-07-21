@@ -2154,6 +2154,8 @@ test("JS/TS provider emits deterministic Express, Nest, and Vite framework evide
     assert.ok(routes.some((fact) => fact.value.framework === "nestjs" && fact.value.routePath === "/accounts/:id" && fact.value.handler === "AccountsController.read"));
     assert.ok(routes.some((fact) => fact.value.framework === "nestjs" && fact.value.routePath === "/accounts" && fact.value.methods[0] === "POST"));
     assert.ok(entries.some((fact) => fact.value.framework === "express" && fact.value.path === "src/server.ts"));
+    assert.ok(entries.some((fact) => fact.value.framework === "express" && fact.value.handlers?.includes("listUsers")));
+    assert.ok(entries.some((fact) => fact.value.framework === "express" && fact.value.handlers?.includes("handlers.create")));
     assert.ok(entries.some((fact) => fact.value.framework === "nestjs" && fact.value.path === "src/main.ts"));
     assert.ok(entries.some((fact) => fact.value.framework === "vite" && fact.value.path === "src/main.ts"));
     assert.ok(entries.some((fact) => fact.value.framework === "vite" && fact.value.path === "vite.config.ts"));

@@ -237,6 +237,9 @@ function createHeader(
       version: "0.1.0",
     },
     inputRefs: [evidenceRef, ...additionalInputRefs],
+    supersession: {
+      key: sliceId,
+    },
     freshness: {
       status: "fresh",
     },

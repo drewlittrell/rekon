@@ -28,6 +28,9 @@ shapes, read:
 8. Keep kernel packages pure and side-effect free.
 9. Update docs and `CHANGELOG.md` for user-facing changes.
 10. End every implementation task with verification evidence.
+11. Rekon must install and maintain a bounded, Rekon-owned instruction block in
+    the `AGENTS.md` of repositories it manages. Model-facing CLI commands, MCP
+    tools, generated instructions, and conformance tests must stay synchronized.
 
 ## Naming
 

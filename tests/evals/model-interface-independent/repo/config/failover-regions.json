@@ -1,0 +1,7 @@
+{
+  "enabled": ["us-east", "eu-west"],
+  "failover": {
+    "us-east": "eu-west",
+    "eu-west": "us-east"
+  }
+}

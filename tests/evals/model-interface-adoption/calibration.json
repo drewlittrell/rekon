@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T20:30:08.000Z",
+  "runner": "codex-subscription",
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.6.0",
+  "comparisonDesign": "accepted isolated baseline controls plus fresh instruction-1.6.0 managed-interface runs over the unchanged fixture; the pathless placement case uses the focused MCP-first rerun",
+  "sourceRetention": "source-free metrics only; no source, prompts, MCP payloads, diffs, raw commands, or free-form model text",
+  "tokenUsage": "not-collected-until-api-phase",
+  "summary": {
+    "cases": 6,
+    "baselinePasses": 6,
+    "managedPasses": 6,
+    "managedAdoptionPasses": 6,
+    "managedFullReadFirstUsePasses": 6,
+    "managedRefinementCalls": 0,
+    "managedUnexpectedRefinementCalls": 0,
+    "baselineAverageQuality": 1,
+    "managedAverageQuality": 1,
+    "baselineAverageExplorationPaths": 29.8333,
+    "managedAverageExplorationPaths": 5.5,
+    "baselineAverageShellCommands": 3.3333,
+    "managedAverageShellCommands": 3
+  },
+  "cases": [
+    {
+      "id": "cross-system-account-suspension",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 35, "shellCommands": 4 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 7, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "debugging-expired-subscription",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 8, "shellCommands": 3 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 5, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "implementation-user-deactivation",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 33, "shellCommands": 4 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 7, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "placement-payment-review",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 35, "shellCommands": 3 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 4, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "policy-refund-authorization",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 33, "shellCommands": 3 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 5, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "refactor-order-review",
+      "baseline": { "passed": true, "quality": 1, "explorationPaths": 35, "shellCommands": 3 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 5, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    }
+  ]
+}

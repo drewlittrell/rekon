@@ -21,6 +21,7 @@ import {
   createTaskContextReport,
   validateTaskContextReport,
 } from "@rekon/kernel-repo-model";
+import { createLocalArtifactStore } from "@rekon/runtime";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const CLI = resolve(repoRoot, "packages/cli/dist/index.js");
@@ -114,6 +115,16 @@ test("validator rejects a non-false boundary", () => {
   assert.equal(validateTaskContextReport(bad).ok, false);
 });
 
+test("validator rejects unknown constraint guidance source and freshness", () => {
+  const badSource = structuredClone(baseReport);
+  badSource.doNotTouch[0].source = "model_guess";
+  assert.equal(validateTaskContextReport(badSource).ok, false);
+
+  const badFreshness = structuredClone(baseReport);
+  badFreshness.verificationHints[0].freshness = "current";
+  assert.equal(validateTaskContextReport(badFreshness).ok, false);
+});
+
 // 4
 test("empty task text is invalid", () => {
   const bad = structuredClone(baseReport);
@@ -123,18 +134,41 @@ test("empty task text is invalid", () => {
 
 // 5
 test("operator-provided path becomes a context item", () => {
-  assert.ok(
-    baseReport.contextItems.some((item) => item.source === "operator_input" && item.path === "src/index.ts"),
+  const item = baseReport.contextItems.find(
+    (entry) => entry.source === "operator_input" && entry.path === "src/index.ts",
   );
+  assert.equal(item?.routeRole, "task-target");
+  assert.equal(item?.necessity, "required");
+  assert.match(item?.necessityReason ?? "", /operator explicitly named/iu);
+});
+
+test("route metadata is additive and legacy TaskContextReport items still validate", () => {
+  const legacy = structuredClone(baseReport);
+  for (const item of legacy.contextItems) {
+    delete item.routeRole;
+    delete item.necessity;
+    delete item.necessityReason;
+  }
+  assert.equal(validateTaskContextReport(legacy).ok, true);
+});
+
+test("validator rejects partial or unknown route metadata", () => {
+  const partial = structuredClone(baseReport);
+  delete partial.contextItems[0].necessityReason;
+  assert.equal(validateTaskContextReport(partial).ok, false);
+
+  const unknown = structuredClone(baseReport);
+  unknown.contextItems[0].routeRole = "maybe-useful";
+  assert.equal(validateTaskContextReport(unknown).ok, false);
 });
 
 // 6
 test("strong embedding neighbor becomes a context item", () => {
-  assert.ok(
-    rankedReport.contextItems.some(
-      (item) => item.source === "embedding_retrieval" && item.path === "src/strong.ts" && item.scoreBand === "strong",
-    ),
+  const item = rankedReport.contextItems.find(
+    (entry) => entry.source === "embedding_retrieval" && entry.path === "src/strong.ts" && entry.scoreBand === "strong",
   );
+  assert.equal(item?.routeRole, "supporting");
+  assert.equal(item?.necessity, "supporting");
 });
 
 // 7
@@ -179,6 +213,58 @@ test("verification hint is created as a hint only", () => {
   assert.equal(baseReport.boundaries.executedCommands, false);
 });
 
+test("an explicit test command is not duplicated by a generic test hint", () => {
+  const report = buildTaskContextReport({
+    taskText: "Change src/index.ts and run npm run test.",
+    paths: ["src/index.ts"],
+    graph: GRAPH_FIXTURE,
+    generatedAt: AT,
+    repoId: ".",
+  });
+
+  assert.deepEqual(
+    report.verificationHints.map((hint) => hint.command).filter(Boolean),
+    ["npm run test"],
+  );
+});
+
+test("without-changing and preserve language become explicit pact constraints", () => {
+  const report = buildTaskContextReport({
+    taskText: "Change src/index.ts without changing its public contract. Preserve greeting behavior.",
+    paths: ["src/index.ts"],
+    graph: GRAPH_FIXTURE,
+    generatedAt: AT,
+    repoId: ".",
+  });
+
+  assert.deepEqual(
+    report.doNotTouch.map((zone) => zone.reason),
+    [
+      "Change src/index.ts without changing its public contract.",
+      "Preserve greeting behavior.",
+    ],
+  );
+  assert.ok(report.doNotTouch.every((zone) => zone.path === undefined));
+});
+
+test("preserving language and non-JavaScript test commands remain explicit", () => {
+  const report = buildTaskContextReport({
+    taskText: "Refactor the service while preserving event behavior. Run pytest and go test ./...",
+    paths: ["src/index.ts"],
+    graph: GRAPH_FIXTURE,
+    generatedAt: AT,
+    repoId: ".",
+  });
+
+  assert.deepEqual(report.doNotTouch.map((zone) => zone.reason), [
+    "Refactor the service while preserving event behavior.",
+  ]);
+  assert.deepEqual(
+    report.verificationHints.map((hint) => hint.command).filter(Boolean),
+    ["pytest", "go test ./..."],
+  );
+});
+
 // ---- CLI end-to-end ----
 
 function runCli(args, { cwd } = {}) {
@@ -194,7 +280,7 @@ function runCli(args, { cwd } = {}) {
   }
 }
 
-function setupFixture() {
+async function setupFixture() {
   const dir = mkdtempSync(join(tmpdir(), "rekon-task-context-"));
   const root = join(dir, "fixture");
   mkdirSync(join(root, "src"), { recursive: true });
@@ -218,6 +304,70 @@ function setupFixture() {
   execFileSync("git", ["-c", "user.email=t@e.x", "-c", "user.name=t", "add", "-A"], { cwd: root });
   execFileSync("git", ["-c", "user.email=t@e.x", "-c", "user.name=t", "commit", "-qm", "init"], { cwd: root });
   runCli(["capability", "graph", "build", "--root", root, "--json"]);
+  const store = createLocalArtifactStore(root);
+  let graphRef = (await store.list("CapabilityEvidenceGraph")).at(-1);
+  assert.ok(graphRef);
+  let graph = await store.read(graphRef);
+  let capability = graph.capabilities.find((entry) =>
+    entry.implementedBy?.some((ref) => ref.id.split("#")[0] === "src/index.ts"),
+  );
+  if (!capability) {
+    capability = {
+      id: "capability:manage:fixture",
+      verb: "manage",
+      noun: "fixture",
+      implementedBy: [{ kind: "file", id: "src/index.ts" }],
+      evidenceRefs: ["EvidenceGraph:fixture-index"],
+    };
+    graph = {
+      ...graph,
+      header: {
+        ...graph.header,
+        artifactId: "fixture-capability-evidence-graph",
+        generatedAt: new Date().toISOString(),
+        inputRefs: [graphRef],
+      },
+      capabilities: [...graph.capabilities, capability],
+    };
+    graphRef = await store.write(graph, { category: "graphs" });
+  }
+  assert.ok(capability?.verb && capability?.noun);
+  const mapRef = (await store.list("CapabilityMap")).at(-1) ?? {
+    type: "CapabilityMap",
+    id: "fixture-capability-map",
+    schemaVersion: "0.1.0",
+  };
+  await store.write({
+    header: {
+      artifactType: "CapabilityContract",
+      artifactId: "fixture-context-contract",
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root, paths: ["src/index.ts"] },
+      producer: { id: "@rekon/test.task-context-contract", version: "1.0.0" },
+      inputRefs: [mapRef],
+      freshness: { status: "fresh" },
+      provenance: { confidence: 1, notes: ["contract fixture"] },
+    },
+    source: { capabilityMapRef: mapRef },
+    summary: {
+      total: 1,
+      configured: 1,
+      suggested: 0,
+      unmatched: 0,
+      withRequiredChecks: 1,
+      withPlacementRules: 0,
+      withPreservationRules: 1,
+    },
+    contracts: [{
+      id: "fixture-index-law",
+      capabilityRef: { capabilityMapRef: mapRef, phraseCapabilityId: capability.id },
+      match: { verb: capability.verb, noun: capability.noun },
+      status: "configured",
+      requiredChecks: ["npm run typecheck"],
+      preservationRules: ["Keep fixture public behavior stable."],
+    }],
+  }, { category: "projections" });
   return root;
 }
 
@@ -243,12 +393,21 @@ function rekonArtifactTypes(root) {
   return types;
 }
 
-const cliRoot = setupFixture();
+const cliRoot = await setupFixture();
 const cliJson = (() => {
   const result = runCli(["context", "task", "--root", cliRoot, "--task", TASK, "--path", "src/index.ts", "--json"]);
   return JSON.parse(result.stdout);
 })();
 const storeTypes = rekonArtifactTypes(cliRoot);
+const cliDeclaredJson = (() => {
+  const result = runCli([
+    "context", "task", "--root", cliRoot,
+    "--task", "Change src/index.ts.",
+    "--path", "src/index.ts",
+    "--json",
+  ]);
+  return JSON.parse(result.stdout);
+})();
 
 // 13
 test("TaskContextReport creates no PreparedIntentPlan", () => {
@@ -306,6 +465,18 @@ test("CLI JSON includes verificationHints", () => {
   assert.ok(cliJson.verificationHints.some((hint) => hint.command === "npm run typecheck"));
 });
 
+test("CLI terse task selects repository contract constraints and checks", () => {
+  assert.deepEqual(cliDeclaredJson.matchedCapabilityContracts, ["fixture-index-law"]);
+  assert.ok(cliDeclaredJson.doNotTouch.some((zone) =>
+    zone.source === "repository_contract"
+    && zone.reason === "Keep fixture public behavior stable."));
+  assert.ok(cliDeclaredJson.verificationHints.some((hint) =>
+    hint.source === "repository_contract"
+    && hint.command === "npm run typecheck"));
+  assert.ok(cliDeclaredJson.agentContext.doNotTouch.some((zone) => zone.trust === "declared"));
+  assert.ok(cliDeclaredJson.agentContext.verificationHints.some((hint) => hint.trust === "declared"));
+});
+
 // 22
 test("CLI human output includes Task Context", () => {
   const human = runCli(["context", "task", "--root", cliRoot, "--task", TASK, "--path", "src/index.ts"]);
@@ -350,8 +521,8 @@ test("CLI uses cached embedding neighbors when present", () => {
 });
 
 // 27
-test("CLI missing provider with no explicit paths fails cleanly", () => {
-  const freshRoot = setupFixture();
+test("CLI missing provider with no explicit paths fails cleanly", async () => {
+  const freshRoot = await setupFixture();
   const result = runCli(["context", "task", "--root", freshRoot, "--task", "do something", "--json"]);
   assert.equal(result.status, 1);
   const payload = JSON.parse(result.stdout);

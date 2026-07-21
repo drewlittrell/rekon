@@ -1,0 +1,755 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      "AGENTS.md",
+      "package.json",
+      "apps/risk-worker/src/review-coordinator.ts",
+      "packages/risk-contracts/src/payment-review.ts",
+      "src/accounts/account-policy.ts",
+      "src/accounts/account-repository.ts",
+      "src/accounts/account-service.ts",
+      "src/api/account-controller.ts",
+      "src/api/order-controller.ts",
+      "src/api/payment-controller.ts",
+      "src/api/refund-controller.ts",
+      "src/api/subscription-controller.ts",
+      "src/api/user-controller.ts",
+      "src/audit/security-audit.ts",
+      "src/auth/session-revoker.ts",
+      "src/billing/billing-policy.ts",
+      "src/billing/subscription-repository.ts",
+      "src/billing/subscription-service.ts",
+      "src/data/user-repository.ts",
+      "src/domain/user-service.ts",
+      "src/licenses/license-service.ts",
+      "src/notifications/user-notifier.ts",
+      "src/orders/order-policy.ts",
+      "src/orders/order-repository.ts",
+      "src/orders/order-service.ts",
+      "src/policy/user-policy.ts",
+      "src/refunds/refund-policy.ts",
+      "src/refunds/refund-repository.ts",
+      "src/refunds/refund-service.ts",
+      "tests/account-service.test.ts",
+      "tests/order-service.test.ts",
+      "tests/payment-review-routing.test.ts",
+      "tests/refund-service.test.ts",
+      "tests/subscription-service.test.ts",
+      "tests/user-service.test.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "src/api/user-controller.ts" },
+      { "kind": "file", "id": "src/domain/user-service.ts" },
+      { "kind": "file", "id": "src/data/user-repository.ts" },
+      { "kind": "file", "id": "src/policy/user-policy.ts" },
+      { "kind": "file", "id": "tests/user-service.test.ts" },
+      { "kind": "file", "id": "src/api/subscription-controller.ts" },
+      { "kind": "file", "id": "src/billing/subscription-service.ts" },
+      { "kind": "file", "id": "src/billing/subscription-repository.ts" },
+      { "kind": "file", "id": "src/billing/billing-policy.ts" },
+      { "kind": "file", "id": "tests/subscription-service.test.ts" },
+      { "kind": "file", "id": "src/licenses/license-service.ts" },
+      { "kind": "file", "id": "src/api/order-controller.ts" },
+      { "kind": "file", "id": "src/orders/order-service.ts" },
+      { "kind": "file", "id": "src/orders/order-repository.ts" },
+      { "kind": "file", "id": "src/orders/order-policy.ts" },
+      { "kind": "file", "id": "tests/order-service.test.ts" },
+      { "kind": "file", "id": "apps/risk-worker/src/review-coordinator.ts" },
+      { "kind": "file", "id": "packages/risk-contracts/src/payment-review.ts" },
+      { "kind": "file", "id": "src/api/payment-controller.ts" },
+      { "kind": "file", "id": "tests/payment-review-routing.test.ts" },
+      { "kind": "file", "id": "src/accounts/account-service.ts" },
+      { "kind": "file", "id": "src/accounts/account-repository.ts" },
+      { "kind": "file", "id": "src/accounts/account-policy.ts" },
+      { "kind": "file", "id": "src/auth/session-revoker.ts" },
+      { "kind": "file", "id": "src/audit/security-audit.ts" },
+      { "kind": "file", "id": "src/api/account-controller.ts" },
+      { "kind": "file", "id": "tests/account-service.test.ts" },
+      { "kind": "file", "id": "src/refunds/refund-service.ts" },
+      { "kind": "file", "id": "src/refunds/refund-repository.ts" },
+      { "kind": "file", "id": "src/refunds/refund-policy.ts" },
+      { "kind": "file", "id": "src/api/refund-controller.ts" },
+      { "kind": "file", "id": "tests/refund-service.test.ts" }
+    ],
+    "claims": [
+      {
+        "id": "claim-api-domain",
+        "subject": { "kind": "file", "id": "src/api/user-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-domain"]
+      },
+      {
+        "id": "claim-domain-repository",
+        "subject": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/data/user-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:domain-repository"]
+      },
+      {
+        "id": "claim-domain-policy",
+        "subject": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/policy/user-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:domain-policy"]
+      },
+      {
+        "id": "claim-test-domain",
+        "subject": { "kind": "file", "id": "tests/user-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-domain"]
+      },
+      {
+        "id": "claim-api-subscription",
+        "subject": { "kind": "file", "id": "src/api/subscription-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/billing/subscription-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-subscription"]
+      },
+      {
+        "id": "claim-subscription-repository",
+        "subject": { "kind": "file", "id": "src/billing/subscription-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/billing/subscription-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:subscription-repository"]
+      },
+      {
+        "id": "claim-subscription-policy",
+        "subject": { "kind": "file", "id": "src/billing/subscription-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/billing/billing-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:subscription-policy"]
+      },
+      {
+        "id": "claim-test-subscription",
+        "subject": { "kind": "file", "id": "tests/subscription-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/billing/subscription-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-subscription"]
+      },
+      {
+        "id": "claim-api-order",
+        "subject": { "kind": "file", "id": "src/api/order-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/orders/order-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-order"]
+      },
+      {
+        "id": "claim-order-repository",
+        "subject": { "kind": "file", "id": "src/orders/order-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/orders/order-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:order-repository"]
+      },
+      {
+        "id": "claim-order-policy",
+        "subject": { "kind": "file", "id": "src/orders/order-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/orders/order-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:order-policy"]
+      },
+      {
+        "id": "claim-test-order",
+        "subject": { "kind": "file", "id": "tests/order-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/orders/order-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-order"]
+      },
+      {
+        "id": "claim-api-payment-review",
+        "subject": { "kind": "file", "id": "src/api/payment-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "apps/risk-worker/src/review-coordinator.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-payment-review"]
+      },
+      {
+        "id": "claim-payment-review-contract",
+        "subject": { "kind": "file", "id": "apps/risk-worker/src/review-coordinator.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "packages/risk-contracts/src/payment-review.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:payment-review-contract"]
+      },
+      {
+        "id": "claim-test-payment-review",
+        "subject": { "kind": "file", "id": "tests/payment-review-routing.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "apps/risk-worker/src/review-coordinator.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-payment-review"]
+      },
+      {
+        "id": "claim-api-account",
+        "subject": { "kind": "file", "id": "src/api/account-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-account"]
+      },
+      {
+        "id": "claim-account-repository",
+        "subject": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/accounts/account-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:account-repository"]
+      },
+      {
+        "id": "claim-account-policy",
+        "subject": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/accounts/account-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:account-policy"]
+      },
+      {
+        "id": "claim-account-sessions",
+        "subject": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "predicate": "coordinates",
+        "object": { "kind": "file", "id": "src/auth/session-revoker.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:account-sessions"]
+      },
+      {
+        "id": "claim-account-audit",
+        "subject": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "predicate": "records",
+        "object": { "kind": "file", "id": "src/audit/security-audit.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:account-audit"]
+      },
+      {
+        "id": "claim-test-account",
+        "subject": { "kind": "file", "id": "tests/account-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/accounts/account-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-account"]
+      },
+      {
+        "id": "claim-api-refund",
+        "subject": { "kind": "file", "id": "src/api/refund-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/refunds/refund-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-refund"]
+      },
+      {
+        "id": "claim-refund-repository",
+        "subject": { "kind": "file", "id": "src/refunds/refund-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/refunds/refund-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:refund-repository"]
+      },
+      {
+        "id": "claim-refund-policy",
+        "subject": { "kind": "file", "id": "src/refunds/refund-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/refunds/refund-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:refund-policy"]
+      },
+      {
+        "id": "claim-test-refund",
+        "subject": { "kind": "file", "id": "tests/refund-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/refunds/refund-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-refund"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:user-lifecycle",
+        "verb": "manage",
+        "noun": "user lifecycle",
+        "implementedBy": [
+          { "kind": "file", "id": "src/api/user-controller.ts" },
+          { "kind": "file", "id": "src/domain/user-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:user-lifecycle"]
+      },
+      {
+        "id": "capability:subscription-renewal",
+        "verb": "renew",
+        "noun": "subscription",
+        "implementedBy": [
+          { "kind": "file", "id": "src/api/subscription-controller.ts" },
+          { "kind": "file", "id": "src/billing/subscription-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:subscription-renewal"]
+      },
+      {
+        "id": "capability:order-review",
+        "verb": "review",
+        "noun": "order",
+        "implementedBy": [
+          { "kind": "file", "id": "src/api/order-controller.ts" },
+          { "kind": "file", "id": "src/orders/order-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:order-review"]
+      },
+      {
+        "id": "capability:payment-review-routing",
+        "verb": "route",
+        "noun": "payment review",
+        "implementedBy": [
+          { "kind": "file", "id": "apps/risk-worker/src/review-coordinator.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:payment-review-routing"]
+      },
+      {
+        "id": "capability:account-suspension",
+        "verb": "suspend",
+        "noun": "account",
+        "implementedBy": [
+          { "kind": "file", "id": "src/accounts/account-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:account-suspension"]
+      },
+      {
+        "id": "capability:account-session-revocation",
+        "verb": "revoke",
+        "noun": "account sessions",
+        "implementedBy": [
+          { "kind": "file", "id": "src/auth/session-revoker.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:account-session-revocation"]
+      },
+      {
+        "id": "capability:security-audit-recording",
+        "verb": "record",
+        "noun": "security audit",
+        "implementedBy": [
+          { "kind": "file", "id": "src/audit/security-audit.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:security-audit-recording"]
+      },
+      {
+        "id": "capability:refund-authorization",
+        "verb": "refund",
+        "noun": "payment",
+        "implementedBy": [
+          { "kind": "file", "id": "src/refunds/refund-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:refund-authorization"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-live-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-live-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-17T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-live-eval" },
+      "producer": { "id": "@rekon/model-interface-live-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" }
+    },
+    "source": {
+      "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" }
+    },
+    "summary": {
+      "total": 6,
+      "configured": 6,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 6,
+      "withPlacementRules": 1,
+      "withPreservationRules": 6
+    },
+    "contracts": [
+      {
+        "id": "user-lifecycle-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:user-lifecycle"
+        },
+        "match": { "verb": "manage", "noun": "user lifecycle" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Keep the controller public contract stable.",
+          "Preserve authorization behavior.",
+          "Preserve persistence behavior."
+        ]
+      },
+      {
+        "id": "subscription-renewal-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:subscription-renewal"
+        },
+        "match": { "verb": "renew", "noun": "subscription" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Expired subscriptions must remain terminal.",
+          "Use the existing domain error subscription-expired for expired renewal attempts.",
+          "Keep the HTTP contract stable.",
+          "Preserve authorization behavior.",
+          "Preserve persistence behavior."
+        ]
+      },
+      {
+        "id": "order-review-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:order-review"
+        },
+        "match": { "verb": "review", "noun": "order" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Keep the refactor inside OrderService as a private helper; do not introduce a shared cross-service abstraction.",
+          "Preserve the domain errors order-not-found and not-authorized.",
+          "Preserve the approved and rejected transition values.",
+          "Preserve authorization behavior.",
+          "Preserve persistence behavior."
+        ]
+      },
+      {
+        "id": "payment-review-routing-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:payment-review-routing"
+        },
+        "match": { "verb": "route", "noun": "payment review" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "allowedSystems": ["risk-worker"],
+        "forbiddenSystems": ["api"],
+        "preservationRules": [
+          "Use the shared manual-review threshold.",
+          "Preserve automatic routing below the threshold.",
+          "Keep the payment controller public contract stable."
+        ]
+      },
+      {
+        "id": "account-suspension-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:account-suspension"
+        },
+        "match": { "verb": "suspend", "noun": "account" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "requiredNeighbors": [
+          { "verb": "revoke", "noun": "account sessions" },
+          { "verb": "record", "noun": "security audit" }
+        ],
+        "preservationRules": [
+          "Use the existing domain errors account-not-found and not-authorized; do not introduce a new authorization error.",
+          "Revoke account sessions before persisting suspended status.",
+          "Record one account.suspended audit event after persistence.",
+          "Keep the account controller public contract stable."
+        ]
+      },
+      {
+        "id": "refund-authorization-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-live-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:refund-authorization"
+        },
+        "match": { "verb": "refund", "noun": "payment" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Authorize refunds before any repository mutation.",
+          "Unauthorized refunds must not write payment state.",
+          "Preserve payment-not-found and not-authorized domain errors.",
+          "Keep the refund controller public contract stable."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "implementation-user-deactivation",
+      "task": "Add user deactivation in src/domain/user-service.ts.",
+      "paths": ["src/domain/user-service.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/domain/user-service.ts",
+          "src/data/user-repository.ts",
+          "src/policy/user-policy.ts",
+          "tests/user-service.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/api/user-controller.ts",
+          "src/domain/user-service.ts",
+          "src/data/user-repository.ts",
+          "src/policy/user-policy.ts",
+          "tests/user-service.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/domain/user-service.ts",
+          "tests/user-service.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/domain/user-service.ts",
+          "tests/user-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/user-controller.ts"],
+        "constraintFragments": ["public contract", "authorization", "persistence"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/implementation-user-deactivation.test.mjs"
+        ],
+        "planConcepts": [
+          ["deactivat"],
+          ["authoriz", "policy"],
+          ["persist", "repository", "setactive"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "debugging-expired-subscription",
+      "task": "Fix subscription renewal in src/billing/subscription-service.ts so expired subscriptions are rejected.",
+      "paths": ["src/billing/subscription-service.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/billing/subscription-service.ts",
+          "src/billing/subscription-repository.ts",
+          "src/billing/billing-policy.ts",
+          "tests/subscription-service.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/api/subscription-controller.ts",
+          "src/billing/subscription-service.ts",
+          "src/billing/subscription-repository.ts",
+          "src/billing/billing-policy.ts",
+          "tests/subscription-service.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/billing/subscription-service.ts",
+          "tests/subscription-service.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/billing/subscription-service.ts",
+          "tests/subscription-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/subscription-controller.ts"],
+        "constraintFragments": ["subscription-expired", "http contract", "authorization", "persistence"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/debugging-expired-subscription.test.mjs"
+        ],
+        "planConcepts": [
+          ["expired"],
+          ["authoriz", "policy"],
+          ["persist", "repository"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+      {
+        "id": "refactor-order-review",
+      "task": "Refactor duplicated review transitions in src/orders/order-service.ts.",
+      "paths": ["src/orders/order-service.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/orders/order-service.ts",
+          "src/orders/order-repository.ts",
+          "src/orders/order-policy.ts",
+          "tests/order-service.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/api/order-controller.ts",
+          "src/orders/order-service.ts",
+          "src/orders/order-repository.ts",
+          "src/orders/order-policy.ts",
+          "tests/order-service.test.ts"
+        ],
+        "requiredModifyPaths": ["src/orders/order-service.ts"],
+        "allowedModifyPaths": [
+          "src/orders/order-service.ts",
+          "tests/order-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/order-controller.ts"],
+        "constraintFragments": ["private helper", "order-not-found", "not-authorized", "approved", "rejected", "authorization", "persistence"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/refactor-order-review.test.mjs"
+        ],
+        "planConcepts": [
+          ["refactor", "shared", "helper"],
+          ["authoriz", "policy"],
+          ["persist", "repository"],
+          ["error"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "placement-payment-review",
+      "task": "Route high-risk payments to manual review.",
+      "paths": [],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "apps/risk-worker/src/review-coordinator.ts",
+          "packages/risk-contracts/src/payment-review.ts",
+          "tests/payment-review-routing.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "apps/risk-worker/src/review-coordinator.ts",
+          "packages/risk-contracts/src/payment-review.ts",
+          "src/api/payment-controller.ts",
+          "tests/payment-review-routing.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "apps/risk-worker/src/review-coordinator.ts",
+          "tests/payment-review-routing.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "apps/risk-worker/src/review-coordinator.ts",
+          "tests/payment-review-routing.test.ts"
+        ],
+        "protectedPaths": ["src/api/payment-controller.ts"],
+        "constraintFragments": ["shared", "threshold", "risk-worker", "controller public contract"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/placement-payment-review.test.mjs"
+        ],
+        "planConcepts": [
+          ["manual", "high-risk"],
+          ["threshold", "contract"],
+          ["risk-worker", "coordinator"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "cross-system-account-suspension",
+      "task": "Add account suspension in src/accounts/account-service.ts.",
+      "paths": ["src/accounts/account-service.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/accounts/account-service.ts",
+          "src/accounts/account-repository.ts",
+          "src/accounts/account-policy.ts",
+          "src/auth/session-revoker.ts",
+          "src/audit/security-audit.ts",
+          "tests/account-service.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/accounts/account-service.ts",
+          "src/accounts/account-repository.ts",
+          "src/accounts/account-policy.ts",
+          "src/auth/session-revoker.ts",
+          "src/audit/security-audit.ts",
+          "src/api/account-controller.ts",
+          "tests/account-service.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/accounts/account-service.ts",
+          "tests/account-service.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/accounts/account-service.ts",
+          "tests/account-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/account-controller.ts"],
+        "constraintFragments": ["not-authorized", "sessions", "suspended", "audit", "controller public contract"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/cross-system-account-suspension.test.mjs"
+        ],
+        "planConcepts": [
+          ["suspend"],
+          ["authoriz", "policy"],
+          ["session", "revoke"],
+          ["persist", "repository"],
+          ["audit"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "policy-refund-authorization",
+      "task": "Fix unauthorized refund processing in src/refunds/refund-service.ts.",
+      "paths": ["src/refunds/refund-service.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/refunds/refund-service.ts",
+          "src/refunds/refund-repository.ts",
+          "src/refunds/refund-policy.ts",
+          "tests/refund-service.test.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/api/refund-controller.ts",
+          "src/refunds/refund-service.ts",
+          "src/refunds/refund-repository.ts",
+          "src/refunds/refund-policy.ts",
+          "tests/refund-service.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/refunds/refund-service.ts",
+          "tests/refund-service.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/refunds/refund-service.ts",
+          "tests/refund-service.test.ts"
+        ],
+        "protectedPaths": ["src/api/refund-controller.ts"],
+        "constraintFragments": ["authorize", "before", "repository mutation", "domain errors", "controller public contract"],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-live/oracles/policy-refund-authorization.test.mjs"
+        ],
+        "planConcepts": [
+          ["authoriz", "policy"],
+          ["before", "write", "persist", "repository"],
+          ["error"],
+          ["test", "coverage"]
+        ]
+      }
+    }
+  ]
+}

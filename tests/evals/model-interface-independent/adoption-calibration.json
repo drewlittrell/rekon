@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T20:30:08.000Z",
+  "runner": "codex-subscription",
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.6.0",
+  "comparisonDesign": "three-repeat direct baseline aggregate plus one final instruction-1.6.0 managed-interface run per case over the unchanged fixture",
+  "sourceRetention": "source-free metrics only; no source, prompts, MCP payloads, diffs, raw commands, or free-form model text",
+  "tokenUsage": "not-collected-until-api-phase",
+  "summary": {
+    "cases": 3,
+    "baselineRuns": 9,
+    "baselinePasses": 3,
+    "managedRuns": 3,
+    "managedPasses": 3,
+    "managedAdoptionPasses": 3,
+    "managedFullReadFirstUsePasses": 3,
+    "managedRefinementCalls": 0,
+    "managedUnexpectedRefinementCalls": 0,
+    "baselineAverageQuality": 0.8651,
+    "managedAverageQuality": 1,
+    "baselineAverageExplorationPaths": 26.7778,
+    "managedAverageExplorationPaths": 6.3333,
+    "baselineAverageShellCommands": 4.1111,
+    "managedAverageShellCommands": 3.3333
+  },
+  "cases": [
+    {
+      "id": "configured-region-failover",
+      "baseline": { "runs": 3, "passes": 3, "averageQuality": 1, "averageExplorationPaths": 35, "averageShellCommands": 5 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 6, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "plugin-bearer-redaction",
+      "baseline": { "runs": 3, "passes": 0, "averageQuality": 0.8571, "averageExplorationPaths": 34, "averageShellCommands": 4 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 6, "shellCommands": 3, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    },
+    {
+      "id": "audit-source-ip-compatibility",
+      "baseline": { "runs": 3, "passes": 0, "averageQuality": 0.7381, "averageExplorationPaths": 11.3333, "averageShellCommands": 3.3333 },
+      "managed": { "passed": true, "quality": 1, "explorationPaths": 7, "shellCommands": 4, "interface": "mcp", "tools": ["context_for_task"], "contextBeforeExploration": true, "contextBeforeEdit": true, "readFirstRecall": 1, "refinementCalls": 0, "unexpectedRefinement": false }
+    }
+  ],
+  "learnings": [
+    "A successful context_for_task call is not sufficient adoption; the evaluator must verify full readFirst use.",
+    "Incoming boundaryPaths remain compatibility context and are not mandatory reads unless a dependency is unresolved.",
+    "Pact constraints and required checks must be framed as task acceptance criteria in managed instructions.",
+    "Refinement must not rediscover readFirst or boundaryPaths; completeness checks and unresolved refinement do not authorize broad search."
+  ]
+}

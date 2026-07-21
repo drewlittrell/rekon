@@ -12,15 +12,18 @@
 // verification hints are hints, never executed.
 
 import { createHash } from "node:crypto";
-import type { ArtifactHeader } from "@rekon/kernel-artifacts";
+import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   createTaskContextReport,
   type TaskContextReport,
   type TaskContextItem,
+  type TaskContextRouteNecessity,
+  type TaskContextRouteRole,
   type TaskContextScoreBand,
   type TaskContextDoNotTouchZone,
   type TaskContextVerificationHint,
   type TaskContextGraphNeighborhoodRef,
+  type TaskContextGuidanceFreshness,
 } from "@rekon/kernel-repo-model";
 
 export const TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX = "task-context-report-";
@@ -34,7 +37,14 @@ const SCORE_BAND_WEAK = 0.5;
 
 // Conservative cap on graph claims surfaced per selected path, so expansion stays
 // bounded for v1. Richer graph-neighborhood expansion is a documented follow-up.
-const MAX_GRAPH_CLAIMS_PER_PATH = 6;
+const MAX_GRAPH_CLAIMS_PER_PATH = 4;
+
+// A task can name a role whose file sits one deterministic hop beyond the
+// ordinary neighborhood: another implementation of the same capability, or a
+// producer/consumer connected through a contract file. Keep this route much
+// tighter than normal graph expansion so the initial packet does not become a
+// speculative two-hop graph dump.
+const MAX_PROACTIVE_SYMBOLIC_PATHS = 2;
 
 export type TaskContextGraphRefLike = { kind: string; id: string };
 
@@ -74,6 +84,32 @@ export type TaskContextRetrievalResultLike = {
   explanation?: { provider?: string; model?: string; policyVersion?: string; textPreview?: string };
 };
 
+export type DeclaredTaskConstraint = {
+  statement: string;
+  path?: string;
+  symbolId?: string;
+  evidenceRefs: string[];
+  freshness?: TaskContextGuidanceFreshness;
+};
+
+export type DeclaredTaskVerificationHint = {
+  command?: string;
+  artifact?: string;
+  reason: string;
+  evidenceRefs: string[];
+  freshness?: TaskContextGuidanceFreshness;
+};
+
+export type DeclaredTaskContextPath = {
+  path: string;
+  reason: string;
+  evidenceRefs: string[];
+  freshness?: TaskContextGuidanceFreshness;
+  routeRole?: TaskContextRouteRole;
+  necessity?: TaskContextRouteNecessity;
+  necessityReason?: string;
+};
+
 export type BuildTaskContextReportInput = {
   taskText: string;
   paths?: string[];
@@ -86,6 +122,11 @@ export type BuildTaskContextReportInput = {
    * the SELECTION is lexical) and expanded like any selected path. Never proof.
    */
   lexicalContextPaths?: string[];
+  /**
+   * Deterministic graph file nodes selected because a matched repository
+   * contract declares their capability as a required neighbor.
+   */
+  declaredContextPaths?: DeclaredTaskContextPath[];
   goal?: string;
   graph: TaskContextGraphLike;
   retrievalResults?: TaskContextRetrievalResultLike[];
@@ -94,6 +135,9 @@ export type BuildTaskContextReportInput = {
   model?: string;
   topK?: number;
   repoId?: string;
+  inputRefs?: ArtifactRef[];
+  declaredConstraints?: DeclaredTaskConstraint[];
+  declaredVerificationHints?: DeclaredTaskVerificationHint[];
 };
 
 function classifyBand(score: number): TaskContextScoreBand {
@@ -111,27 +155,290 @@ function objectToRef(object: TaskContextGraphRefLike | string): TaskContextGraph
   return typeof object === "string" ? undefined : object;
 }
 
+type ProactiveSymbolicRoute = {
+  path: string;
+  reason: string;
+  evidenceRefs: string[];
+  claimIds: string[];
+  score: number;
+  routeRole: "implementation" | "handoff";
+  necessityReason: string;
+};
+
+type TaskContextRouteMetadata = Required<Pick<
+  TaskContextItem,
+  "routeRole" | "necessity" | "necessityReason"
+>>;
+
+function routeMetadata(
+  routeRole: TaskContextRouteRole,
+  necessity: TaskContextRouteNecessity,
+  necessityReason: string,
+): TaskContextRouteMetadata {
+  return { routeRole, necessity, necessityReason };
+}
+
+function taskSignalsHandoffChange(taskText: string): boolean {
+  return /\b(?:carry|propagat(?:e|es|ed|ing)|forward|preserv(?:e|es|ed|ing)|pass(?:es|ed|ing)?|thread|handoff|end[- ]to[- ]end)\b/iu.test(taskText)
+    || /\b(?:event|message|payload|request|response|contract|schema|metadata)\b[^.!?\n]{0,100}\b(?:add|remove|rename|change|extend|include|omit)\b/iu.test(taskText)
+    || /\b(?:add|remove|rename|change|extend|include|omit)\b[^.!?\n]{0,100}\b(?:event|message|payload|request|response|contract|schema|metadata)\b/iu.test(taskText);
+}
+
+function graphRouteMetadata(input: {
+  taskText: string;
+  selectedPath: string;
+  contextPath: string;
+  predicate: string;
+  subjectMatch: boolean;
+  pathMatches: number;
+  testRelationship: boolean;
+}): TaskContextRouteMetadata {
+  if (input.contextPath === input.selectedPath) {
+    return routeMetadata(
+      "task-target",
+      "required",
+      "The graph claim describes the selected task path itself.",
+    );
+  }
+  if (input.testRelationship) {
+    return routeMetadata(
+      "verification",
+      "required",
+      "A direct deterministic test relationship makes this path part of the task's regression boundary.",
+    );
+  }
+  if (symbolicContractRelationship(input.predicate) !== undefined) {
+    const required = taskSignalsHandoffChange(input.taskText);
+    return routeMetadata(
+      "handoff",
+      required ? "required" : "conditional",
+      required
+        ? "The task changes or preserves data carried across this deterministic contract handoff."
+        : "Inspect this handoff only if the task changes the shared contract or values crossing it.",
+    );
+  }
+  if (!input.subjectMatch) {
+    return routeMetadata(
+      "compatibility",
+      "conditional",
+      "This path calls the selected source; inspect it only if exported behavior or compatibility may change.",
+    );
+  }
+  if (input.pathMatches > 0) {
+    return routeMetadata(
+      "dependency",
+      "required",
+      "The task text names a concern represented by this direct dependency.",
+    );
+  }
+  return routeMetadata(
+    "dependency",
+    "conditional",
+    "Inspect this direct dependency only if the selected source delegates the changed behavior to it.",
+  );
+}
+
+function filePathFromRef(ref: TaskContextGraphRefLike | undefined): string | undefined {
+  if (!ref || (ref.kind !== "file" && ref.kind !== "symbol")) return undefined;
+  const path = ref.id.split("#")[0]?.trim();
+  return path ? path : undefined;
+}
+
+function lexicalOverlap(left: Set<string>, right: Set<string>): number {
+  let overlap = 0;
+  for (const token of left) if (right.has(token)) overlap += 1;
+  return overlap;
+}
+
+function symbolicContractRelationship(predicate: string): "consumer" | "producer" | undefined {
+  if (/(?:^|[._-])consumes?(?:[._-]|$)/iu.test(predicate)) return "consumer";
+  if (/(?:^|[._-])(?:produces?|publishes?|writes?)(?:[._-]|$)/iu.test(predicate)) return "producer";
+  return undefined;
+}
+
+function relationshipNamedByTask(taskText: string, relationship: "consumer" | "producer"): boolean {
+  return relationship === "consumer"
+    ? /\b(?:consumer|consume[sd]?|reader|listener|subscriber)\b/iu.test(taskText)
+    : /\b(?:producer|produce[sd]?|publisher|emit(?:s|ter)?|writer|exporter)\b/iu.test(taskText)
+      || /\bexport(?:s|ed|ing|er|[A-Z][A-Za-z0-9_]*)?\b/u.test(taskText);
+}
+
+type SourceLanguageFamily = "js-ts" | "python" | "go" | "java-kotlin" | "ruby" | "rust" | "csharp";
+
+function sourceLanguageFamily(path: string): SourceLanguageFamily | undefined {
+  const normalized = path.toLowerCase();
+  if (/\.(?:[cm]?[jt]sx?)$/u.test(normalized)) return "js-ts";
+  if (/\.pyi?$/u.test(normalized)) return "python";
+  if (/\.go$/u.test(normalized)) return "go";
+  if (/\.(?:java|kt|kts)$/u.test(normalized)) return "java-kotlin";
+  if (/\.rb$/u.test(normalized)) return "ruby";
+  if (/\.rs$/u.test(normalized)) return "rust";
+  if (/\.cs$/u.test(normalized)) return "csharp";
+  return undefined;
+}
+
+function taskSignalsLanguage(taskText: string, language: SourceLanguageFamily): boolean {
+  const pattern: Record<SourceLanguageFamily, RegExp> = {
+    "js-ts": /\b(?:javascript|typescript|node(?:\.js)?|[jt]sx?)\b/iu,
+    python: /\b(?:python|pytest|pyproject)\b/iu,
+    go: /\b(?:go|golang)\b/iu,
+    "java-kotlin": /\b(?:java|kotlin|gradle|maven)\b/iu,
+    ruby: /\b(?:ruby|rails|rspec)\b/iu,
+    rust: /\b(?:rust|cargo)\b/iu,
+    csharp: /\b(?:c#|csharp|dotnet|\.net)\b/iu,
+  };
+  return pattern[language].test(taskText);
+}
+
+function taskAllowsLanguageBoundary(taskText: string, anchorPath: string, candidatePath: string): boolean {
+  const anchorLanguage = sourceLanguageFamily(anchorPath);
+  const candidateLanguage = sourceLanguageFamily(candidatePath);
+  if (!anchorLanguage || !candidateLanguage || anchorLanguage === candidateLanguage) return true;
+  if (taskText.includes(candidatePath)) return true;
+  if (/\b(?:cross[- ]language|polyglot|multi[- ]language)\b/iu.test(taskText)) return true;
+  return taskSignalsLanguage(taskText, candidateLanguage);
+}
+
+function selectProactiveSymbolicRoutes(input: {
+  taskText: string;
+  selectedPaths: Set<string>;
+  graphNodes: TaskContextGraphRefLike[];
+  graphClaims: TaskContextGraphClaimLike[];
+  graphCapabilities: TaskContextGraphCapabilityLike[];
+}): ProactiveSymbolicRoute[] {
+  const fileNodes = new Set(
+    input.graphNodes.filter((node) => node.kind === "file").map((node) => node.id),
+  );
+  const taskTokens = lexicalQueryTokens(input.taskText);
+  const routes = new Map<string, ProactiveSymbolicRoute>();
+  const addRoute = (route: ProactiveSymbolicRoute): void => {
+    if (!fileNodes.has(route.path) || input.selectedPaths.has(route.path)) return;
+    const existing = routes.get(route.path);
+    if (!existing || route.score > existing.score) routes.set(route.path, route);
+  };
+
+  // A capability can have a registry/adapter and a separate implementation.
+  // Route peers only when the task strongly names that capability.
+  for (const capability of input.graphCapabilities) {
+    const implementationPaths = [...new Set(
+      (capability.implementedBy ?? []).map(filePathFromRef).filter((path): path is string => Boolean(path)),
+    )];
+    const selectedImplementations = implementationPaths.filter((path) => input.selectedPaths.has(path));
+    if (selectedImplementations.length === 0) continue;
+    const capabilityTokens = lexicalQueryTokens(
+      `${capability.verb ?? ""} ${capability.noun ?? ""} ${capability.id ?? ""}`,
+    );
+    const capabilityOverlap = lexicalOverlap(taskTokens, capabilityTokens);
+    if (capabilityOverlap < 2) continue;
+    for (const path of implementationPaths) {
+      if (input.selectedPaths.has(path)) continue;
+      if (!selectedImplementations.some((anchorPath) => (
+        taskAllowsLanguageBoundary(input.taskText, anchorPath, path)
+      ))) continue;
+      addRoute({
+        path,
+        reason: `task-signaled implementation of graph capability ${capability.id}`,
+        evidenceRefs: [...(capability.evidenceRefs ?? [])],
+        claimIds: [],
+        score: 20 + capabilityOverlap + lexicalOverlap(taskTokens, lexicalPathTokens(path)),
+        routeRole: "implementation",
+        necessityReason: "The task names this deterministic capability implementation as part of the requested behavior.",
+      });
+    }
+  }
+
+  // Producers and consumers often sit behind a shared contract. Admit only
+  // typed deterministic relationships whose role is explicit in the task or
+  // whose candidate path has task-specific lexical support.
+  for (const selectedPath of input.selectedPaths) {
+    const selectedContractClaims = input.graphClaims.filter((claim) => {
+      if (claim.source === "llm" || !/contract/iu.test(claim.predicate)) return false;
+      const subjectPath = filePathFromRef(claim.subject);
+      const objectPath = filePathFromRef(objectToRef(claim.object));
+      return subjectPath === selectedPath || objectPath === selectedPath;
+    });
+    for (const selectedClaim of selectedContractClaims) {
+      const subjectPath = filePathFromRef(selectedClaim.subject);
+      const objectPath = filePathFromRef(objectToRef(selectedClaim.object));
+      const contractPath = subjectPath === selectedPath ? objectPath : subjectPath;
+      if (!contractPath || contractPath === selectedPath) continue;
+      const routeAnchorTokens = new Set([
+        ...lexicalPathTokens(selectedPath),
+        ...lexicalPathTokens(contractPath),
+      ]);
+      const taskSpecificTokens = new Set(
+        [...taskTokens].filter((token) => !routeAnchorTokens.has(token)),
+      );
+      for (const claim of input.graphClaims) {
+        if (claim.id === selectedClaim.id || claim.source === "llm") continue;
+        const relationship = symbolicContractRelationship(claim.predicate);
+        if (!relationship) continue;
+        const candidateSubject = filePathFromRef(claim.subject);
+        const candidateObject = filePathFromRef(objectToRef(claim.object));
+        const path: string | undefined = candidateSubject === contractPath
+          ? candidateObject
+          : candidateObject === contractPath
+            ? candidateSubject
+            : undefined;
+        if (!path || path === selectedPath || path === contractPath) continue;
+        if (!taskAllowsLanguageBoundary(input.taskText, selectedPath, path)) continue;
+        const pathOverlap = lexicalOverlap(taskSpecificTokens, lexicalPathTokens(path));
+        const explicitRelationship = relationshipNamedByTask(input.taskText, relationship);
+        if (!explicitRelationship && pathOverlap === 0) continue;
+        addRoute({
+          path,
+          reason: `task-signaled ${relationship} through contract ${contractPath} via graph predicate ${claim.predicate}`,
+          evidenceRefs: [...new Set([
+            ...(selectedClaim.evidenceRefs ?? []),
+            selectedClaim.id,
+            ...(claim.evidenceRefs ?? []),
+            claim.id,
+          ])],
+          claimIds: [selectedClaim.id, claim.id],
+          score: 10 + (explicitRelationship ? 6 : 0) + pathOverlap,
+          routeRole: "handoff",
+          necessityReason: `The task names the ${relationship} side of this deterministic contract handoff.`,
+        });
+      }
+    }
+  }
+
+  return [...routes.values()]
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .slice(0, MAX_PROACTIVE_SYMBOLIC_PATHS);
+}
+
 // Extract do-not-touch zones from explicit task-text constraints. v1 is
-// conservative: it only surfaces zones the operator stated ("do not ...",
-// "must not ...", "never ..."). Evidence-supported graph-claim zones are a
-// documented follow-up.
+// conservative: it only surfaces constraints the operator stated using direct
+// prohibition or preservation language. Evidence-supported graph-claim zones
+// are a documented follow-up.
 function extractDoNotTouchZones(taskText: string, paths: string[]): TaskContextDoNotTouchZone[] {
   const zones: TaskContextDoNotTouchZone[] = [];
   const seen = new Set<string>();
+  const constraintMarker = /\b(do not|don'?t|must not|never|do-not-touch|without\s+(?:changing|modifying|altering)|preserv(?:e|ing)|maintain(?:ing)?|keep(?:ing)?)\b/i;
   const clauses = taskText.split(/(?<=[.!?])\s+|\n+/);
   for (const clauseRaw of clauses) {
     const clause = clauseRaw.trim();
     if (clause.length === 0) continue;
-    if (!/\b(do not|don'?t|must not|never|do-not-touch)\b/i.test(clause)) continue;
+    const markerIndex = clause.search(constraintMarker);
+    if (markerIndex < 0) continue;
     const reason = clause.replace(/\s+/g, " ").trim();
     const key = reason.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const matchedPath = paths.find((p) => clause.includes(p));
+    const matchedPath = paths.find((path) => {
+      const pathIndex = clause.indexOf(path);
+      if (pathIndex < 0) return false;
+      if (pathIndex > markerIndex) return true;
+      const suffix = clause.slice(pathIndex + path.length);
+      return /^\s+(?:must not|should not|cannot|can'?t|is protected)\b/i.test(suffix);
+    });
     zones.push({
       reason,
       ...(matchedPath ? { path: matchedPath } : {}),
       evidenceRefs: [],
+      source: "operator_input",
+      freshness: "fresh",
     });
   }
   return zones;
@@ -141,7 +448,7 @@ function extractDoNotTouchZones(taskText: string, paths: string[]): TaskContextD
 // keyword-mapped scripts below). Used both to extract command hints and to skip
 // the same clauses during free-form extraction, so a clause never yields both a
 // command hint and a redundant free-form hint.
-const VERIFICATION_COMMAND_KEYWORD = /\b(npm run|npm test|typecheck|type-check|build|compile|lint|tests?)\b/i;
+const VERIFICATION_COMMAND_KEYWORD = /\b(npm run|npm test|pytest|go test|typecheck|type-check|build|compile|lint|tests?)\b/i;
 // Recognizes free-form verification intent ("verify X", "make sure Y works").
 const VERIFICATION_INTENT_VERB = /\b(verify|confirm|validate|ensure|make sure|double[- ]?check|sanity[- ]?check|check)\b/i;
 
@@ -160,16 +467,28 @@ function extractVerificationHints(taskText: string): TaskContextVerificationHint
   const addCommand = (command: string, reason: string): void => {
     if (seenCommands.has(command)) return;
     seenCommands.add(command);
-    hints.push({ command, reason, evidenceRefs: [] });
+    hints.push({ command, reason, evidenceRefs: [], source: "operator_input", freshness: "fresh" });
   };
   for (const cmd of taskText.match(/npm run [a-z0-9:_-]+/gi) ?? []) {
     addCommand(cmd.replace(/\s+/g, " ").trim(), "task references this command (hint only, not executed)");
   }
   if (/\bnpm test\b/i.test(taskText)) addCommand("npm test", "task references this command (hint only, not executed)");
+  if (/\bpytest\b/i.test(taskText)) addCommand("pytest", "task references this command (hint only, not executed)");
+  for (const cmd of taskText.match(/\bgo test(?:\s+(?:\.\/\.\.\.|\.\/[a-z0-9_./-]+|[a-z0-9_.-]+\/[a-z0-9_./-]+|-[a-z0-9_=.-]+))*/gi) ?? []) {
+    addCommand(cmd.replace(/\s+/g, " ").trim(), "task references this command (hint only, not executed)");
+  }
   if (/\btypecheck\b/.test(lower)) addCommand("npm run typecheck", "task references typecheck verification (hint only)");
   if (/\b(build|compile)\b/.test(lower)) addCommand("npm run build", "task references build verification (hint only)");
   if (/\blint\b/.test(lower)) addCommand("npm run lint", "task references lint verification (hint only)");
-  if (/\b(test|tests)\b/.test(lower)) addCommand("npm test", "task references test verification (hint only)");
+  const hasExplicitTestCommand = [...seenCommands].some(
+    (command) => command === "npm test"
+      || /^npm run test(?::[a-z0-9_-]+)?$/i.test(command)
+      || command === "pytest"
+      || /^go test(?:\s|$)/i.test(command),
+  );
+  if (/\b(test|tests)\b/.test(lower) && !hasExplicitTestCommand) {
+    addCommand("npm test", "task references test verification (hint only)");
+  }
 
   // Free-form verification intent: surface clauses that ask to verify something
   // but name no command. Skip clauses already covered by a command keyword so we
@@ -187,9 +506,31 @@ function extractVerificationHints(taskText: string): TaskContextVerificationHint
       artifact: "manual-verification",
       reason: `operator asked to verify (free-form verification intent extracted from the task text; no command was inferred or executed): "${clause}"`,
       evidenceRefs: [],
+      source: "operator_input",
+      freshness: "fresh",
     });
   }
   return hints;
+}
+
+function dedupeConstraints(values: TaskContextDoNotTouchZone[]): TaskContextDoNotTouchZone[] {
+  const seen = new Set<string>();
+  return values.filter((entry) => {
+    const key = `${entry.reason.trim().toLowerCase()}\0${entry.path ?? ""}\0${entry.symbolId ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeVerificationHints(values: TaskContextVerificationHint[]): TaskContextVerificationHint[] {
+  const seen = new Set<string>();
+  return values.filter((entry) => {
+    const key = `${entry.command ?? ""}\0${entry.artifact ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Default cap on graph + lexical fallback paths, so the degraded context stays
@@ -274,7 +615,12 @@ export function selectLexicalGraphContextPaths(
     if (score > 0) scored.push({ path, score });
   }
   scored.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
-  return scored.slice(0, limit).map((entry) => entry.path);
+  const maxScore = scored[0]?.score ?? 0;
+  const minimumScore = maxScore >= 3 ? maxScore - 1 : 1;
+  return scored
+    .filter((entry) => entry.score >= minimumScore)
+    .slice(0, limit)
+    .map((entry) => entry.path);
 }
 
 export function buildTaskContextReport(input: BuildTaskContextReportInput): TaskContextReport {
@@ -303,7 +649,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     supersession: { key: supersessionKey },
     subject: { repoId: input.repoId ?? ".", ...(paths.length > 0 ? { paths } : {}) },
     producer: { id: "@rekon/capability-model.task-context-report", version: "0.1.0-beta.0" },
-    inputRefs: [],
+    inputRefs: [...(input.inputRefs ?? [])],
     freshness: { status: "fresh" },
     provenance: { confidence: 0.5, notes: ["task-shaped context is proposal/context, not proof"] },
   };
@@ -346,6 +692,11 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
           : "operator-provided path",
         evidenceRefs: [],
         source: "operator_input",
+        ...routeMetadata(
+          "task-target",
+          "required",
+          "The operator explicitly named this path as task scope.",
+        ),
       },
       `op:${path}`,
     );
@@ -371,8 +722,41 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
           "graph file node lexically matched to the task text (embedding retrieval unavailable; graph + lexical fallback — proposal/context, not proof)",
         evidenceRefs: [],
         source: "deterministic_graph",
+        ...routeMetadata(
+          "task-target",
+          "required",
+          "This deterministic graph node is the selected task anchor when no explicit path was supplied.",
+        ),
       },
       `lex:${path}`,
+    );
+    addNeighborhoodNode(fileRef);
+  }
+
+  // 1c. Repository-contract required neighbors. The contract chooses the
+  // capability, while the deterministic graph supplies the implementing file
+  // node. The item remains context, not proof, and carries both citations.
+  const declaredPaths = (input.declaredContextPaths ?? [])
+    .filter((entry) => entry.path.trim().length > 0)
+    .filter((entry) => !paths.includes(entry.path) && !lexicalPaths.includes(entry.path));
+  for (const entry of declaredPaths) {
+    const path = entry.path.trim();
+    const fileRef: TaskContextGraphRefLike = { kind: "file", id: path };
+    if (!nodeExists(fileRef)) continue;
+    pushItem(
+      {
+        kind: "file",
+        path,
+        reason: entry.reason,
+        evidenceRefs: entry.evidenceRefs,
+        source: "deterministic_graph",
+        ...routeMetadata(
+          entry.routeRole ?? "repository-law",
+          entry.necessity ?? "required",
+          entry.necessityReason ?? "Matched repository law declares this path required context for the task.",
+        ),
+      },
+      `declared:${path}`,
     );
     addNeighborhoodNode(fileRef);
   }
@@ -414,6 +798,11 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
         scoreBand: band,
         evidenceRefs: result.chunkId ? [result.chunkId] : chunk.id ? [chunk.id] : [],
         source: "embedding_retrieval",
+        ...routeMetadata(
+          "supporting",
+          "supporting",
+          "Similarity suggests possible relevance but does not make this path necessary.",
+        ),
       },
       `emb:${symbolId || path}`,
     );
@@ -426,28 +815,78 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
   const selectedPaths = new Set<string>([
     ...paths,
     ...lexicalPaths.filter((p) => nodeExists({ kind: "file", id: p })),
+    ...declaredPaths
+      .map((entry) => entry.path.trim())
+      .filter((p) => nodeExists({ kind: "file", id: p })),
     ...contextItems
       .filter((item) => item.source === "embedding_retrieval" && typeof item.path === "string")
       .map((item) => item.path as string),
   ]);
   for (const path of selectedPaths) {
     const fileRef: TaskContextGraphRefLike = { kind: "file", id: path };
-    let used = 0;
-    for (const claim of graphClaims) {
-      if (used >= MAX_GRAPH_CLAIMS_PER_PATH) break;
+    const selectedPathTokens = lexicalQueryTokens(path);
+    const taskSpecificTokens = new Set(
+      [...lexicalQueryTokens(taskText)].filter((token) => !selectedPathTokens.has(token)),
+    );
+    const connectedClaims = graphClaims.flatMap((claim) => {
       const subjectMatch = claim.subject?.kind === "file" && claim.subject?.id === path;
       const objectRef = objectToRef(claim.object);
       const objectMatch = objectRef?.kind === "file" && objectRef?.id === path;
-      if (!subjectMatch && !objectMatch) continue;
+      if (!subjectMatch && !objectMatch) return [];
+      const relatedFileRef = subjectMatch && objectRef?.kind === "file"
+        ? objectRef
+        : objectMatch && claim.subject.kind === "file"
+          ? claim.subject
+          : undefined;
+      const contextPath = relatedFileRef?.id ?? path;
+      const pathMatches = [...lexicalQueryTokens(contextPath)]
+        .filter((token) => taskSpecificTokens.has(token)).length;
+      const testRelationship = claim.source === "test"
+        || /(?:^|[._-])(test|tests|verify|verifies)(?:$|[._-])/i.test(claim.predicate)
+        || /(?:^|\/)tests?(?:\/|$)|\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(contextPath);
+      return [{
+        claim,
+        subjectMatch,
+        relatedFileRef,
+        contextPath,
+        pathMatches,
+        testRelationship,
+        deterministic: claim.source !== "llm",
+      }];
+    }).sort((left, right) =>
+      Number(right.deterministic) - Number(left.deterministic)
+      || right.pathMatches - left.pathMatches
+      || Number(right.testRelationship) - Number(left.testRelationship)
+      || Number(right.subjectMatch) - Number(left.subjectMatch)
+      || left.claim.id.localeCompare(right.claim.id));
+
+    for (const candidate of connectedClaims.slice(0, MAX_GRAPH_CLAIMS_PER_PATH)) {
+      const { claim, relatedFileRef, contextPath } = candidate;
       const isSemantic = claim.source === "llm";
       const objectText = typeof claim.object === "string" ? claim.object : `${claim.object.kind}:${claim.object.id}`;
+      const route = isSemantic
+        ? routeMetadata(
+            "supporting",
+            "supporting",
+            "Model-derived context is advisory and must not become a required repository route.",
+          )
+        : graphRouteMetadata({
+            taskText,
+            selectedPath: path,
+            contextPath,
+            predicate: claim.predicate,
+            subjectMatch: candidate.subjectMatch,
+            pathMatches: candidate.pathMatches,
+            testRelationship: candidate.testRelationship,
+          });
       pushItem(
         {
           kind: isSemantic ? "semantic_summary" : "file",
-          path,
+          path: contextPath,
           reason: `graph claim: ${claim.subject.kind}:${claim.subject.id} ${claim.predicate} ${objectText}`,
           evidenceRefs: [...(claim.evidenceRefs ?? []), claim.id],
           source: isSemantic ? "semantic_file_understanding" : "deterministic_graph",
+          ...route,
         },
         `claim:${claim.id}`,
       );
@@ -456,7 +895,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
         claimIds.push(claim.id);
       }
       addNeighborhoodNode(fileRef);
-      used += 1;
+      if (relatedFileRef && nodeExists(relatedFileRef)) addNeighborhoodNode(relatedFileRef);
     }
     for (const cap of graphCapabilities) {
       const implementsPath = (cap.implementedBy ?? []).some(
@@ -472,6 +911,11 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
           reason: label.length > 0 ? `capability ${label}` : `capability ${cap.id}`,
           evidenceRefs: [...(cap.evidenceRefs ?? [])],
           source: "deterministic_graph",
+          ...routeMetadata(
+            "implementation",
+            "supporting",
+            "Capability identity explains the selected file but does not add another source-read obligation.",
+          ),
         },
         `cap:${cap.id}:${path}`,
       );
@@ -479,11 +923,61 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     }
   }
 
-  // 4. Do-not-touch zones from explicit task-text constraints.
-  const doNotTouch = extractDoNotTouchZones(taskText, paths);
+  // 3b. Bounded proactive symbolic routing. These are deterministic graph
+  // routes that the task itself makes relevant, but which ordinary one-hop
+  // expansion cannot reach. Refinement remains the fallback when this policy
+  // cannot identify the target confidently.
+  for (const route of selectProactiveSymbolicRoutes({
+    taskText,
+    selectedPaths,
+    graphNodes,
+    graphClaims,
+    graphCapabilities,
+  })) {
+    pushItem(
+      {
+        kind: "file",
+        path: route.path,
+        reason: route.reason,
+        evidenceRefs: route.evidenceRefs,
+        source: "deterministic_graph",
+        ...routeMetadata(route.routeRole, "required", route.necessityReason),
+      },
+      `symbolic-route:${route.path}`,
+    );
+    addNeighborhoodNode({ kind: "file", id: route.path });
+    for (const claimId of route.claimIds) {
+      if (includedClaimIds.has(claimId)) continue;
+      includedClaimIds.add(claimId);
+      claimIds.push(claimId);
+    }
+  }
 
-  // 5. Verification hints from task-text command mentions (hints only).
-  const verificationHints = extractVerificationHints(taskText);
+  // 4. Constraints from operator text and explicitly supplied repository law.
+  const doNotTouch = dedupeConstraints([
+    ...extractDoNotTouchZones(taskText, paths),
+    ...(input.declaredConstraints ?? []).map((constraint): TaskContextDoNotTouchZone => ({
+      reason: constraint.statement,
+      ...(constraint.path ? { path: constraint.path } : {}),
+      ...(constraint.symbolId ? { symbolId: constraint.symbolId } : {}),
+      evidenceRefs: [...constraint.evidenceRefs],
+      source: "repository_contract",
+      freshness: constraint.freshness ?? "unknown",
+    })),
+  ]);
+
+  // 5. Verification hints from operator text and repository contracts. Hints only.
+  const verificationHints = dedupeVerificationHints([
+    ...extractVerificationHints(taskText),
+    ...(input.declaredVerificationHints ?? []).map((hint): TaskContextVerificationHint => ({
+      ...(hint.command ? { command: hint.command } : {}),
+      ...(hint.artifact ? { artifact: hint.artifact } : {}),
+      reason: hint.reason,
+      evidenceRefs: [...hint.evidenceRefs],
+      source: "repository_contract",
+      freshness: hint.freshness ?? "unknown",
+    })),
+  ]);
 
   // createTaskContextReport recomputes `summary` and forces every `boundaries`
   // field false, then validates — so the values passed here are normalized.

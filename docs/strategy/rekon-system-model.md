@@ -20,6 +20,12 @@ explainable resolution.
 6. Prepare work and verification artifacts when a task needs execution.
 7. Record verification and reconciliation outcomes back into artifacts.
 
+Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
+directs them to a shared context compiler exposed through MCP and CLI. The
+compiler selects current repository law, ownership, graph context, scoped
+memory, governed assessments, and required checks under an explicit context
+budget.
+
 The loop is designed to make context reusable and reviewable. A person should
 be able to inspect an artifact and understand its producer, inputs, freshness,
 and provenance.
@@ -34,6 +40,19 @@ and provenance.
 - Work and verification artifacts guide execution but do not execute commands
   by themselves.
 - Memory can influence recommendations but cannot rewrite facts.
+
+## Model Interface Boundary
+
+- `AGENTS.md` carries a short, versioned Rekon bootstrap, not dynamic repo data.
+- MCP is the model-native, read-only interface.
+- CLI is the universal interface and owns lifecycle writes.
+- MCP and CLI consume the same context compiler and selection rules.
+- Context refinement is an explicit delta protocol: a model must name the
+  unresolved question, anchor, and graph relationship after reading the initial
+  packet. Absence remains unresolved rather than authorizing broad search.
+- Context responses explain inclusion, exclusion, trust, freshness, and budget.
+- A model-facing adapter may format context, but may not independently select or
+  reinterpret canonical inputs.
 
 ## Extension Boundary
 

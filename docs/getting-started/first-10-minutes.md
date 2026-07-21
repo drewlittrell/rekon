@@ -16,14 +16,16 @@ The source checkout uses the CLI entrypoint directly:
 node packages/cli/dist/index.js --help
 ```
 
-## 2. Initialize The Example Repo
+## 2. Install Agent Instructions And Initialize
 
 ```sh
+node packages/cli/dist/index.js setup --root examples/simple-js-ts --json
 node packages/cli/dist/index.js init --root examples/simple-js-ts
 ```
 
-This creates `.rekon/config.json`, `.rekon/registry/`, and artifact
-directories inside `examples/simple-js-ts`.
+`setup` adds a bounded Rekon block to `examples/simple-js-ts/AGENTS.md`.
+`init` creates `.rekon/config.json`, `.rekon/registry/`, and artifact
+directories. Neither command scans source.
 
 ## 3. Observe Source Evidence
 
@@ -64,6 +66,19 @@ node packages/cli/dist/index.js snapshot --root examples/simple-js-ts --json
 This writes an `IntelligenceSnapshot`, the central index of Rekon intelligence.
 
 ## 7. Run Explainable Preflight
+
+First compile the context a model should read:
+
+```sh
+node packages/cli/dist/index.js context task --root examples/simple-js-ts --task "modify bootstrap" --path src/index.ts --profile compact --provider mock --json
+```
+
+The `agentContext` block identifies core and supporting context, trust,
+freshness, token budget, and `contextTrace` selection decisions.
+
+For the smaller model-facing form, replace `--json` with `--model-context`.
+
+Then run preflight:
 
 ```sh
 node packages/cli/dist/index.js resolve preflight --root examples/simple-js-ts --path src/index.ts --goal "modify bootstrap" --json

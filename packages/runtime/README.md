@@ -44,8 +44,12 @@ honor that scope.
 - `ArtifactStore`
 - `validateArtifactIndex()`
 - `validateArtifactFreshness()`
+- `loadRepositoryContractSources()`
 - `PermissionPolicy`
 - lifecycle run methods
+
+Contract source discovery rejects traversal, symlinks, generated workspaces,
+duplicate source IDs, and invalid documents.
 
 Incremental observe retains unchanged evidence, replaces changed or deleted
 file evidence, refreshes repository-wide facts, and records the prior graph as

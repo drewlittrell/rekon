@@ -11,6 +11,7 @@
   ],
   "references": [
     { "path": "../capability-intent" },
+    { "path": "../mcp" },
     { "path": "../kernel-artifacts" },
     { "path": "../kernel-findings" },
     { "path": "../kernel-repo-model" },

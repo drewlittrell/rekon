@@ -20,8 +20,12 @@ import {
 } from "@rekon/kernel-findings";
 import {
   type CapabilityMap,
+  type ContractDriftReport,
+  type EffectiveContractRegistry,
+  type FlowContract,
   type ObservedRepo,
   type OwnershipMap,
+  type SystemContract,
 } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
 import {
@@ -32,6 +36,11 @@ import {
   summarizeVerificationProofSurface,
 } from "@rekon/capability-intent";
 import { type Publisher, defineCapability } from "@rekon/sdk";
+import {
+  REKON_AGENT_CLI_FALLBACKS,
+  REKON_AGENT_MCP_BOUNDARY,
+  REKON_AGENT_MCP_STEPS,
+} from "@rekon/mcp";
 
 export type PublicationArtifact = {
   header: ArtifactHeader;
@@ -323,6 +332,7 @@ export const architectureSummaryPublisher: Publisher = {
       "CapabilityMap",
       inputRefs,
     );
+    const repositoryLaw = await readEffectiveRepositoryLaw(artifacts, inputRefs);
     const coherencyDelta = await readLatestArtifact<CoherencyDelta>(
       artifacts,
       "CoherencyDelta",
@@ -597,6 +607,7 @@ export const architectureSummaryPublisher: Publisher = {
         observedRepo,
         ownershipMap,
         capabilityMap,
+        repositoryLaw,
         coherencyDelta,
         issueAdjudicationReport,
         lifecycleReport,
@@ -848,6 +859,7 @@ export const agentContractPublisher: Publisher = {
     const observedRepo = await readLatestArtifact<ObservedRepo>(artifacts, "ObservedRepo", inputRefs);
     const ownershipMap = await readLatestArtifact<OwnershipMap>(artifacts, "OwnershipMap", inputRefs);
     const capabilityMap = await readLatestArtifact<CapabilityMap>(artifacts, "CapabilityMap", inputRefs);
+    const repositoryLaw = await readEffectiveRepositoryLaw(artifacts, inputRefs);
     const coherencyDelta = await readLatestArtifact<CoherencyDelta>(artifacts, "CoherencyDelta", inputRefs);
     const issueAdjudicationReport = await readLatestArtifact<IssueAdjudicationReport>(
       artifacts,
@@ -1111,6 +1123,7 @@ export const agentContractPublisher: Publisher = {
         observedRepo,
         ownershipMap,
         capabilityMap,
+        repositoryLaw,
         coherencyDelta,
         issueAdjudicationReport,
         lifecycleReport,
@@ -1185,6 +1198,10 @@ export default defineCapability({
       "CapabilityOntologySuggestionReport",
       "CapabilityPhraseReport",
       "CapabilityContract",
+      "SystemContract",
+      "FlowContract",
+      "EffectiveContractRegistry",
+      "ContractDriftReport",
       "CapabilityArchitectureLintReport",
       "CapabilityLintFindingBridgeReport",
       "MemorySelection",
@@ -1197,6 +1214,11 @@ export default defineCapability({
         id: "snapshot.changed",
         description: "Regenerate publications when the intelligence snapshot changes.",
         inputs: ["IntelligenceSnapshot"],
+      },
+      {
+        id: "repository-contracts.changed",
+        description: "Regenerate architecture and agent publications when adopted repository law or its drift status changes.",
+        inputs: ["SystemContract", "FlowContract", "EffectiveContractRegistry", "ContractDriftReport"],
       },
       {
         id: "coherency.changed",
@@ -1361,6 +1383,7 @@ function renderAgentsDoc(
     "",
     "Docs are publications, not canonical truth. Rekon publications summarize typed artifacts. They do not replace EvidenceGraph, ObservedRepo, OwnershipMap, FindingReport, or ResolverPacket artifacts as canonical truth.",
     "",
+    ...renderRekonContextInterfaces(),
     "## Indexed Intelligence",
     "",
     `- Inputs: ${Object.keys(snapshot.inputs).sort().join(", ") || "none"}`,
@@ -1390,6 +1413,27 @@ function renderAgentsDoc(
     "- npm run test",
     "- npm run build",
   ].join("\n");
+}
+
+function renderRekonContextInterfaces(): string[] {
+  return [
+    "## Rekon Context Interfaces",
+    "",
+    "Before the first shell command, repository listing, search, file read, or edit, call Rekon's MCP tools when they are listed by the client. Do not probe for the CLI first.",
+    "",
+    "When Rekon MCP tools are available:",
+    "",
+    ...REKON_AGENT_MCP_STEPS.map((step, index) => `${index + 1}. ${step}`),
+    "",
+    REKON_AGENT_MCP_BOUNDARY,
+    "",
+    "Coding agents receive read-only task context and exact source-target resolution through MCP. Use the CLI for orientation, placement, preflight, artifact maintenance, or when MCP is absent or a call fails:",
+    "",
+    ...REKON_AGENT_CLI_FALLBACKS.map((command) => `- \`${command}\``),
+    "",
+    "If context is stale and artifact writes are permitted, run `rekon scan --root . --json` before relying on it. If MCP is unavailable, use the CLI directly; both interfaces read the same Rekon artifacts.",
+    "",
+  ];
 }
 
 function countResolverAssessments(resolver: ResolverPacketLike, kind: string): number {
@@ -1614,6 +1658,49 @@ async function readLatestArtifact<T>(
   return (await artifacts.read(ref)) as T;
 }
 
+type EffectiveRepositoryLaw = {
+  registry: EffectiveContractRegistry;
+  registryRef: ArtifactRef;
+  systems: SystemContract[];
+  flows: FlowContract[];
+  drift?: ContractDriftReport;
+};
+
+async function readEffectiveRepositoryLaw(
+  artifacts: {
+    list(type?: string): Promise<ArtifactRef[]>;
+    read(ref: ArtifactRef): Promise<unknown>;
+  },
+  inputRefs: ArtifactRef[],
+): Promise<EffectiveRepositoryLaw | undefined> {
+  const registryRef = await latestRef(artifacts, "EffectiveContractRegistry");
+  if (!registryRef) return undefined;
+  const registry = await artifacts.read(registryRef) as EffectiveContractRegistry;
+  pushUniqueRef(inputRefs, registryRef);
+  const systems: SystemContract[] = [];
+  const flows: FlowContract[] = [];
+  for (const entry of registry.entries) {
+    if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
+    const contract = await artifacts.read(entry.ref) as SystemContract | FlowContract;
+    pushUniqueRef(inputRefs, entry.ref);
+    if (entry.contractType === "SystemContract") systems.push(contract as SystemContract);
+    else flows.push(contract as FlowContract);
+  }
+  const driftRef = await latestRef(artifacts, "ContractDriftReport");
+  const drift = driftRef ? await artifacts.read(driftRef) as ContractDriftReport : undefined;
+  const currentDrift = drift && sameRefIdentity(drift.registryRef, registryRef) ? drift : undefined;
+  if (currentDrift && driftRef) pushUniqueRef(inputRefs, driftRef);
+  return { registry, registryRef, systems, flows, ...(currentDrift ? { drift: currentDrift } : {}) };
+}
+
+function pushUniqueRef(refs: ArtifactRef[], ref: ArtifactRef): void {
+  if (!refs.some((existing) => sameRefIdentity(existing, ref))) refs.push(ref);
+}
+
+function sameRefIdentity(left: ArtifactRef, right: ArtifactRef): boolean {
+  return left.type === right.type && left.id === right.id && left.schemaVersion === right.schemaVersion;
+}
+
 async function readLatestWorkOrdersByFlavor(
   artifacts: {
     list(type?: string): Promise<ArtifactRef[]>;
@@ -1659,6 +1746,7 @@ type ArchitectureSummaryInputs = {
   observedRepo?: ObservedRepo;
   ownershipMap?: OwnershipMap;
   capabilityMap?: CapabilityMap;
+  repositoryLaw?: EffectiveRepositoryLaw;
   coherencyDelta?: CoherencyDelta;
   issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
@@ -1696,12 +1784,105 @@ type ArchitectureSummaryInputs = {
   generatedAt: string;
 };
 
+function renderRepositoryLaw(
+  law: EffectiveRepositoryLaw | undefined,
+  audience: "architecture" | "agent",
+): string[] {
+  const sections = ["## Adopted Repository Law", ""];
+  if (!law) {
+    sections.push(
+      "No `EffectiveContractRegistry` is available. Run `rekon contracts compile` after adopting repository contracts.",
+      "",
+    );
+    return sections;
+  }
+
+  sections.push(`Registry: ${formatRef(law.registryRef)}`);
+  sections.push(`Systems: ${law.systems.length}; flows: ${law.flows.length}.`);
+  if (law.drift) {
+    sections.push(
+      `Drift: ${law.drift.summary.current} current, ${law.drift.summary.drifted} drifted, ${law.drift.summary.unverified} unverified.`,
+    );
+  } else {
+    sections.push("Drift: not evaluated for this registry. Run `rekon contracts reconcile`.");
+  }
+  sections.push("");
+
+  if (law.systems.length > 0) {
+    sections.push("### Systems", "");
+    for (const contract of [...law.systems].sort((left, right) => left.contractId.localeCompare(right.contractId)).slice(0, 20)) {
+      const status = contractDriftStatus(law.drift, "SystemContract", contract.contractId);
+      sections.push(`- **${inlineContractText(contract.contractId)}** (${inlineContractText(contract.system.id)}, ${status}): ${inlineContractText(contract.purpose)}`);
+      if (audience === "architecture") {
+        sections.push(`  - Scope: ${contract.system.paths.map(codeSpan).join(", ") || "not declared"}`);
+        appendContractStatements(sections, "Outcomes", contract.userOutcomes);
+        appendContractStatements(sections, "Invariants", contract.invariants.map((clause) => clause.statement));
+        appendContractStatements(sections, "Prohibited", contract.prohibitedChanges.map((clause) => clause.statement));
+        appendContractStatements(sections, "Checks", contract.requiredChecks);
+      }
+    }
+    if (law.systems.length > 20) sections.push(`- ${law.systems.length - 20} additional system contracts omitted.`);
+    sections.push("");
+  }
+
+  if (law.flows.length > 0) {
+    sections.push("### End-to-End Flows", "");
+    for (const contract of [...law.flows].sort((left, right) => left.contractId.localeCompare(right.contractId)).slice(0, 20)) {
+      const status = contractDriftStatus(law.drift, "FlowContract", contract.contractId);
+      sections.push(`- **${inlineContractText(contract.contractId)}** (${contract.criticality}, ${status}): ${inlineContractText(contract.purpose)}`);
+      if (audience === "architecture") {
+        appendContractStatements(sections, "Outcomes", contract.userOutcomes);
+        sections.push(`  - Stages: ${contract.stages.map((stage) => inlineContractText(stage.label ?? stage.id)).join(" -> ") || "not declared"}`);
+        appendContractStatements(sections, "Handoffs", contract.handoffs.flatMap((handoff) => [
+          ...(handoff.guarantees ?? []),
+          ...(handoff.failureSemantics ? [handoff.failureSemantics] : []),
+        ]));
+        appendContractStatements(sections, "Invariants", contract.invariants.map((clause) => clause.statement));
+        appendContractStatements(sections, "Checks", contract.requiredChecks);
+      }
+    }
+    if (law.flows.length > 20) sections.push(`- ${law.flows.length - 20} additional flow contracts omitted.`);
+    sections.push("");
+  }
+
+  sections.push(
+    audience === "agent"
+      ? "This is an index, not task context. Call `context_for_task`; Rekon will select the applicable clauses and whole-flow obligations."
+      : "These entries are generated from committed contract sources. The sources remain canonical; this publication does not modify them.",
+    "",
+  );
+  return sections;
+}
+
+function appendContractStatements(target: string[], label: string, statements: string[]): void {
+  const rendered = statements.slice(0, 6).map(inlineContractText);
+  if (rendered.length === 0) return;
+  target.push(`  - ${label}: ${rendered.join("; ")}${statements.length > rendered.length ? `; ${statements.length - rendered.length} more` : ""}`);
+}
+
+function contractDriftStatus(
+  report: ContractDriftReport | undefined,
+  type: "SystemContract" | "FlowContract",
+  id: string,
+): "current" | "drifted" | "unverified" | "unknown" {
+  return report?.entries.find((entry) => entry.contractType === type && entry.contractId === id)?.status ?? "unknown";
+}
+
+function inlineContractText(value: string): string {
+  return truncate(value.replace(/\s+/gu, " ").replace(/[*_`|]/gu, "").trim(), 240);
+}
+
+function codeSpan(value: string): string {
+  return `\`${value.replace(/`/gu, "")}\``;
+}
+
 function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   const {
     snapshot,
     observedRepo,
     ownershipMap,
     capabilityMap,
+    repositoryLaw,
     coherencyDelta,
     issueAdjudicationReport,
     lifecycleReport,
@@ -1727,7 +1908,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   sections.push(`Snapshot: ${snapshot.header.artifactId}`);
   sections.push("");
   sections.push(
-    "Docs are publications, not canonical truth. Canonical truth lives in `.rekon/artifacts`.",
+    "Docs are publications, not canonical truth. Inspect their cited artifacts and committed repository-contract sources.",
   );
   sections.push("");
 
@@ -1741,6 +1922,8 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   sections.push(`- Indexed artifact categories: ${describeSnapshotCategories(snapshot)}`);
   sections.push(`- Snapshot freshness: ${snapshot.status.freshness}`);
   sections.push("");
+
+  sections.push(...renderRepositoryLaw(repositoryLaw, "architecture"));
 
   // Owner Systems
   sections.push("## Owner Systems");
@@ -2119,7 +2302,7 @@ function renderArchitectureSummary(input: ArchitectureSummaryInputs): string {
   sections.push("- Address P0 remediation items first.");
   sections.push("- Run required checks before handoff (`npm run typecheck`, `npm run test`, `npm run build`).");
   sections.push(
-    "- Treat this document as a publication. Canonical truth is in `.rekon/artifacts`.",
+    "- Treat this document as a publication. Inspect cited artifacts and committed repository-contract sources before changing behavior.",
   );
   sections.push("");
 
@@ -3116,6 +3299,7 @@ type AgentContractInputs = {
   observedRepo?: ObservedRepo;
   ownershipMap?: OwnershipMap;
   capabilityMap?: CapabilityMap;
+  repositoryLaw?: EffectiveRepositoryLaw;
   coherencyDelta?: CoherencyDelta;
   issueAdjudicationReport?: IssueAdjudicationReport;
   lifecycleReport?: FindingLifecycleReport;
@@ -3169,7 +3353,7 @@ const AGENT_CONTRACT_OPERATING_RULES = [
   "Do not claim completion without a VerificationResult.",
   "Do not weaken tests, validators, rules, status ledgers, or verification scripts to make work appear complete.",
   "Do not mutate findings, status ledgers, or memory to hide unresolved work.",
-  "Publications are guidance; canonical truth lives in `.rekon/artifacts`.",
+  "Publications are guidance; inspect cited artifacts and committed repository-contract sources.",
 ];
 
 const AGENT_CONTRACT_DO_NOT_DO = [
@@ -3206,6 +3390,7 @@ function renderAgentContract(input: AgentContractInputs): string {
     observedRepo,
     ownershipMap,
     capabilityMap,
+    repositoryLaw,
     coherencyDelta,
     issueAdjudicationReport,
     lifecycleReport,
@@ -3246,10 +3431,14 @@ function renderAgentContract(input: AgentContractInputs): string {
   sections.push("- This document is generated. Inspect the input artifacts when in doubt.");
   sections.push("");
 
+  sections.push(...renderRekonContextInterfaces());
+
+  sections.push(...renderRepositoryLaw(repositoryLaw, "agent"));
+
   // Canonical Truth
   sections.push("## Canonical Truth");
   sections.push("");
-  sections.push("Canonical truth lives in `.rekon/artifacts`. This publication is generated from input artifacts and may be stale.");
+  sections.push("This publication is generated from input artifacts and may be stale. Committed repository-contract sources remain repository law; inspect both the cited artifacts and sources.");
   sections.push("Run `rekon artifacts freshness --json` to verify freshness, and `rekon refresh` to rebuild the proof-loop state.");
   sections.push("");
 

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-20T01:07:45.476Z",
+  "runner": "codex-subscription",
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.7.3",
+  "fixtureSha256": "12ec53ad4df148c2c6d78a6019d0545a6032792dc2384d04941895b5cd076a56",
+  "selectionSha256": "58474ba57df675f5f2ca1ac7df928a733d1a1a34df3b5b3597e2823c53baa536",
+  "comparisonDesign": "one instruction-1.7.3 managed-interface run using the two-tool coding-agent surface for a runtime-bound implementation named only by inspected source",
+  "sourceRetention": "source-free metrics and normalized MCP tool names, relationships, and anchors only; no source, prompts, MCP payloads, diffs, raw commands, or free-form model text",
+  "tokenUsage": {
+    "source": "codex-turn-completed",
+    "inputTokens": 197579,
+    "cachedInputTokens": 167936,
+    "nonCachedInputTokens": 29643,
+    "outputTokens": 3612,
+    "reasoningOutputTokens": 1471,
+    "totalTokens": 201191,
+    "visibleEstimatedTokens": 4751
+  },
+  "summary": {
+    "cases": 1,
+    "managedRuns": 1,
+    "managedPasses": 1,
+    "managedAdoptionPasses": 1,
+    "managedFullReadFirstUsePasses": 1,
+    "managedFullRefinementUsePasses": 1,
+    "managedRefinementTargetPasses": 1,
+    "managedStrictOrderingPasses": 1,
+    "managedBehaviorOraclePasses": 1,
+    "managedRequiredPathModificationPasses": 1,
+    "managedRefinementCalls": 1,
+    "managedExcessiveRefinementCalls": 0,
+    "managedUnexpectedRefinementCalls": 0,
+    "managedBroadSearchRuns": 0,
+    "managedAverageQuality": 1,
+    "managedAverageExplorationPaths": 7,
+    "managedAverageShellCommands": 6
+  },
+  "cases": [
+    {
+      "id": "checkout-runtime-serializer-refinement",
+      "requiredRelationship": "implementation",
+      "requiredAnchorPath": "src/events/order-event-publisher.ts",
+      "requiredRefinementPaths": [
+        "src/events/order-event-serializer.ts"
+      ],
+      "managed": {
+        "runs": 1,
+        "passes": 1,
+        "adoptionPasses": 1,
+        "quality": 1,
+        "explorationPaths": 7,
+        "shellCommands": 6,
+        "interface": "mcp",
+        "tools": [
+          "context_for_task",
+          "resolve_source_target"
+        ],
+        "contextBeforeExploration": true,
+        "contextBeforeEdit": true,
+        "readFirstRecall": 1,
+        "refinementRecall": 1,
+        "refinementCalls": 1,
+        "maxRefinementCallsPerRun": 1,
+        "refinementTargetMatched": true,
+        "refinementBeforeContext": false,
+        "refinementBeforeReadFirst": false,
+        "requiredPathModificationPassed": true,
+        "behaviorOraclePassed": true,
+        "excessiveRefinement": false,
+        "unexpectedRefinement": false,
+        "broadSearch": false
+      }
+    }
+  ],
+  "tuningHistory": [
+    {
+      "attempt": 1,
+      "accepted": false,
+      "reason": "The agent correctly classified the injected binding as an implementation, while the first fixture version expected a dependency relationship; behavior remained incomplete because the target was unresolved."
+    },
+    {
+      "attempt": 2,
+      "accepted": false,
+      "reason": "Behavior and exact edit scope passed, but the agent bypassed refinement with text search, so managed-interface adoption failed."
+    },
+    {
+      "attempt": 3,
+      "accepted": true,
+      "reason": "The agent used the compact packet first, requested one exact source-target implementation delta, consumed the serializer, and passed public and hidden behavior checks."
+    }
+  ],
+  "learnings": [
+    "Known deterministic symbolic targets belong in the initial packet; runtime-bound implementations whose paths remain unknown belong behind bounded refinement.",
+    "An injected concrete binding is most naturally requested as an implementation relationship from the consuming publisher.",
+    "The advertised source-target resolver should require an exact identifier exposed by inspected source; generic refinement invites unnecessary expansion.",
+    "The accepted run used exactly one source-target call and changed only the service, runtime serializer, and regression test required by the task."
+  ]
+}

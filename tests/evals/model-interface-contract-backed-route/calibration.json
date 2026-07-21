@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-21T01:58:36Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "contextPolicy": "summary-aware",
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "6a12615cde1a3f7eb00a9e8ebd845f41fc681507769057e82c904fc18a9626c5",
+  "sourceFixtureSha256": "aecba962c3498ba6ffae5dbc35a33e4b879533ab266544093e403793717f6e9f",
+  "sourceCorpusSha256": "a424d2a6f584dcbdf4c55da7e418cf811213faff30d13c839545b11164f927df",
+  "selectionSha256": "6df1233f20584c459ccfa79f824a436b2658524faa7b4fbea03b7523e1c98e17",
+  "deliverySha256": "f838dd8f05d62721e49578f797351c5a8f892f5cd2fd1df0e4714e30cdf8e9f4",
+  "batchReportSha256": "14ee4bf0d52feff9e749b2f3e3c7e6ad0cb48a78af6ff8cf1475b88ea4abe2eb",
+  "comparisonDesign": "three managed Rekon-only Sol/xhigh repeats on the retained additive-helper repository and hidden oracle; the treatment keeps pathless route decisions but replaces generic preservation guidance with exact fresh CapabilityContract signatures, behavior, and compatibility assertions; the retained summary-aware-v2 batch is the control",
+  "sourceRetention": "fixture, source-corpus, selection, delivery, and local batch-report digests plus aggregate counts and scores only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "task": {
+    "caseId": "batch-log-formatting-contract-backed",
+    "shape": "additive-helper-with-visible-relative-imports-and-exact-declared-contracts",
+    "requiredReadPaths": 2,
+    "pathlessRouteSummaries": 2,
+    "oracleOptionalPaths": 2
+  },
+  "control": {
+    "variant": "summary-aware-v2-generic-contract",
+    "runs": 3,
+    "passes": 3,
+    "adoptionPasses": 3,
+    "averageExplorationPaths": 5,
+    "averageCommands": 5.6667,
+    "averageElapsedMs": 60614.3333,
+    "optionalRoutes": 6,
+    "optionalRoutesInspected": 6,
+    "reportedTokens": 447824,
+    "nonCachedInputTokens": 75901,
+    "visibleEstimatedTokens": 8505
+  },
+  "treatment": {
+    "variant": "summary-aware-exact-capability-contract",
+    "runs": 3,
+    "passes": 3,
+    "adoptionPasses": 3,
+    "averageExplorationPaths": 5,
+    "averageCommands": 8.3333,
+    "averageElapsedMs": 76174,
+    "optionalRoutes": 6,
+    "optionalRoutesInspected": 6,
+    "optionalRoutesReported": 3,
+    "optionalRoutesUsed": 6,
+    "optionalRoutesSkipped": 0,
+    "reportedTokens": 443323,
+    "nonCachedInputTokens": 98249,
+    "visibleEstimatedTokens": 8748
+  },
+  "comparison": {
+    "explorationPathReduction": 0,
+    "commandReduction": -0.4706,
+    "elapsedReduction": -0.2567,
+    "optionalRouteInspectionReduction": 0,
+    "reportedTokenReduction": 0.0101,
+    "nonCachedInputTokenReduction": -0.2944,
+    "visibleEstimatedTokenReduction": -0.0286
+  },
+  "judgment": {
+    "classification": "quality-preserved-exact-contract-does-not-replace-visible-source",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "exactContractDeliveryClaimAccepted": true,
+    "sourceReplacementClaimAccepted": false,
+    "contextReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "All three treatment runs passed exact scope, public checks, hidden behavior, and managed MCP adoption. Sol still inspected both omitted relative-import routes in every run. Exact signatures and behavior did not reduce exploration or source use, while commands rose 47 percent and non-cached input rose 29 percent versus the retained generic-summary control. A one-percent reported-token decrease conflicts with the other usage measures and does not support an efficiency claim."
+  }
+}

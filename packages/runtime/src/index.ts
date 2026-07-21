@@ -75,6 +75,8 @@ import {
   createCapabilityRegistry,
 } from "@rekon/sdk";
 
+export * from "./repository-contract-sources.js";
+
 export type Logger = {
   info(message: string, metadata?: Record<string, unknown>): void;
   warn(message: string, metadata?: Record<string, unknown>): void;
@@ -289,6 +291,14 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   CapabilityOntologySuggestionReport: "actions",
   CapabilityPhraseReport: "projections",
   CapabilityContract: "actions",
+  SystemContract: "actions",
+  FlowContract: "actions",
+  EffectiveContractRegistry: "actions",
+  ContractCandidateReport: "actions",
+  ContractJudgmentReport: "actions",
+  ContractAdoptionReport: "actions",
+  ContractDriftReport: "actions",
+  TaskPact: "actions",
   CapabilityArchitectureLintReport: "findings",
   CapabilityLintFindingBridgeReport: "actions",
   BridgeFindingLifecycleIntegrationReport: "actions",
@@ -434,7 +444,11 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
       await ensureGeneratedFileIfMissing(
         repoRoot,
         join(workspaceRoot, "config.json"),
-        { capabilities: [], permissions: {} },
+        {
+          capabilities: [],
+          permissions: {},
+          agentInstructions: { enabled: true, target: "AGENTS.md", sync: "on-refresh" },
+        },
       );
       if (!supersessionIndexBackfilled) {
         await backfillArtifactIndexSupersessionKeys(repoRoot, indexPath);

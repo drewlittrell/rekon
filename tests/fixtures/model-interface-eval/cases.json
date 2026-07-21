@@ -1,0 +1,633 @@
+{
+  "schemaVersion": "2.0.0",
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "src/api/user-controller.ts" },
+      { "kind": "file", "id": "src/domain/user-service.ts" },
+      { "kind": "file", "id": "src/data/user-repository.ts" },
+      { "kind": "file", "id": "src/policy/user-policy.ts" },
+      { "kind": "file", "id": "tests/user-service.test.ts" },
+      { "kind": "file", "id": "src/api/checkout-controller.ts" },
+      { "kind": "file", "id": "src/domain/checkout-service.ts" },
+      { "kind": "file", "id": "src/payments/payment-gateway.ts" },
+      { "kind": "file", "id": "src/inventory/reservation-service.ts" },
+      { "kind": "file", "id": "src/contracts/checkout-response.ts" },
+      { "kind": "file", "id": "src/policy/checkout-risk-policy.ts" },
+      { "kind": "file", "id": "tests/checkout-service.test.ts" },
+      { "kind": "file", "id": "tests/payment-gateway.test.ts" },
+      { "kind": "file", "id": "src/queue/job-consumer.ts" },
+      { "kind": "file", "id": "src/domain/report-runner.ts" },
+      { "kind": "file", "id": "src/data/report-store.ts" },
+      { "kind": "file", "id": "src/adapters/pdf-renderer.ts" },
+      { "kind": "file", "id": "src/contracts/job-payload.ts" },
+      { "kind": "file", "id": "tests/report-runner.test.ts" },
+      { "kind": "file", "id": "src/telemetry/report-metrics.ts" },
+      { "kind": "file", "id": "src/api/report-controller.ts" },
+      { "kind": "file", "id": "src/jobs/report-retry.ts" },
+      { "kind": "file", "id": "AGENTS.md" },
+      { "kind": "file", "id": "docs/strategy/north-star.md" },
+      { "kind": "file", "id": "docs/guides/task-context-workflow.md" },
+      { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" },
+      { "kind": "file", "id": "tests/contract/agent-instructions-managed.test.mjs" },
+      { "kind": "file", "id": "python/api.py" },
+      { "kind": "file", "id": "python/service.py" },
+      { "kind": "file", "id": "python/repository.py" },
+      { "kind": "file", "id": "python/tests/test_service.py" },
+      { "kind": "file", "id": "go/cmd/api/handler.go" },
+      { "kind": "file", "id": "go/internal/service/service.go" },
+      { "kind": "file", "id": "go/internal/store/store.go" },
+      { "kind": "file", "id": "go/internal/service/service_test.go" },
+      { "kind": "file", "id": "contracts/events/user-deactivated.json" }
+    ],
+    "claims": [
+      {
+        "id": "claim-api-domain",
+        "subject": { "kind": "file", "id": "src/api/user-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:api-domain"]
+      },
+      {
+        "id": "claim-domain-repository",
+        "subject": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/data/user-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:domain-repository"]
+      },
+      {
+        "id": "claim-domain-policy",
+        "subject": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/policy/user-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:domain-policy"]
+      },
+      {
+        "id": "claim-test-domain",
+        "subject": { "kind": "file", "id": "tests/user-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/domain/user-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:test-domain"]
+      },
+      {
+        "id": "claim-checkout-controller-service",
+        "subject": { "kind": "file", "id": "src/api/checkout-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-controller-service"]
+      },
+      {
+        "id": "claim-checkout-controller-response",
+        "subject": { "kind": "file", "id": "src/api/checkout-controller.ts" },
+        "predicate": "conforms_to",
+        "object": { "kind": "file", "id": "src/contracts/checkout-response.ts" },
+        "source": "schema",
+        "evidenceRefs": ["EvidenceGraph:checkout-controller-response"]
+      },
+      {
+        "id": "claim-checkout-payment",
+        "subject": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/payments/payment-gateway.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-payment"]
+      },
+      {
+        "id": "claim-checkout-inventory",
+        "subject": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/inventory/reservation-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-inventory"]
+      },
+      {
+        "id": "claim-checkout-risk",
+        "subject": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/policy/checkout-risk-policy.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-risk"]
+      },
+      {
+        "id": "claim-checkout-response",
+        "subject": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "predicate": "preserves_contract",
+        "object": { "kind": "file", "id": "src/contracts/checkout-response.ts" },
+        "source": "schema",
+        "evidenceRefs": ["EvidenceGraph:checkout-response"]
+      },
+      {
+        "id": "claim-checkout-test",
+        "subject": { "kind": "file", "id": "tests/checkout-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/domain/checkout-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:checkout-test"]
+      },
+      {
+        "id": "claim-payment-test",
+        "subject": { "kind": "file", "id": "tests/payment-gateway.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/payments/payment-gateway.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:payment-test"]
+      },
+      {
+        "id": "claim-consumer-runner",
+        "subject": { "kind": "file", "id": "src/queue/job-consumer.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:consumer-runner"]
+      },
+      {
+        "id": "claim-consumer-payload",
+        "subject": { "kind": "file", "id": "src/queue/job-consumer.ts" },
+        "predicate": "validates",
+        "object": { "kind": "file", "id": "src/contracts/job-payload.ts" },
+        "source": "schema",
+        "evidenceRefs": ["EvidenceGraph:consumer-payload"]
+      },
+      {
+        "id": "claim-runner-store",
+        "subject": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/data/report-store.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:runner-store"]
+      },
+      {
+        "id": "claim-runner-renderer",
+        "subject": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/adapters/pdf-renderer.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:runner-renderer"]
+      },
+      {
+        "id": "claim-runner-metrics",
+        "subject": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "predicate": "emits",
+        "object": { "kind": "file", "id": "src/telemetry/report-metrics.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:runner-metrics"]
+      },
+      {
+        "id": "claim-runner-test",
+        "subject": { "kind": "file", "id": "tests/report-runner.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:runner-test"]
+      },
+      {
+        "id": "claim-report-controller-runner",
+        "subject": { "kind": "file", "id": "src/api/report-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:report-controller-runner"]
+      },
+      {
+        "id": "claim-report-retry-runner",
+        "subject": { "kind": "file", "id": "src/jobs/report-retry.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/domain/report-runner.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:report-retry-runner"]
+      },
+      {
+        "id": "claim-agent-publishes-guidance",
+        "subject": { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" },
+        "predicate": "publishes",
+        "object": { "kind": "file", "id": "AGENTS.md" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:agent-publishes-guidance"]
+      },
+      {
+        "id": "claim-agent-guidance-test",
+        "subject": { "kind": "file", "id": "tests/contract/agent-instructions-managed.test.mjs" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:agent-guidance-test"]
+      },
+      {
+        "id": "claim-workflow-documents-agent",
+        "subject": { "kind": "file", "id": "docs/guides/task-context-workflow.md" },
+        "predicate": "documents",
+        "object": { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" },
+        "source": "docs",
+        "evidenceRefs": ["EvidenceGraph:workflow-documents-agent"]
+      },
+      {
+        "id": "claim-north-star-governs-agent",
+        "subject": { "kind": "file", "id": "docs/strategy/north-star.md" },
+        "predicate": "governs",
+        "object": { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" },
+        "source": "docs",
+        "evidenceRefs": ["EvidenceGraph:north-star-governs-agent"]
+      },
+      {
+        "id": "claim-python-api-service",
+        "subject": { "kind": "file", "id": "python/api.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "python/service.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:python-api-service"]
+      },
+      {
+        "id": "claim-python-service-repository",
+        "subject": { "kind": "file", "id": "python/service.py" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "python/repository.py" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:python-service-repository"]
+      },
+      {
+        "id": "claim-python-service-test",
+        "subject": { "kind": "file", "id": "python/tests/test_service.py" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "python/service.py" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:python-service-test"]
+      },
+      {
+        "id": "claim-python-user-event",
+        "subject": { "kind": "file", "id": "python/service.py" },
+        "predicate": "publishes",
+        "object": { "kind": "file", "id": "contracts/events/user-deactivated.json" },
+        "source": "schema",
+        "evidenceRefs": ["EvidenceGraph:python-user-event"]
+      },
+      {
+        "id": "claim-go-handler-service",
+        "subject": { "kind": "file", "id": "go/cmd/api/handler.go" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "go/internal/service/service.go" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:go-handler-service"]
+      },
+      {
+        "id": "claim-go-service-store",
+        "subject": { "kind": "file", "id": "go/internal/service/service.go" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "go/internal/store/store.go" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:go-service-store"]
+      },
+      {
+        "id": "claim-go-service-test",
+        "subject": { "kind": "file", "id": "go/internal/service/service_test.go" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "go/internal/service/service.go" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:go-service-test"]
+      },
+      {
+        "id": "claim-go-user-event",
+        "subject": { "kind": "file", "id": "go/internal/service/service.go" },
+        "predicate": "consumes",
+        "object": { "kind": "file", "id": "contracts/events/user-deactivated.json" },
+        "source": "schema",
+        "evidenceRefs": ["EvidenceGraph:go-user-event"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:user-lifecycle",
+        "verb": "manage",
+        "noun": "user lifecycle",
+        "implementedBy": [
+          { "kind": "file", "id": "src/api/user-controller.ts" },
+          { "kind": "file", "id": "src/domain/user-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:user-lifecycle"]
+      },
+      {
+        "id": "capability:checkout-flow",
+        "verb": "complete",
+        "noun": "checkout flow",
+        "implementedBy": [
+          { "kind": "file", "id": "src/api/checkout-controller.ts" },
+          { "kind": "file", "id": "src/domain/checkout-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:checkout-flow"]
+      },
+      {
+        "id": "capability:report-generation",
+        "verb": "generate",
+        "noun": "reports",
+        "implementedBy": [
+          { "kind": "file", "id": "src/queue/job-consumer.ts" },
+          { "kind": "file", "id": "src/domain/report-runner.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:report-generation"]
+      },
+      {
+        "id": "capability:managed-agent-guidance",
+        "verb": "maintain",
+        "noun": "agent guidance",
+        "implementedBy": [
+          { "kind": "file", "id": "packages/cli/src/agent-instructions.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:managed-agent-guidance"]
+      },
+      {
+        "id": "capability:user-deactivation-event",
+        "verb": "publish",
+        "noun": "user deactivation event",
+        "implementedBy": [
+          { "kind": "file", "id": "python/service.py" },
+          { "kind": "file", "id": "go/internal/service/service.go" }
+        ],
+        "evidenceRefs": ["CapabilityMap:user-deactivation-event"]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "user-implementation",
+      "shape": "implementation",
+      "task": "Add user deactivation in src/domain/user-service.ts without changing the controller's public contract. Preserve authorization and persistence semantics. Run npm run test.",
+      "paths": ["src/domain/user-service.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:domain-repository", "EvidenceGraph:domain-policy", "CapabilityMap:user-lifecycle"],
+        "contextPaths": ["src/api/user-controller.ts", "src/domain/user-service.ts", "src/data/user-repository.ts", "src/policy/user-policy.ts", "tests/user-service.test.ts"],
+        "allowedContextPaths": ["src/api/user-controller.ts", "src/domain/user-service.ts", "src/data/user-repository.ts", "src/policy/user-policy.ts", "tests/user-service.test.ts"],
+        "commands": ["npm run test"],
+        "constraintFragments": ["public contract", "authorization", "persistence"],
+        "maxCoreItems": 6,
+        "maxProjectedTokens": 500
+      }
+    },
+    {
+      "id": "user-review",
+      "shape": "review",
+      "task": "Review src/api/user-controller.ts but do not change the public API. Run npm run typecheck.",
+      "paths": ["src/api/user-controller.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:api-domain", "CapabilityMap:user-lifecycle"],
+        "contextPaths": ["src/api/user-controller.ts", "src/domain/user-service.ts"],
+        "allowedContextPaths": ["src/api/user-controller.ts", "src/domain/user-service.ts"],
+        "commands": ["npm run typecheck"],
+        "constraintFragments": ["public API"],
+        "maxCoreItems": 4,
+        "maxProjectedTokens": 350
+      }
+    },
+    {
+      "id": "user-refactor",
+      "shape": "refactor",
+      "task": "Refactor src/data/user-repository.ts and src/policy/user-policy.ts but do not change database behavior. Run npm test.",
+      "paths": ["src/data/user-repository.ts", "src/policy/user-policy.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:domain-repository", "EvidenceGraph:domain-policy"],
+        "contextPaths": ["src/domain/user-service.ts", "src/data/user-repository.ts", "src/policy/user-policy.ts"],
+        "allowedContextPaths": ["src/domain/user-service.ts", "src/data/user-repository.ts", "src/policy/user-policy.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": ["database behavior"],
+        "maxCoreItems": 6,
+        "maxProjectedTokens": 400
+      }
+    },
+    {
+      "id": "user-debugging",
+      "shape": "debugging",
+      "task": "Debug the failing user service test in tests/user-service.test.ts. Run npm test.",
+      "paths": ["tests/user-service.test.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:test-domain"],
+        "contextPaths": ["src/domain/user-service.ts", "tests/user-service.test.ts"],
+        "allowedContextPaths": ["src/domain/user-service.ts", "tests/user-service.test.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": [],
+        "maxCoreItems": 3,
+        "maxProjectedTokens": 300
+      }
+    },
+    {
+      "id": "checkout-cross-system",
+      "shape": "cross-system-implementation",
+      "task": "Add an idempotent checkout retry in src/domain/checkout-service.ts without changing the checkout response contract. Preserve inventory reservation and payment idempotency. Run npm test.",
+      "paths": ["src/domain/checkout-service.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:checkout-payment", "EvidenceGraph:checkout-inventory", "EvidenceGraph:checkout-response", "EvidenceGraph:checkout-test"],
+        "contextPaths": ["src/domain/checkout-service.ts", "src/payments/payment-gateway.ts", "src/inventory/reservation-service.ts", "src/contracts/checkout-response.ts", "tests/checkout-service.test.ts"],
+        "allowedContextPaths": ["src/api/checkout-controller.ts", "src/domain/checkout-service.ts", "src/payments/payment-gateway.ts", "src/inventory/reservation-service.ts", "src/contracts/checkout-response.ts", "src/policy/checkout-risk-policy.ts", "tests/checkout-service.test.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": ["response contract", "inventory reservation", "payment idempotency"],
+        "maxCoreItems": 9,
+        "maxProjectedTokens": 650
+      }
+    },
+    {
+      "id": "checkout-contract-review",
+      "shape": "contract-review",
+      "task": "Review src/api/checkout-controller.ts for response-contract drift. Do not change the wire format. Run npm run typecheck.",
+      "paths": ["src/api/checkout-controller.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:checkout-controller-service", "EvidenceGraph:checkout-controller-response"],
+        "contextPaths": ["src/api/checkout-controller.ts", "src/domain/checkout-service.ts", "src/contracts/checkout-response.ts"],
+        "allowedContextPaths": ["src/api/checkout-controller.ts", "src/domain/checkout-service.ts", "src/contracts/checkout-response.ts"],
+        "commands": ["npm run typecheck"],
+        "constraintFragments": ["wire format"],
+        "maxCoreItems": 5,
+        "maxProjectedTokens": 400
+      }
+    },
+    {
+      "id": "checkout-placement",
+      "shape": "placement",
+      "task": "Move checkout fraud thresholds from src/domain/checkout-service.ts into src/policy/checkout-risk-policy.ts. Preserve the service API and run npm test.",
+      "paths": ["src/domain/checkout-service.ts", "src/policy/checkout-risk-policy.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:checkout-risk"],
+        "contextPaths": ["src/domain/checkout-service.ts", "src/policy/checkout-risk-policy.ts", "tests/checkout-service.test.ts"],
+        "allowedContextPaths": ["src/api/checkout-controller.ts", "src/domain/checkout-service.ts", "src/policy/checkout-risk-policy.ts", "tests/checkout-service.test.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": ["service API"],
+        "minPathPrecision": 0.8,
+        "maxIrrelevantPaths": 1,
+        "maxCoreItems": 7,
+        "maxProjectedTokens": 650
+      }
+    },
+    {
+      "id": "checkout-impact-review",
+      "shape": "cross-system-review",
+      "task": "Review the boundary between src/payments/payment-gateway.ts and src/inventory/reservation-service.ts. Preserve retry ordering and run npm test.",
+      "paths": ["src/payments/payment-gateway.ts", "src/inventory/reservation-service.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:checkout-payment", "EvidenceGraph:checkout-inventory", "EvidenceGraph:payment-test"],
+        "contextPaths": ["src/domain/checkout-service.ts", "src/payments/payment-gateway.ts", "src/inventory/reservation-service.ts", "tests/payment-gateway.test.ts"],
+        "allowedContextPaths": ["src/domain/checkout-service.ts", "src/payments/payment-gateway.ts", "src/inventory/reservation-service.ts", "tests/payment-gateway.test.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": ["retry ordering"],
+        "maxCoreItems": 6,
+        "maxProjectedTokens": 500
+      }
+    },
+    {
+      "id": "worker-debugging",
+      "shape": "debugging",
+      "task": "Debug the failing report runner test in tests/report-runner.test.ts. Run npm test.",
+      "paths": ["tests/report-runner.test.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:runner-test"],
+        "contextPaths": ["tests/report-runner.test.ts", "src/domain/report-runner.ts"],
+        "allowedContextPaths": ["tests/report-runner.test.ts", "src/domain/report-runner.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": [],
+        "maxCoreItems": 3,
+        "maxProjectedTokens": 300
+      }
+    },
+    {
+      "id": "worker-contract",
+      "shape": "contract-change",
+      "task": "Update src/queue/job-consumer.ts to accept a new optional field without changing existing job payload semantics. Run npm run typecheck.",
+      "paths": ["src/queue/job-consumer.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:consumer-runner", "EvidenceGraph:consumer-payload", "CapabilityMap:report-generation"],
+        "contextPaths": ["src/queue/job-consumer.ts", "src/domain/report-runner.ts", "src/contracts/job-payload.ts"],
+        "allowedContextPaths": ["src/queue/job-consumer.ts", "src/domain/report-runner.ts", "src/contracts/job-payload.ts"],
+        "commands": ["npm run typecheck"],
+        "constraintFragments": ["job payload semantics"],
+        "maxCoreItems": 5,
+        "maxProjectedTokens": 400
+      }
+    },
+    {
+      "id": "worker-refactor",
+      "shape": "refactor",
+      "task": "Refactor src/data/report-store.ts and src/adapters/pdf-renderer.ts while preserving report output. Run npm test.",
+      "paths": ["src/data/report-store.ts", "src/adapters/pdf-renderer.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:runner-store", "EvidenceGraph:runner-renderer"],
+        "contextPaths": ["src/data/report-store.ts", "src/adapters/pdf-renderer.ts", "src/domain/report-runner.ts"],
+        "allowedContextPaths": ["src/data/report-store.ts", "src/adapters/pdf-renderer.ts", "src/domain/report-runner.ts"],
+        "commands": ["npm test"],
+        "constraintFragments": ["report output"],
+        "maxCoreItems": 5,
+        "maxProjectedTokens": 400
+      }
+    },
+    {
+      "id": "worker-stale-context",
+      "shape": "stale-context",
+      "task": "Update retry behavior in src/domain/report-runner.ts. Preserve metrics emission and ensure stalled jobs remain observable.",
+      "paths": ["src/domain/report-runner.ts"],
+      "profile": "compact",
+      "warnings": ["OwnershipMap is stale; verify ownership before editing."],
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:runner-metrics", "EvidenceGraph:report-retry-runner"],
+        "contextPaths": ["src/domain/report-runner.ts", "src/telemetry/report-metrics.ts", "src/jobs/report-retry.ts"],
+        "allowedContextPaths": ["src/queue/job-consumer.ts", "src/domain/report-runner.ts", "tests/report-runner.test.ts", "src/telemetry/report-metrics.ts", "src/jobs/report-retry.ts"],
+        "commands": [],
+        "verificationArtifacts": ["manual-verification"],
+        "constraintFragments": ["metrics emission"],
+        "warningFragments": ["OwnershipMap is stale"],
+        "minPathPrecision": 0.8,
+        "maxIrrelevantPaths": 1,
+        "maxCoreItems": 7,
+        "maxProjectedTokens": 700
+      }
+    },
+    {
+      "id": "managed-instructions",
+      "shape": "documentation-contract",
+      "task": "Update packages/cli/src/agent-instructions.ts and keep human-authored AGENTS.md content unchanged. Ensure the managed block remains bounded. Run npm test.",
+      "paths": ["packages/cli/src/agent-instructions.ts"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:agent-publishes-guidance", "EvidenceGraph:agent-guidance-test", "EvidenceGraph:workflow-documents-agent", "EvidenceGraph:north-star-governs-agent", "CapabilityMap:managed-agent-guidance"],
+        "contextPaths": ["packages/cli/src/agent-instructions.ts", "AGENTS.md", "tests/contract/agent-instructions-managed.test.mjs", "docs/guides/task-context-workflow.md", "docs/strategy/north-star.md"],
+        "allowedContextPaths": ["packages/cli/src/agent-instructions.ts", "AGENTS.md", "tests/contract/agent-instructions-managed.test.mjs", "docs/guides/task-context-workflow.md", "docs/strategy/north-star.md"],
+        "commands": ["npm test"],
+        "constraintFragments": ["human-authored AGENTS.md content"],
+        "maxCoreItems": 7,
+        "maxProjectedTokens": 550
+      }
+    },
+    {
+      "id": "python-implementation",
+      "shape": "python-implementation",
+      "task": "Add user deactivation in python/service.py without changing the event schema. Preserve repository behavior. Run pytest.",
+      "paths": ["python/service.py"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:python-api-service", "EvidenceGraph:python-service-repository", "EvidenceGraph:python-service-test", "EvidenceGraph:python-user-event", "CapabilityMap:user-deactivation-event"],
+        "contextPaths": ["python/api.py", "python/service.py", "python/repository.py", "python/tests/test_service.py", "contracts/events/user-deactivated.json"],
+        "allowedContextPaths": ["python/api.py", "python/service.py", "python/repository.py", "python/tests/test_service.py", "contracts/events/user-deactivated.json"],
+        "commands": ["pytest"],
+        "constraintFragments": ["event schema", "repository behavior"],
+        "maxCoreItems": 7,
+        "maxProjectedTokens": 550
+      }
+    },
+    {
+      "id": "go-debugging",
+      "shape": "go-debugging",
+      "task": "Debug go/internal/service/service_test.go without changing the handler contract. Run go test ./...",
+      "paths": ["go/internal/service/service_test.go"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:go-service-test"],
+        "contextPaths": ["go/internal/service/service_test.go", "go/internal/service/service.go"],
+        "allowedContextPaths": ["go/internal/service/service_test.go", "go/internal/service/service.go"],
+        "commands": ["go test ./..."],
+        "constraintFragments": ["handler contract"],
+        "maxCoreItems": 3,
+        "maxProjectedTokens": 325
+      }
+    },
+    {
+      "id": "cross-language-contract",
+      "shape": "cross-language-contract",
+      "task": "Review contracts/events/user-deactivated.json across Python and Go consumers. Do not change required fields. Run npm run typecheck.",
+      "paths": ["contracts/events/user-deactivated.json"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:python-user-event", "EvidenceGraph:go-user-event"],
+        "contextPaths": ["contracts/events/user-deactivated.json", "python/service.py", "go/internal/service/service.go"],
+        "allowedContextPaths": ["contracts/events/user-deactivated.json", "python/service.py", "go/internal/service/service.go"],
+        "commands": ["npm run typecheck"],
+        "constraintFragments": ["required fields"],
+        "maxCoreItems": 5,
+        "maxProjectedTokens": 425
+      }
+    },
+    {
+      "id": "polyglot-refactor",
+      "shape": "cross-language-refactor",
+      "task": "Refactor python/service.py and go/internal/service/service.go while preserving the user deactivation event contract. Run npm test and npm run typecheck.",
+      "paths": ["python/service.py", "go/internal/service/service.go"],
+      "profile": "compact",
+      "expect": {
+        "evidenceRefs": ["EvidenceGraph:python-service-repository", "EvidenceGraph:python-user-event", "EvidenceGraph:go-service-store", "EvidenceGraph:go-user-event", "CapabilityMap:user-deactivation-event"],
+        "contextPaths": ["python/api.py", "python/service.py", "python/repository.py", "python/tests/test_service.py", "go/cmd/api/handler.go", "go/internal/service/service.go", "go/internal/store/store.go", "go/internal/service/service_test.go", "contracts/events/user-deactivated.json"],
+        "allowedContextPaths": ["python/api.py", "python/service.py", "python/repository.py", "python/tests/test_service.py", "go/cmd/api/handler.go", "go/internal/service/service.go", "go/internal/store/store.go", "go/internal/service/service_test.go", "contracts/events/user-deactivated.json"],
+        "commands": ["npm test", "npm run typecheck"],
+        "constraintFragments": ["user deactivation event contract"],
+        "maxCoreItems": 12,
+        "maxProjectedTokens": 800
+      }
+    }
+  ]
+}

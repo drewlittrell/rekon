@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-21T02:18:28Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "contextPolicy": "navigation-only",
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "a79d9bd8d6ab8ee682f88b16871856a7f51669c64409edf887d74c955aaf88a3",
+  "sourceFixtureSha256": "88e4a8aea241ecfb62634b7ecfa1dc8a2fa3916c0605e1a730d1c3b7d42c09d1",
+  "sourceCorpusSha256": "ae0a0074af01e7818a421c69bdd98cedd856147b9a1ce3bf953e8891dee659f6",
+  "selectionSha256": "7ddf93006a66203936dd3748596dc60dbb565c4e9ae621e421e3ea2947848a32",
+  "deliverySha256": "705fa9964e10f254daf913bc062cd38abc60aed033cd9c9d37b1ab5efb23e8dc",
+  "batchReportSha256": "c01813f5be40544ab75011c2ba967887eccef0ccec5b30595c31b4ad05979af6",
+  "comparisonDesign": "three paired baseline/Rekon Sol/xhigh repeats on one isolated additive-helper task; Rekon receives required file routes, normative CapabilityContract constraints, and checks but no optional dependency path, route summary, or implementation description; correctness, exact scope, checks, hidden behavior, managed adoption, source expansion, exploration, commands, and aggregate token counts gate interpretation",
+  "sourceRetention": "fixture, source-fixture, source-corpus, selection, delivery, and local batch-report digests plus aggregate counts and scores only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "task": {
+    "caseId": "batch-log-formatting-navigation-packet",
+    "shape": "additive-helper-with-normative-law-and-minimal-navigation",
+    "requiredReadPaths": 2,
+    "deliveredOptionalPaths": 0,
+    "oracleOptionalPaths": 1
+  },
+  "payloadComparison": {
+    "full": {
+      "estimatedTokens": 140,
+      "utf8Bytes": 558,
+      "sha256": "b75edc7d1830029229b8f8c78c8dd3e4207bfbb186e0ea874e32628f455822db"
+    },
+    "summaryAware": {
+      "estimatedTokens": 352,
+      "utf8Bytes": 1408,
+      "sha256": "ac49a57f666ebb39afc41e4c2d33015171e6dcabb754a5325bb61d4073724225"
+    },
+    "navigationOnly": {
+      "estimatedTokens": 129,
+      "utf8Bytes": 513,
+      "sha256": "705fa9964e10f254daf913bc062cd38abc60aed033cd9c9d37b1ab5efb23e8dc"
+    }
+  },
+  "baseline": {
+    "runs": 3,
+    "passes": 3,
+    "averageExplorationPaths": 6.3333,
+    "averageCommands": 5,
+    "averageDiscoveryCommands": 3.3333,
+    "averageReadCommands": 0.6667,
+    "averageElapsedMs": 57291.3333,
+    "implementationPathInspected": 1,
+    "reportedTokens": 392162,
+    "nonCachedInputTokens": 60018,
+    "visibleEstimatedTokens": 5284
+  },
+  "rekon": {
+    "runs": 3,
+    "passes": 3,
+    "adoptionPasses": 3,
+    "averageExplorationPaths": 4,
+    "averageCommands": 5.3333,
+    "averageDiscoveryCommands": 2,
+    "averageReadCommands": 1,
+    "averageElapsedMs": 60561,
+    "implementationPathDelivered": 0,
+    "implementationPathInspected": 3,
+    "reportedTokens": 514165,
+    "nonCachedInputTokens": 81491,
+    "visibleEstimatedTokens": 7544
+  },
+  "comparison": {
+    "candidatePairs": 3,
+    "discardedPairs": 0,
+    "explorationPathReduction": 0.3684,
+    "commandReduction": -0.0667,
+    "discoveryCommandReduction": 0.4,
+    "readCommandReduction": -0.5,
+    "elapsedReduction": -0.0571,
+    "reportedTokenReduction": -0.3111,
+    "nonCachedInputTokenReduction": -0.3578,
+    "visibleEstimatedTokenReduction": -0.4277,
+    "payloadTokenReductionAgainstFull": 0.0786,
+    "payloadTokenReductionAgainstSummaryAware": 0.6335
+  },
+  "judgment": {
+    "classification": "quality-preserved-navigation-reduced-source-expansion-and-token-overhead",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "payloadReductionClaimAccepted": true,
+    "navigationReductionClaimAccepted": true,
+    "sourceReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "Both conditions passed all three changes with exact scope, checks, and hidden behavior, and every Rekon run adopted MCP before exploration. The 129-token navigation packet was smaller than both full and summary-aware delivery and reduced aggregate repository exposure by 37 percent. It did not replace source inspection: despite receiving no sanitizer path, every Rekon run followed the import and inspected it, compared with one baseline run. Commands rose 7 percent, reported tokens rose 31 percent, non-cached input rose 36 percent, and the visible estimate rose 43 percent. This supports a narrow routing benefit, not source-read reduction, token savings, or production promotion."
+  }
+}

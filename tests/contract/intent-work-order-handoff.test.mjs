@@ -25,6 +25,7 @@ const STATUS_REF = REF("IntentStatusReport", "isr-1");
 const ASSESS_REF = REF("IntentAssessmentReport", "ia-1");
 const FRESH_REF = REF("PathFreshnessReport", "pf-1");
 const DRIFT_REF = REF("RuntimeGraphDriftReport", "drift-1");
+const TASK_PACT_REF = REF("TaskPact", "task-pact-1");
 
 function approvedPlan(over = {}) {
   return {
@@ -212,6 +213,35 @@ test("generated WorkOrder includes boundary statement / fields", () => {
   assert.match(result.workOrder.markdown, /does not write source files/);
 });
 
+test("generated WorkOrder preserves TaskPact impact obligations and lineage", () => {
+  const taskPact = {
+    header: header("TaskPact", TASK_PACT_REF.id),
+    task: { text: "Fix create user flow", paths: ["src/app.ts"] },
+    contracts: [],
+    requiredContextPaths: [],
+    constraints: [],
+    impactObligations: [{
+      id: "preserve:user-flow",
+      kind: "preserve",
+      statement: "Preserve the user-creation outcome.",
+      paths: ["src/app.ts"],
+      requiredChecks: ["npm run test:user-flow"],
+      contractRefs: [],
+    }],
+    requiredChecks: ["npm run test:user-flow"],
+    warnings: [],
+    summary: { contracts: 0, constraints: 0, impactObligations: 1, requiredContextPaths: 0, requiredChecks: 1 },
+  };
+  const result = gen({ taskPact, taskPactRef: TASK_PACT_REF });
+
+  assert.equal(result.status, "generated");
+  assert.equal(result.workOrder.intentHandoff.taskPactRef.id, TASK_PACT_REF.id);
+  assert.deepEqual(result.workOrder.intentHandoff.impactObligationIds, ["preserve:user-flow"]);
+  assert.equal(result.workOrder.impactObligations[0].statement, "Preserve the user-creation outcome.");
+  assert.ok(result.workOrder.requiredChecks.some((check) => check.includes("npm run test:user-flow")));
+  assert.match(result.workOrder.markdown, /Repository-law impact obligations/u);
+});
+
 // ---------- CLI ----------
 function runCli(args) {
   return spawnSync("node", [cliPath, ...args], { encoding: "utf8" });
@@ -245,6 +275,22 @@ const genRoot = await mkdtemp(join(tmpdir(), "rekon-iwo-gen-"));
 await mkdir(join(genRoot, "src"), { recursive: true });
 await writeFile(join(genRoot, "src", "app.ts"), "export const app = 1;\n", "utf8");
 await seed(genRoot);
+await mkdir(join(genRoot, "rekon", "contracts"), { recursive: true });
+await writeFile(join(genRoot, "rekon", "contracts", "app.json"), `${JSON.stringify({
+  version: "1.0.0",
+  sourceId: "intent-work-order.fixture",
+  systems: [{
+    id: "app-system",
+    systemId: "app",
+    scope: { paths: ["src/**"] },
+    purpose: "Create users through the application flow.",
+    userOutcomes: ["A valid user is created."],
+    invariants: [{ id: "user-outcome", statement: "Preserve the user-creation outcome." }],
+    requiredChecks: ["npm run test:user-flow"],
+  }],
+}, null, 2)}\n`, "utf8");
+const compileContracts = spawnSync(process.execPath, [cliPath, "contracts", "compile", "--root", genRoot, "--json"], { encoding: "utf8" });
+assert.equal(compileContracts.status, 0, compileContracts.stderr || compileContracts.stdout);
 
 const blockedRoot = await mkdtemp(join(tmpdir(), "rekon-iwo-blocked-"));
 await seed(blockedRoot, { approval: { status: "not-approved", proof: { downstreamHandoff: { workOrderAllowed: false, sourceWriteAllowed: false } } } });
@@ -257,6 +303,8 @@ test("CLI writes a WorkOrder when gates pass", () => {
   assert.equal(payload.status, "generated");
   assert.equal(payload.artifact.type, "WorkOrder");
   assert.ok(payload.phases >= 1);
+  assert.equal(payload.source.taskPactRef.type, "TaskPact");
+  assert.ok(payload.impactObligations >= 1);
 });
 
 // ---------- 23 ----------

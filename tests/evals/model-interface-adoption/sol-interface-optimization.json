@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-20T01:07:45.476Z",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "instructionVersion": "1.7.3",
+  "fixtureSha256": "72b459e3f9a96c392c68dc0199d7ad7632198be991d678e5f08fee3eeb829357",
+  "sourceRetention": "aggregate counts, paths, scores, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "changes": {
+    "advertisedToolSchemaBytes": {
+      "before": 3757,
+      "after": 1730
+    },
+    "managedMcpStepBytes": {
+      "before": 2447,
+      "after": 788
+    },
+    "advertisedTools": [
+      "context_for_task",
+      "resolve_source_target"
+    ],
+    "legacyToolsAcceptedButUnadvertised": [
+      "orientation",
+      "where_does_this_belong",
+      "preflight_change",
+      "refine_task_context"
+    ],
+    "sourceTargetRequired": true,
+    "batchReadGuidance": true
+  },
+  "affectedCrossSystemCase": {
+    "id": "cross-system-account-suspension",
+    "passed": true,
+    "quality": 1,
+    "adopted": true,
+    "tools": [
+      "context_for_task"
+    ],
+    "refinementCalls": 0,
+    "unexpectedRefinement": false,
+    "readFirstRecall": 1,
+    "broadSearch": false,
+    "explorationPaths": 7,
+    "shellCommands": 5,
+    "readCommands": 1,
+    "subscriptionReportedTokens": 176333,
+    "visibleEstimatedTokens": 4607,
+    "relativeToOriginalManagedFailure": {
+      "originalSubscriptionReportedTokens": 218250,
+      "originalVisibleEstimatedTokens": 6071,
+      "subscriptionReportedTokenReduction": 0.192,
+      "visibleEstimatedTokenReduction": 0.241
+    }
+  },
+  "positiveRuntimeBindingCase": {
+    "id": "checkout-runtime-serializer-refinement",
+    "passed": true,
+    "quality": 1,
+    "adopted": true,
+    "tools": [
+      "context_for_task",
+      "resolve_source_target"
+    ],
+    "relationship": "implementation",
+    "anchorPath": "src/events/order-event-publisher.ts",
+    "refinementCalls": 1,
+    "refinementTargetMatched": true,
+    "readFirstRecall": 1,
+    "refinementRecall": 1,
+    "broadSearch": false,
+    "explorationPaths": 7,
+    "shellCommands": 6,
+    "subscriptionReportedTokens": 201191,
+    "visibleEstimatedTokens": 4751
+  },
+  "decision": {
+    "classification": "targeted-overhead-reduced-general-token-savings-unproven",
+    "tokenSavingsClaimAccepted": false,
+    "reason": "The affected cross-system run removed unnecessary refinement and reduced measured overhead while preserving correctness. The true runtime-binding case retained one necessary source-target lookup. Neither source-free Rekon run was paired with a fresh baseline, and the cross-system total remains above historical baseline runs."
+  }
+}

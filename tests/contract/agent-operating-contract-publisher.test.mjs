@@ -12,6 +12,7 @@ const exampleRoot = join(repoRoot, "examples/simple-js-ts");
 const REQUIRED_SECTIONS = [
   "# Rekon Agent Operating Contract",
   "## How To Use This Contract",
+  "## Rekon Context Interfaces",
   "## Canonical Truth",
   "## Operating Rules",
   "## Resolver Workflow",
@@ -103,7 +104,9 @@ test("agent contract carries the canonical-truth warning", async () => {
     const publication = await readAgentContract(root);
 
     assert.ok(
-      publication.content.includes("Canonical truth lives in `.rekon/artifacts`."),
+      publication.content.includes(
+        "Committed repository-contract sources remain repository law; inspect both the cited artifacts and sources.",
+      ),
       "publication must include the canonical-truth warning",
     );
     assert.ok(
@@ -125,6 +128,38 @@ test("agent contract operating rules include resolver/seam/preflight order and a
       publication.content.includes("Do not weaken tests, validators, rules, status ledgers, or verification scripts"),
       "operating rules must include anti-gaming text",
     );
+  });
+});
+
+test("agent publications explain MCP usage and the CLI task-context fallback", async () => {
+  await withFixture(async (root) => {
+    runCli(["refresh", "--root", root, "--json"]);
+    const contract = await readAgentContract(root);
+
+    for (const expected of [
+      "## Rekon Context Interfaces",
+      "`context_for_task`",
+      "`resolve_source_target`",
+      "`rekon mcp serve --root .`",
+      "`rekon context task",
+      "`rekon resolve preflight",
+      "local and read-only",
+    ]) {
+      assert.ok(contract.content.includes(expected), `agent contract missing ${expected}`);
+    }
+
+    const agentsResult = JSON.parse(
+      runCli(["publish", "agents", "--root", root, "--json"]).stdout,
+    );
+    const agentsRef = agentsResult.artifacts.find((ref) => ref.type === "Publication");
+    assert.ok(agentsRef);
+    const agentsPublication = JSON.parse(await readFile(join(root, agentsRef.path), "utf8"));
+
+    assert.ok(agentsPublication.content.includes("## Rekon Context Interfaces"));
+    assert.ok(agentsPublication.content.includes("`context_for_task`"));
+    assert.ok(agentsPublication.content.includes("`resolve_source_target`"));
+    assert.ok(agentsPublication.content.includes("`rekon context task"));
+    assert.ok(agentsPublication.content.includes("`rekon resolve preflight"));
   });
 });
 
@@ -377,15 +412,11 @@ test("agent contract writes to .rekon/artifacts/publications/agent-contract.md",
 test("publish agent-contract does not overwrite a root AGENTS.md", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
+    const before = await readFile(join(root, "AGENTS.md"), "utf8");
     runCli(["publish", "agent-contract", "--root", root, "--json"]);
+    const after = await readFile(join(root, "AGENTS.md"), "utf8");
 
-    // examples/simple-js-ts ships no AGENTS.md; assert that publishing
-    // never created one outside .rekon/.
-    const exists = await readFile(join(root, "AGENTS.md"), "utf8").then(
-      () => true,
-      () => false,
-    );
-    assert.equal(exists, false, "publish agent-contract must not write a root AGENTS.md");
+    assert.equal(after, before, "publish agent-contract must not modify root AGENTS.md");
   });
 });
 

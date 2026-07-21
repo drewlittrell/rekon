@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-20T23:38:44Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "comparedPolicies": ["full", "role-aware"],
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "7ef891575578d9826a67d9ca6d58e29f52017af70ceddcf49783051371ed6a0d",
+  "selectionSha256": {
+    "full": "8a374004eb0b35996436f67b6b76ff5debd19c54f64f77100a55e9b2bf8c1763",
+    "roleAware": "58abf16370e67d8da8a0327681377e1ffab83a3a130d14ef1aba66a2f457dcde"
+  },
+  "deliveryDigests": {
+    "full": [
+      {
+        "caseId": "configured-region-failover",
+        "sha256": "a900588a36e28472699e494b018ae4b5ba5b7d6724db54671ee1a0a003ea0602"
+      }
+    ],
+    "roleAware": [
+      {
+        "caseId": "configured-region-failover",
+        "sha256": "850a4b12ddf19d6d0314f106d5d7d38005c03f8112ce8214fe0747a01de9eb31"
+      }
+    ]
+  },
+  "batchReportSha256": {
+    "full": "81003d67a67625ac35cae1f906c55378901090713c32f4e58f3cb4081a4c86f6",
+    "roleAware": "9981d4a9f51b03e4fe7280ca6e908cb75962c4aa019a6d8a3c7e67821759fe76"
+  },
+  "comparisonDesign": "three managed Rekon-only Sol/xhigh repeats per policy on one unchanged independent configuration-rollout task; correctness, scope, hidden checks, and managed adoption gate efficiency interpretation",
+  "sourceRetention": "fixture, selection, delivery, and local batch-report digests plus aggregate counts, paths, scores, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "task": {
+    "caseId": "configured-region-failover",
+    "shape": "configuration-rollout",
+    "selectedPaths": 5,
+    "fullMandatoryPaths": 5,
+    "roleAwareMandatoryPaths": 3,
+    "roleAwareConditionalPaths": [
+      "apps/gateway/src/region-controller.ts",
+      "platform/routing/src/load-region-config.ts"
+    ]
+  },
+  "variants": {
+    "full": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 6,
+      "averageCommands": 4.6667,
+      "selectedRoutesInspected": 15,
+      "reportedTokens": 451670,
+      "nonCachedInputTokens": 78086,
+      "visibleEstimatedTokens": 9655
+    },
+    "roleAware": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 6,
+      "averageCommands": 5.6667,
+      "selectedRoutesInspected": 15,
+      "conditionalRoutesOffered": 6,
+      "conditionalRoutesInspected": 6,
+      "conditionalRoutesSkipped": 0,
+      "reportedTokens": 532222,
+      "nonCachedInputTokens": 104620,
+      "visibleEstimatedTokens": 10362
+    }
+  },
+  "comparison": {
+    "mandatoryPathReduction": 0.4,
+    "actualSelectedRouteReadReduction": 0,
+    "explorationPathReduction": 0,
+    "commandReduction": -0.2143,
+    "reportedTokenReduction": -0.1783,
+    "nonCachedInputTokenReduction": -0.3398,
+    "visibleEstimatedTokenReduction": -0.0732
+  },
+  "judgment": {
+    "classification": "quality-preserved-conditional-routes-used-no-efficiency-gain",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "conditionalRouteUseMeasured": true,
+    "contextReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "promotionAccepted": false,
+    "reason": "Both policies passed all three runs with exact scope, hidden checks, and managed MCP adoption. Sol inspected both conditional routes in every role-aware run, matching an oracle that treats those paths as required for this task. Exploration did not change, while role-aware used 17.8% more reported tokens and 7.3% more visible-estimate tokens. This validates explicit conditional access without showing that role-aware delivery can skip a truly optional route."
+  }
+}

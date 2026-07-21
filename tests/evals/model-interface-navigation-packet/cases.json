@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "1.0.0",
+  "contextFixture": "../model-interface-symbol-contract-route/cases.json",
+  "repository": {
+    "root": "../model-interface-symbol-contract-route/repo"
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-navigation-packet-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-navigation-packet-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-21T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-navigation-packet-eval" },
+      "producer": { "id": "@rekon/model-interface-navigation-packet-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" },
+      "provenance": {
+        "confidence": 1,
+        "notes": ["Fixture-declared normative contract for minimal-navigation evaluation."]
+      }
+    },
+    "source": {
+      "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" }
+    },
+    "summary": {
+      "total": 1,
+      "configured": 1,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 1,
+      "withPlacementRules": 0,
+      "withPreservationRules": 1
+    },
+    "contracts": [
+      {
+        "id": "format-log-messages-navigation-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:format-log-messages"
+        },
+        "match": { "verb": "format", "noun": "log messages" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Preserve existing single-message formatting behavior and existing exports.",
+          "Batch formatting preserves input order and independently applies existing behavior to each message.",
+          "Add direct regression coverage for batch formatting."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "batch-log-formatting-navigation-packet",
+      "task": "Add a formatLogBatch(messages: string[]) helper to core/logging/src/logger.ts and cover it with a direct regression test. Preserve existing single-message formatting behavior and existing exports.",
+      "paths": ["core/logging/src/logger.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "optionalContextPaths": [
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "allowedContextPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts",
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "requiredModifyPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "protectedPaths": [
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "constraintFragments": [
+          "single-message formatting behavior",
+          "existing exports",
+          "input order",
+          "independently applies existing behavior",
+          "regression coverage"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-symbol-contract-route/oracles/batch-log-formatting.test.mjs"
+        ]
+      }
+    }
+  ]
+}

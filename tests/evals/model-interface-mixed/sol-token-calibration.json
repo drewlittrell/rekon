@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-20T05:38:00.566Z",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.7.3",
+  "fixtureSha256": "499bb4c708783a7cb29ae03523abe3bb076e588d6fb56e4d99c6e3d65ce059a1",
+  "comparisonDesign": "one isolated baseline and Rekon run for each existing mixed-layout task; condition order balanced across the first two tasks",
+  "sourceRetention": "aggregate counts, scores, case ids, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "summary": {
+    "cases": 3,
+    "pairedRuns": 3,
+    "baselinePasses": 1,
+    "rekonPasses": 3,
+    "baselineAverageQuality": 0.8929,
+    "rekonAverageQuality": 1,
+    "baselineAverageExplorationPaths": 17,
+    "rekonAverageExplorationPaths": 5.6667,
+    "baselineAverageShellCommands": 8,
+    "rekonAverageShellCommands": 5.6667,
+    "rekonAdoptionPasses": 3,
+    "rekonRefinementCalls": 0,
+    "tokenUsage": {
+      "baselineTotalTokens": 399964,
+      "rekonTotalTokens": 505928,
+      "baselineNonCachedInputTokens": 74138,
+      "rekonNonCachedInputTokens": 101219,
+      "baselineVisibleEstimatedTokens": 6917,
+      "rekonVisibleEstimatedTokens": 10685
+    },
+    "relative": {
+      "explorationPathReduction": 0.6667,
+      "shellCommandReduction": 0.2917,
+      "subscriptionReportedTokenReduction": -0.2649,
+      "nonCachedInputTokenReduction": -0.3653,
+      "visibleEstimatedTokenReduction": -0.5448
+    }
+  },
+  "equalCorrectnessPair": {
+    "caseId": "python-notification-suppression",
+    "baselinePassed": true,
+    "rekonPassed": true,
+    "baselineQuality": 1,
+    "rekonQuality": 1,
+    "baselineExplorationPaths": 12,
+    "rekonExplorationPaths": 6,
+    "baselineShellCommands": 6,
+    "rekonShellCommands": 4,
+    "baselineTotalTokens": 140673,
+    "rekonTotalTokens": 168242,
+    "baselineVisibleEstimatedTokens": 3022,
+    "rekonVisibleEstimatedTokens": 3725,
+    "subscriptionReportedTokenReduction": -0.196,
+    "visibleEstimatedTokenReduction": -0.233
+  },
+  "cases": [
+    {
+      "id": "python-export-redaction",
+      "baseline": {
+        "passed": false,
+        "quality": 0.9286,
+        "requiredModifyRecall": 0.5,
+        "oracleChecksPassed": true,
+        "explorationPaths": 32,
+        "shellCommands": 14,
+        "totalTokens": 144881,
+        "visibleEstimatedTokens": 2276
+      },
+      "rekon": {
+        "passed": true,
+        "quality": 1,
+        "requiredModifyRecall": 1,
+        "oracleChecksPassed": true,
+        "explorationPaths": 5,
+        "shellCommands": 9,
+        "totalTokens": 168734,
+        "visibleEstimatedTokens": 3198,
+        "adopted": true,
+        "tools": ["context_for_task"]
+      }
+    },
+    {
+      "id": "python-notification-suppression",
+      "baseline": {
+        "passed": true,
+        "quality": 1,
+        "requiredModifyRecall": 1,
+        "oracleChecksPassed": true,
+        "explorationPaths": 12,
+        "shellCommands": 6,
+        "totalTokens": 140673,
+        "visibleEstimatedTokens": 3022
+      },
+      "rekon": {
+        "passed": true,
+        "quality": 1,
+        "requiredModifyRecall": 1,
+        "oracleChecksPassed": true,
+        "explorationPaths": 6,
+        "shellCommands": 4,
+        "totalTokens": 168242,
+        "visibleEstimatedTokens": 3725,
+        "adopted": true,
+        "tools": ["context_for_task"]
+      }
+    },
+    {
+      "id": "cross-language-cancellation-source",
+      "baseline": {
+        "passed": false,
+        "quality": 0.75,
+        "requiredModifyRecall": 0.25,
+        "oracleChecksPassed": false,
+        "explorationPaths": 7,
+        "shellCommands": 4,
+        "totalTokens": 114410,
+        "visibleEstimatedTokens": 1619
+      },
+      "rekon": {
+        "passed": true,
+        "quality": 1,
+        "requiredModifyRecall": 1,
+        "oracleChecksPassed": true,
+        "explorationPaths": 6,
+        "shellCommands": 4,
+        "totalTokens": 168952,
+        "visibleEstimatedTokens": 3762,
+        "adopted": true,
+        "tools": ["context_for_task"]
+      }
+    }
+  ],
+  "decision": {
+    "classification": "correctness-and-exploration-gain-token-overhead",
+    "tokenSavingsClaimAccepted": false,
+    "promotionEligible": false,
+    "reason": "Rekon completed every mixed-layout task and sharply reduced exploration, but used more reported and visible-estimate tokens overall. The equal-correctness pair also retained measurable overhead. One repeat per task is sufficient for a canary, not a promoted token-economics claim."
+  }
+}

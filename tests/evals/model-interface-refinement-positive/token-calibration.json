@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-18T23:14:52.077Z",
+  "pricingAsOf": "2026-07-15",
+  "runner": "provider-backed-structured-tool-simulation",
+  "corpus": "refinement-positive",
+  "cases": 1,
+  "repeatsPerCase": 3,
+  "pairedRuns": 6,
+  "sourceRetention": "none",
+  "routingPolicy": "proactive-deterministic-symbolic-with-bounded-refinement-fallback",
+  "models": [
+    {
+      "id": "gpt-5.6-luna@low",
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "effort": "low",
+      "pairedRuns": 3,
+      "decisions": {
+        "candidate": 0,
+        "no-advantage": 0,
+        "discard": 3,
+        "inconclusive": 0
+      },
+      "baseline": {
+        "runs": 3,
+        "completed": 3,
+        "passes": 0,
+        "averageQuality": 0.9417,
+        "averageInspectedFiles": 6.6667,
+        "averageTurns": 2.6667,
+        "averageLatencyMs": 5787.2,
+        "usage": {
+          "inputTokens": 8408,
+          "outputTokens": 1896,
+          "reasoningTokens": 247,
+          "cachedInputTokens": 1253,
+          "cacheWriteInputTokens": 5337,
+          "totalTokens": 10304
+        },
+        "estimatedCostUsd": 0.019991
+      },
+      "rekon": {
+        "runs": 3,
+        "completed": 3,
+        "passes": 0,
+        "averageQuality": 0.8445,
+        "averageInspectedFiles": 5,
+        "averageTurns": 2,
+        "averageLatencyMs": 4908.4,
+        "usage": {
+          "inputTokens": 7815,
+          "outputTokens": 1737,
+          "reasoningTokens": 384,
+          "cachedInputTokens": 3286,
+          "cacheWriteInputTokens": 1643,
+          "totalTokens": 9552
+        },
+        "estimatedCostUsd": 0.01569
+      },
+      "refinement": {
+        "requiredRuns": 3,
+        "passedRuns": 0,
+        "targetMatchedRuns": 0,
+        "calls": 0,
+        "unnecessaryCalls": 0,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0.25,
+        "turnReduction": 0.25,
+        "totalTokenReduction": 0.073,
+        "estimatedCostReduction": 0.2151
+      }
+    },
+    {
+      "id": "claude-sonnet-5@low",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "pairedRuns": 3,
+      "decisions": {
+        "candidate": 0,
+        "no-advantage": 0,
+        "discard": 3,
+        "inconclusive": 0
+      },
+      "baseline": {
+        "runs": 3,
+        "completed": 3,
+        "passes": 0,
+        "averageQuality": 0.925,
+        "averageInspectedFiles": 5,
+        "averageTurns": 2,
+        "averageLatencyMs": 10466.9,
+        "usage": {
+          "inputTokens": 11478,
+          "outputTokens": 2320,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 13798
+        },
+        "estimatedCostUsd": 0.046156
+      },
+      "rekon": {
+        "runs": 3,
+        "completed": 3,
+        "passes": 0,
+        "averageQuality": 0.8778,
+        "averageInspectedFiles": 5,
+        "averageTurns": 2,
+        "averageLatencyMs": 11465.7,
+        "usage": {
+          "inputTokens": 15771,
+          "outputTokens": 2635,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 18406
+        },
+        "estimatedCostUsd": 0.057892
+      },
+      "refinement": {
+        "requiredRuns": 3,
+        "passedRuns": 0,
+        "targetMatchedRuns": 0,
+        "calls": 0,
+        "unnecessaryCalls": 0,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0,
+        "turnReduction": 0,
+        "totalTokenReduction": -0.334,
+        "estimatedCostReduction": -0.2543
+      }
+    }
+  ],
+  "limitations": [
+    "The aggregate retains no prompts, source bodies, structured model responses, raw paths, or credentials.",
+    "The symbolic-routing fixture is bounded; selection and fallback costs may differ in larger repositories and native agent tool loops."
+  ]
+}

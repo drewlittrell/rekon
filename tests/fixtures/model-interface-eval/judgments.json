@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "1.0.0",
+  "reviewer": "maintainer-judge",
+  "policyHypothesis": "A compact read-first delivery retains required paths and pacts while the full packet keeps routing and provenance detail for audit.",
+  "cases": [
+    {
+      "id": "user-implementation",
+      "selectionDigest": "c68cd6f029c5da4a3fc317b3bfa531b1c13693b36257111e067192c10dd154c1",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The service, caller, policy, repository, and test cover the change boundary; capability metadata remains available in the audit packet."
+    },
+    {
+      "id": "user-review",
+      "selectionDigest": "3955c7a448cab67e23725dbccac95809d6eafe4cbd99ad570987c846cd29cfc7",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The controller and its domain dependency are sufficient for this review."
+    },
+    {
+      "id": "user-refactor",
+      "selectionDigest": "0dfaa4e922073f49072976e12e7f7673a700d3402c376075be7be12911e00146",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Both edit targets and their shared consumer are present without unrelated paths."
+    },
+    {
+      "id": "user-debugging",
+      "selectionDigest": "e62e7f66192c0facfd4f5c87e9ec6c928a747b177582792cbb3b01943006281c",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The failing test and verified implementation are the minimum useful pair."
+    },
+    {
+      "id": "checkout-cross-system",
+      "selectionDigest": "1dd9814faa5a03e91bd4b4e43e08390933d48afd02590045c1e44ae93cc51e4e",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Payment, inventory, response contract, and test context match the stated cross-system risks."
+    },
+    {
+      "id": "checkout-contract-review",
+      "selectionDigest": "37742186624dcdcc425ccc7e854bd9686c6767622a21022269068320ab95c317",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The controller, service, and wire contract define the review surface."
+    },
+    {
+      "id": "checkout-placement",
+      "selectionDigest": "2bdcd6148b692519597ac40c92496842eb427d3cb9c8103ef5ee5984c6598c55",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": ["src/inventory/reservation-service.ts"],
+      "note": "One direct dependency is not needed for placement, but the packet remains bounded and preserves the caller, test, and policy seam."
+    },
+    {
+      "id": "checkout-impact-review",
+      "selectionDigest": "a6973b85d55e8bfa7acd5f323174257195c3fd48e2b4c152d78b9775defd99fd",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Both boundary targets, their orchestrator, and the payment test are relevant."
+    },
+    {
+      "id": "worker-debugging",
+      "selectionDigest": "81a0233d55bff1f40955648723b403b0f1a7343019188fb01d64509e0287dabd",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The test and report runner are sufficient routing context."
+    },
+    {
+      "id": "worker-contract",
+      "selectionDigest": "843b94da736ee8784e1028ef406f88b8308bd0b2423c49a77864d6426bab9921",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The consumer, payload contract, and runner define the compatibility boundary; capability metadata remains in the audit packet."
+    },
+    {
+      "id": "worker-refactor",
+      "selectionDigest": "670a67a14fab9380256db67d9ea3845b86c740c7f230df483615842fe725a861",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Both edit targets and their shared runner are present."
+    },
+    {
+      "id": "worker-stale-context",
+      "selectionDigest": "2abf42bf545413d2c9e71efcec68e98e1e921cae826ae564528793602fbacd62",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": ["src/adapters/pdf-renderer.ts"],
+      "note": "The retry, metrics, and test paths are retained and staleness remains explicit; one renderer dependency is tolerable overhead."
+    },
+    {
+      "id": "managed-instructions",
+      "selectionDigest": "6183fa1e88bab83a358f7c2aa383303fec83b2fcc977e270bbb1e3c76b6eb358",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Implementation, managed file, contract test, workflow, and governing strategy are all relevant."
+    },
+    {
+      "id": "python-implementation",
+      "selectionDigest": "09d759e238d30e1e1e165e36fc18272459231bdc952f47bc51139cd3e73159e6",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The Python caller, service, repository, test, and shared schema cover the task."
+    },
+    {
+      "id": "go-debugging",
+      "selectionDigest": "84d10adb7f72afd570a06e39c3a01a2509b7145b2558f30109871e54b097426a",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The Go test and implementation form the minimum debugging context."
+    },
+    {
+      "id": "cross-language-contract",
+      "selectionDigest": "bd35f023d5c01d6c0bf97c58b45a97b781163ff76048b7fe37051b2bd70d9e32",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "The shared schema and both language consumers are exactly the contract surface."
+    },
+    {
+      "id": "polyglot-refactor",
+      "selectionDigest": "66045796a369c2a194f092a5e09cde5d5ec2c049069726b4ccb44abbdc6d4133",
+      "verdict": "keep",
+      "contextSufficient": true,
+      "pactSufficient": true,
+      "missingRefs": [],
+      "avoidableRefs": [],
+      "note": "Both implementations, callers, storage, tests, and shared contract are justified for the cross-language refactor."
+    }
+  ]
+}

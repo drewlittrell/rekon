@@ -1,15 +1,11 @@
 // Contract tests for `rekon welcome` + `rekon setup` (slice 118).
 //
-// These commands are the non-interactive-safe welcome / setup UI foundation
-// decided by the Rekon Install / Setup / ASCII Art UX Decision. They print a
-// branded lifecycle introduction (welcome) and a deterministic setup plan
-// (setup); they do not prompt, run scan, create `.rekon/`, execute commands,
-// write source files, run Circe, or implement intent:go. ASCII art never
-// appears in `--json`.
+// Welcome remains read-only. Setup additionally installs the bounded Rekon
+// bootstrap in AGENTS.md while preserving its no-scan/no-.rekon boundary.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -140,7 +136,6 @@ const SETUP_BOUNDARY_FALSE = [
   "createdCi",
   "createdVerificationPlan",
   "executesCommands",
-  "writesSourceFiles",
   "implementsIntentGo",
 ];
 for (const key of SETUP_BOUNDARY_FALSE) {
@@ -149,6 +144,23 @@ for (const key of SETUP_BOUNDARY_FALSE) {
     assert.equal(JSON.parse(runCli(["setup", "--root", dir, "--json"]).stdout).boundaries[key], false);
   });
 }
+
+test("setup JSON reports its bounded AGENTS.md write", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "rekon-setup-"));
+  const out = JSON.parse(runCli(["setup", "--root", dir, "--json"]).stdout);
+  assert.equal(out.boundaries.writesSourceFiles, true);
+  assert.equal(out.agentInstructions.target, "AGENTS.md");
+  assert.equal(out.agentInstructions.status, "current");
+});
+
+test("setup installs the managed bootstrap without creating .rekon", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "rekon-setup-"));
+  runCli(["setup", "--root", dir, "--json"]);
+  const agents = await readFile(join(dir, "AGENTS.md"), "utf8");
+  assert.match(agents, /rekon:agent-instructions:start/);
+  assert.match(agents, /context_for_task/);
+  await assert.rejects(stat(join(dir, ".rekon")), "setup must not create .rekon/ before scan");
+});
 
 // ---------- 26 ----------
 test("setup human output before .rekon recommends rekon scan", async () => {

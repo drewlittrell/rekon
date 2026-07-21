@@ -766,7 +766,15 @@ test("runtime denies source-writing capabilities unless configured", async () =>
     });
 
     const config = JSON.parse(await readFile(join(root, ".rekon", "config.json"), "utf8"));
-    assert.deepEqual(config, { capabilities: [], permissions: {} });
+    assert.deepEqual(config, {
+      capabilities: [],
+      permissions: {},
+      agentInstructions: {
+        enabled: true,
+        target: "AGENTS.md",
+        sync: "on-refresh",
+      },
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

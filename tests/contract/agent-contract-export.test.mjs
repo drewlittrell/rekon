@@ -177,43 +177,22 @@ test("agent-contract export refuses to overwrite AGENTS.md without --force", asy
 
     assert.ok(
       result.stderr.includes(
-        "Refusing to overwrite protected agent instruction file AGENTS.md without --force.",
+        "Refusing whole-file export to protected agent instruction file AGENTS.md.",
       ),
       `expected protected-path refusal, got stderr: ${result.stderr}`,
     );
   });
 });
 
-test("agent-contract export allows AGENTS.md with --force and reports protectedPath true", async () => {
+test("agent-contract export refuses AGENTS.md even with --force", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
     runCli(["publish", "agent-contract", "--root", root, "--json"]);
 
-    const result = JSON.parse(
-      runCli([
-        "agent-contract",
-        "export",
-        "--root",
-        root,
-        "--output",
-        "AGENTS.md",
-        "--force",
-        "--json",
-      ]).stdout,
-    );
-
-    assert.equal(result.wrote, true);
-    assert.equal(result.forced, true);
-    assert.equal(result.protectedPath, true);
-    assert.equal(result.outputPath, "AGENTS.md");
-    assert.equal(
-      result.message,
-      "Overwrote protected agent instruction file because --force was provided.",
-    );
-
-    const written = await readFile(join(root, "AGENTS.md"), "utf8");
-    assert.ok(written.startsWith("<!--"));
-    assert.ok(written.includes("# Rekon Agent Operating Contract"));
+    const result = runCliExpectFailure([
+      "agent-contract", "export", "--root", root, "--output", "AGENTS.md", "--force", "--json",
+    ]);
+    assert.match(result.stderr, /Use `rekon agent-instructions sync`/);
   });
 });
 
@@ -234,7 +213,7 @@ test("agent-contract export refuses to overwrite CLAUDE.md without --force", asy
 
     assert.ok(
       result.stderr.includes(
-        "Refusing to overwrite protected agent instruction file CLAUDE.md without --force.",
+        "Refusing whole-file export to protected agent instruction file CLAUDE.md.",
       ),
       `expected protected-path refusal for CLAUDE.md, got stderr: ${result.stderr}`,
     );
@@ -258,7 +237,7 @@ test("agent-contract export refuses to overwrite .cursor/rules/*.md without --fo
 
     assert.ok(
       result.stderr.includes(
-        "Refusing to overwrite protected agent instruction file .cursor/rules/rekon.md without --force.",
+        "Refusing whole-file export to protected agent instruction file .cursor/rules/rekon.md.",
       ),
       `expected protected-path refusal for .cursor/rules path, got stderr: ${result.stderr}`,
     );
@@ -282,7 +261,7 @@ test("agent-contract export refuses to overwrite .github/copilot-instructions.md
 
     assert.ok(
       result.stderr.includes(
-        "Refusing to overwrite protected agent instruction file .github/copilot-instructions.md without --force.",
+        "Refusing whole-file export to protected agent instruction file .github/copilot-instructions.md.",
       ),
       `expected protected-path refusal for copilot path, got stderr: ${result.stderr}`,
     );
@@ -352,16 +331,14 @@ test("agent-contract export auto-publishes when no agent-contract Publication ex
   });
 });
 
-test("rekon publish agent-contract alone does not create a root AGENTS.md", async () => {
+test("rekon publish agent-contract does not modify the managed root AGENTS.md", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
+    const before = await readFile(join(root, "AGENTS.md"), "utf8");
     runCli(["publish", "agent-contract", "--root", root, "--json"]);
+    const after = await readFile(join(root, "AGENTS.md"), "utf8");
 
-    const exists = await readFile(join(root, "AGENTS.md"), "utf8").then(
-      () => true,
-      () => false,
-    );
-    assert.equal(exists, false, "publish agent-contract must not write a root AGENTS.md");
+    assert.equal(after, before, "publish agent-contract must not modify root AGENTS.md");
   });
 });
 

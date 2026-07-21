@@ -2,8 +2,194 @@
 
 Task-shaped context is context selected for a specific change.
 
-`rekon context task` writes a `TaskContextReport` that combines explicit paths,
-graph context, optional semantic or retrieval context, warnings, and evidence
-refs.
+The shared compiler combines explicit paths, deterministic graph context,
+matched repository contracts, optional semantic or retrieval context, warnings,
+and evidence refs. CLI
+`rekon context task` persists a `TaskContextReport`; MCP `context_for_task`
+returns a compact model-delivery projection without writing.
 
-The report is context, not approval or proof.
+Profiles provide reviewed selection budgets:
+
+- `compact`: normal first request;
+- `standard`: broader cross-file work;
+- `deep`: exceptional tasks that need a larger repository neighborhood.
+
+The packet separates core from supporting context and records trust, freshness,
+estimated tokens, truncation, and a bounded `contextTrace`. The report is
+context, not approval or proof.
+
+The audit report may retain several evidence routes to the same file. Packet
+selection collapses those routes by context identity and keeps operator or
+declared-law routing first, so duplicate graph claims cannot consume the budget
+and displace a contract-required path.
+
+Graph expansion is capped at four claims per selected path. Within that bound, deterministic claims precede
+semantic claims; task-specific related paths, verification relationships, and
+outgoing dependencies precede incidental incoming callers. Stable claim IDs
+break remaining ties.
+
+The compiler may also add at most two deterministic symbolic routes that sit
+just beyond that neighborhood. It does so only when the task strongly names a
+shared capability implementation or a typed producer/consumer relationship
+through a contract. These paths enter `readFirst`; unrelated second-hop graph
+neighbors remain excluded. A symbolic route does not cross a source-language
+boundary unless the task names that language, exact path, or cross-language
+coordination.
+
+Explicit `npm`, `pytest`, and `go test` commands are preserved as unexecuted
+verification hints. Preservation language such as `preserve` and `preserving`
+becomes pact context rather than being left in unstructured task prose.
+
+When a selected path implements a configured capability, the compiler also
+reads that capability's preservation, placement, neighbor, and required-check
+rules from the latest `CapabilityContract`. These entries carry `declared`
+trust, contract freshness, and a contract evidence ref. Unmatched contracts do
+not enter the packet.
+
+When committed repository contracts exist, the compiler also builds a
+task-specific `TaskPact`. Selection follows the effective registry and matches
+the task paths against `SystemContract` scopes and complete `FlowContract`
+paths. A path inside one flow stage therefore brings the flow's end-to-end
+outcome, invariants, handoff guarantees, remaining stage paths, and required
+checks into the task packet. Unrelated system and flow law is excluded.
+
+TaskPact impact obligations are not a second instruction channel. Preserve and
+inspect obligations enter the existing declared-constraint and `readFirst`
+surfaces; verify obligations enter required checks. The structured TaskPact is
+persisted by the CLI and cited by a generated WorkOrder. MCP derives the same
+selection read-only.
+
+Required neighbor capabilities are resolved through the current capability
+graph to their implementing files. Those files enter deterministic context
+with both contract and capability evidence. The compiler does not infer a
+neighbor implementation from a similar filename.
+
+Repository law should state literal invariants literally. Exact domain errors,
+event names, ordering rules, public contracts, and verification commands pass
+through to the model projection without paraphrase. A rule such as "preserve
+authorization behavior" cannot carry an error-name contract that the artifact
+does not declare.
+
+The delivery instruction treats a complete listed change boundary as a reason
+to stop searching. Agents may expand for a named unresolved dependency, but
+should not search for analogues merely because more repository context exists.
+
+The MCP projection keeps the model-actionable subset: routing reasons, trust,
+freshness, constraints, checks, warnings, and selection size. The full packet
+keeps provenance and selection diagnostics for audit.
+
+For managed agents, `context_for_task` is the default first call. The advertised
+MCP surface stays limited to task compilation and exact source-target
+resolution. Orientation, placement, and preflight remain operator-facing CLI
+workflows because advertising them to every coding run invites context calls
+that duplicate the task packet.
+
+The call is also the rehydration boundary. Managed instructions require a fresh
+task-context request after context compaction or restart and whenever the goal
+or known path scope materially changes. The root instruction file remains a
+small bootloader; dynamic repository law stays in task-selected artifacts.
+
+## Route Semantics
+
+Each compiled route answers two separate questions:
+
+- `routeRole` explains the path's relationship to the task: `task-target`,
+  `repository-law`, `implementation`, `handoff`, `verification`, `dependency`,
+  `compatibility`, or `supporting`.
+- `necessity` says when to read it: `required`, `conditional`, or `supporting`.
+- `necessityReason` states the concrete condition or evidence behind that
+  classification.
+
+The compiler assigns these fields from operator scope, adopted contracts,
+typed graph relationships, tests, and inference provenance. It does not infer
+necessity from a generic priority label. A handoff can be required when the
+task changes data carried across a contract, while an incoming caller can be
+conditional when compatibility is unchanged.
+
+The full delivery policy remains the default and preserves the existing read
+surface. The experimental `role-aware` policy keeps required routes in
+`readFirst` and exposes conditional and supporting routes separately. Moving a
+route out of the mandatory set does not discard it, weaken its evidence, or
+prove that a model will avoid reading it. Promotion requires an independent
+model run that preserves behavior, scope, contracts, and checks while skipping
+only routes whose conditions do not apply. The first independent Sol/xhigh
+canary preserved quality but correctly read both conditionally applicable
+routes, so it produced no read or token reduction and was not promoted.
+A second canary used two oracle-confirmed optional routes. Sol used all of them
+under role-aware delivery, while full delivery left one optional caller unused,
+and role-aware used more tokens and commands. Route labels therefore remain an
+explainability surface rather than an accepted context-reduction mechanism.
+
+The evaluation-only `summary-aware` policy goes one step further: it removes
+deterministic conditional paths from delivery and replaces them with pathless
+relationship counts, a `condition-not-triggered` resolution, and a concrete
+`inspectWhen` condition. Across two three-run Sol/xhigh variants, all changes
+remained correct, but the model still read every omitted dependency and caller
+after required source exposed their imports. Path omission and stronger routing
+prose did not reduce actual reads, exploration, or visible cost. The result is
+retained to prevent repeating that optimization; it is not a production
+policy.
+
+Fresh, exact capability contracts did not change that source-verification
+behavior. Sol read every optional implementation in both a relative-import task
+and a symbolic-import task. On the symbolic task, Rekon still avoided package
+and test-runner discovery, reducing explored paths by 40% and commands by 30%,
+but added token overhead. Contracts remain valuable for scope and invariants;
+they are not treated as substitutes for inspectable source.
+
+The evaluation-only `navigation-only` policy removes conditional paths, route
+summaries, and descriptive implementation assertions while retaining required
+paths, normative constraints, checks, and inference-only support. Its first
+three-pair Sol/xhigh probe preserved quality and reduced repository exposure by
+37%. The model nevertheless inspected the omitted dependency in every Rekon
+run, commands increased, and all token measures worsened. A smaller packet can
+improve orientation without reducing source verification or total cost; the
+policy is retained as evidence and is not the production default.
+
+## Bounded Refinement
+
+After reading every `readFirst` path, an agent should read any exact repository
+path named by source directly. Refinement is for a task-required symbolic
+dependency, call, contract, consumer, producer, test suite, or implementation
+identifier whose target path is absent from both `readFirst` and
+`boundaryPaths`. The agent can call `resolve_source_target` with:
+
+- the unresolved question;
+- the exact symbol, type, or call named by inspected source;
+- an anchor path or `path#symbol` graph id;
+- one relationship: `dependency`, `dependent`, `test`, `contract`, `consumer`,
+  `producer`, or `implementation`;
+- paths it has already read.
+
+Constraint prose alone does not trigger refinement. A preservation-only rule
+names a surface to leave unchanged; the agent looks it up only when inspected
+source exposes a concrete target required to implement or verify the change.
+
+For that unresolved symbolic target, deterministic refinement comes before
+repository-wide or symbol text search. Search is a fallback only when the
+refinement result is unresolved or its evidence is stale.
+
+The shared refinement selector follows only deterministic graph edges matching
+that relationship. It excludes the anchor and already-read files, returns at
+most eight `readNext` paths with selection reasons, and applies contracts and
+checks matched to the new paths. Model-derived graph claims do not cross this
+trust gate.
+
+An empty result is an explicit unresolved answer. The selector does not replace
+that absence with lexical, embedding, or repository-wide search, and the agent
+must not treat it as permission to do so. The agent continues with the initial
+packet or reports missing evidence unless source names another symbolic anchor.
+After reading `readNext`, another refinement is appropriate only when it reveals
+a new task-required symbolic target. General curiosity and completeness checks
+are not refinement requests.
+A task-relevant test already listed in `readFirst` is the test route. Update it
+unless inspected source names a separate suite or test mapping; do not spend a
+refinement call asking whether more tests might exist.
+
+The same rule applies to every relationship. When `readFirst` or
+`boundaryPaths` already contains the contract, consumer, producer,
+implementation, or test route needed by the task, that relationship is
+resolved. Refinement is justified only when inspected source names a different
+required target that is absent from both lists.
+A listed `boundaryPath` is already known compatibility context and should be
+read directly when it becomes relevant, not rediscovered through refinement.

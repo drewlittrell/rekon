@@ -1,0 +1,8 @@
+{
+  "name": "rekon-model-interface-optional-route-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/test-all.mjs"
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordedAt": "2026-07-21T00:03:07Z",
+  "status": "experimental-not-promoted",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "comparedPolicies": ["full", "role-aware"],
+  "productionDefault": "full",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "aecba962c3498ba6ffae5dbc35a33e4b879533ab266544093e403793717f6e9f",
+  "selectionSha256": {
+    "full": "bab23c20704cf8e743cf05cf2fd2e3c4024586572e0d92ba3f146470459050fd",
+    "roleAware": "ef1272b498754f468872ed462c99cd0eefe067ee659cd9c795774858351af99d"
+  },
+  "deliveryDigests": {
+    "full": [
+      {
+        "caseId": "batch-log-formatting",
+        "sha256": "7a608feff8265f6433d420097b19c9d0ca593f8b16c99c5aeb8cd4c781410bbe"
+      }
+    ],
+    "roleAware": [
+      {
+        "caseId": "batch-log-formatting",
+        "sha256": "e8c51fd090e02cd031de620d1e0dfd966cad18dcbcdddf1b497336f923d1c076"
+      }
+    ]
+  },
+  "batchReportSha256": {
+    "full": "850a224e91835a2dce7a1d4bfc29b0ab533a5b808e88964d8200be3635490e34",
+    "roleAware": "549956f7b823d41d53c81026110280c95db05d612a85b3705c0deb5b0b6f9fb0"
+  },
+  "comparisonDesign": "three managed Rekon-only Sol/xhigh repeats per policy on one isolated additive helper task with two oracle-confirmed optional routes; correctness, exact scope, public checks, hidden behavior, MCP adoption, optional-route use, exploration, commands, and aggregate token counts gate interpretation",
+  "sourceRetention": "fixture, selection, delivery, and local batch-report digests plus aggregate counts, paths, scores, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "task": {
+    "caseId": "batch-log-formatting",
+    "shape": "additive-helper-with-unchanged-dependency-and-caller",
+    "selectedPaths": 4,
+    "oracleRequiredPaths": 2,
+    "oracleOptionalPaths": [
+      "apps/api/src/request-logger.ts",
+      "extensions/log-redaction/src/sanitize.ts"
+    ],
+    "fullMandatoryPaths": 3,
+    "roleAwareMandatoryPaths": 2,
+    "roleAwareConditionalPaths": [
+      "apps/api/src/request-logger.ts",
+      "extensions/log-redaction/src/sanitize.ts"
+    ]
+  },
+  "variants": {
+    "full": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 5,
+      "averageCommands": 5,
+      "averageElapsedMs": 52644,
+      "selectedRoutesUsed": 11,
+      "selectedRoutesOffered": 12,
+      "optionalRoutesOffered": 6,
+      "optionalRoutesInspected": 4,
+      "optionalRoutesReported": 3,
+      "optionalRoutesUsed": 5,
+      "optionalRoutesSkipped": 1,
+      "reportedTokens": 452954,
+      "nonCachedInputTokens": 59139,
+      "visibleEstimatedTokens": 8010
+    },
+    "roleAware": {
+      "runs": 3,
+      "passes": 3,
+      "adoptionPasses": 3,
+      "averageExplorationPaths": 5,
+      "averageCommands": 5.3333,
+      "averageElapsedMs": 57409.6667,
+      "selectedRoutesUsed": 12,
+      "selectedRoutesOffered": 12,
+      "optionalRoutesOffered": 6,
+      "optionalRoutesInspected": 6,
+      "optionalRoutesReported": 3,
+      "optionalRoutesUsed": 6,
+      "optionalRoutesSkipped": 0,
+      "reportedTokens": 516795,
+      "nonCachedInputTokens": 70079,
+      "visibleEstimatedTokens": 8265
+    }
+  },
+  "comparison": {
+    "mandatoryPathReduction": 0.3333,
+    "actualSelectedRouteUseReduction": -0.0909,
+    "optionalRouteUseReduction": -0.2,
+    "explorationPathReduction": 0,
+    "commandReduction": -0.0667,
+    "reportedTokenReduction": -0.1409,
+    "nonCachedInputTokenReduction": -0.185,
+    "visibleEstimatedTokenReduction": -0.0318,
+    "elapsedReduction": -0.0905
+  },
+  "judgment": {
+    "classification": "quality-preserved-optional-routes-not-skipped-token-overhead",
+    "qualityClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "optionalRouteUseMeasured": true,
+    "optionalRouteSkippingClaimAccepted": false,
+    "contextReadReductionClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "lazyRouteInvestmentAccepted": false,
+    "promotionAccepted": false,
+    "reason": "Both policies passed all three runs with exact scope, public checks, hidden behavior, and managed MCP adoption. The task oracle classified the sanitizer dependency and existing caller as optional because the additive helper could reuse the existing single-message function without changing either file. Sol used all six optional-route opportunities under role-aware delivery, while full delivery left one optional caller unused. Exploration was unchanged; role-aware used 14.1% more reported tokens, 3.2% more visible-estimate tokens, and 6.7% more commands. Conditional labeling alone therefore did not reduce source use and does not justify promotion or lazy route materialization."
+  }
+}

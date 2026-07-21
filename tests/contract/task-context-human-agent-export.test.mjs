@@ -93,6 +93,9 @@ const json = JSON.parse(
   runCli(["context", "task", "--root", root, "--task", TASK, "--path", "src/index.ts", "--json"]).stdout,
 );
 const agent = json.agentContext;
+const modelContext = JSON.parse(
+  runCli(["context", "task", "--root", root, "--task", TASK, "--path", "src/index.ts", "--model-context"]).stdout,
+);
 const storeTypes = rekonArtifactTypes(root);
 
 const CORE_SOURCES = new Set(["operator_input", "deterministic_graph"]);
@@ -295,6 +298,16 @@ test("--help lists context task and describes the agentContext behavior", () => 
   const help = runCli(["--help"]);
   assert.ok(help.stdout.includes("context task"));
   assert.ok(help.stdout.toLowerCase().includes("agentcontext"));
+  assert.ok(help.stdout.includes("--model-context"));
+});
+
+test("--model-context emits only the compact shared model-delivery projection", () => {
+  assert.ok(modelContext.readFirst.includes("src/index.ts"));
+  assert.ok(modelContext.constraints.some((constraint) => /greet behavior/iu.test(constraint)));
+  assert.ok(modelContext.checks.includes("npm run typecheck"));
+  assert.equal("coreContext" in modelContext, false);
+  assert.equal("selection" in modelContext, false);
+  assert.ok(Buffer.byteLength(JSON.stringify(modelContext), "utf8") < Buffer.byteLength(JSON.stringify(agent), "utf8"));
 });
 
 // 26

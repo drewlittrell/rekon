@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-20T21:53:28Z",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "delivery": "managed-agent-instructions-and-mcp",
+  "instructionVersion": "1.8.0",
+  "fixtureSha256": "bfc602a704076b55421b828f4462286ea0ee4ab2de3e5bcfeb95fbe5e8d6decb",
+  "contextFixtureSha256": "788af2683afeff586e6a6703c43eef6ada3bf4f00efb929f2b874ff21deca4e5",
+  "selectionSha256": "5654b9404fa14d22e17a63bb2c280a7ac32c81a772a862a4f5c1428ffbc1890e",
+  "batchReportSha256": [
+    "b28205f59336b4c16f1176bc7701c5ab51c0462193c606dbdee9fe21904887b4",
+    "45a0facff32f2a0090bf6c1a4510ca86580d30a06b90fb7eaa21ae38f1b71365"
+  ],
+  "comparisonDesign": "three paired managed-interface repeats per task, collected as one initial batch and one two-repeat batch with alternating condition order",
+  "sourceRetention": "fixture and selection digests, aggregate counts, paths, scores, and normalized tool names only; no source, prompts, diffs, raw commands, MCP payloads, or free-form model text",
+  "summary": {
+    "cases": 2,
+    "pairedRuns": 6,
+    "candidatePairs": 6,
+    "baselinePasses": 4,
+    "rekonPasses": 6,
+    "baselineAverageQuality": 0.8333,
+    "rekonAverageQuality": 1,
+    "baselineAverageExplorationPaths": 17,
+    "rekonAverageExplorationPaths": 7.1667,
+    "explorationPathReduction": 0.5784,
+    "baselineAverageCommands": 4.5,
+    "rekonAverageCommands": 4.8333,
+    "commandReduction": -0.0741,
+    "managedAdoptionRuns": 6,
+    "managedFullReadFirstUseRuns": 6,
+    "managedRefinementCalls": 0,
+    "tokenUsage": {
+      "baseline": {
+        "inputTokens": 772506,
+        "cachedInputTokens": 648960,
+        "nonCachedInputTokens": 123546,
+        "outputTokens": 15018,
+        "reasoningOutputTokens": 4667,
+        "totalTokens": 787524,
+        "visibleEstimatedTokens": 19139
+      },
+      "rekon": {
+        "inputTokens": 1056826,
+        "cachedInputTokens": 898816,
+        "nonCachedInputTokens": 158010,
+        "outputTokens": 16202,
+        "reasoningOutputTokens": 5344,
+        "totalTokens": 1073028,
+        "visibleEstimatedTokens": 21482
+      },
+      "reportedTotalReduction": -0.3625,
+      "nonCachedInputReduction": -0.279,
+      "visibleEstimatedReduction": -0.1224
+    }
+  },
+  "cases": [
+    {
+      "id": "atomic-experience-composition",
+      "baselinePasses": 1,
+      "rekonPasses": 3,
+      "baselineProtectedPathViolations": 2,
+      "rekonProtectedPathViolations": 0,
+      "baselineAverageExplorationPaths": 16.6667,
+      "rekonAverageExplorationPaths": 7.3333,
+      "baselineAverageCommands": 4.6667,
+      "rekonAverageCommands": 4,
+      "baselineReportedTokens": 417726,
+      "rekonReportedTokens": 436685,
+      "reportedTokenReduction": -0.0454,
+      "baselineVisibleEstimatedTokens": 7093,
+      "rekonVisibleEstimatedTokens": 9571,
+      "visibleEstimatedTokenReduction": -0.3494
+    },
+    {
+      "id": "checkout-baton-preservation",
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineProtectedPathViolations": 0,
+      "rekonProtectedPathViolations": 0,
+      "baselineAverageExplorationPaths": 17.3333,
+      "rekonAverageExplorationPaths": 7,
+      "baselineAverageCommands": 4.3333,
+      "rekonAverageCommands": 5.6667,
+      "baselineReportedTokens": 369798,
+      "rekonReportedTokens": 636343,
+      "reportedTokenReduction": -0.7208,
+      "baselineVisibleEstimatedTokens": 12046,
+      "rekonVisibleEstimatedTokens": 11911,
+      "visibleEstimatedTokenReduction": 0.0112
+    }
+  ],
+  "judgment": {
+    "classification": "correctness-and-exploration-gain-token-overhead",
+    "correctnessClaimAccepted": true,
+    "explorationClaimAccepted": true,
+    "managedAdoptionClaimAccepted": true,
+    "tokenSavingsClaimAccepted": false,
+    "lowerModelLiftClaimAccepted": false,
+    "crossRepositoryGeneralizationClaimAccepted": false,
+    "reason": "Repository law prevented phrase-alias overfit in two of three baseline failures and preserved complete checkout behavior in all repeats. Rekon consistently narrowed exploration, but it increased commands and both reported and visible aggregate tokens."
+  }
+}

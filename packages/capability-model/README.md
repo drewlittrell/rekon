@@ -48,6 +48,80 @@ artifacts over re-deriving ownership directly from raw evidence.
 ## Public Surface
 
 The default export is a Rekon capability definition with a projector handler.
+`buildRepositoryContractProjection()` compiles committed system and flow
+sources into adopted artifacts and an effective registry without writing
+source files.
+`discoverRepositoryContractCandidates()` derives bounded, inferred system and
+flow proposals from the unified repository intelligence graph.
+`buildRepositoryContractDriftReport()` compares adopted contracts with current
+source, ownership, and flow evidence.
+`buildTaskPact()` selects the adopted system and end-to-end flow law for one
+task. `selectTaskContractGuidance()` maps that pact, plus matching capability
+rules, into the shared context constraints, required paths, and checks.
+`compileTaskContext()` is the shared, budget-aware context compiler used by the
+CLI and MCP. Its `compact`, `standard`, and `deep` profiles bound selected core
+context, supporting context, constraints, checks, evidence, and selection
+trace. `renderTaskContextMarkdown()` renders the same compiled packet for human
+readers; adapters must not maintain a separate selection policy.
+`projectModelContext()` retains the explainable audit projection.
+`projectModelContextDelivery()` removes repeated routing and provenance fields
+for model consumption while preserving the selected read order, pacts, checks,
+supporting inference, and warnings. `estimateModelContextDeliveryTokens()` is
+the deterministic size guard used by the interface evaluation.
+Compiled file routes include a deterministic role, necessity class, and reason.
+Required task targets, repository law, handoffs, implementation paths, and
+tests stay in the initial read set. Conditional dependencies and compatibility
+callers remain available with an explicit condition. Inference-only routes are
+supporting context.
+The opt-in `tiered`, `role-aware`, `summary-aware`, and `navigation-only`
+delivery policies are experimental and evaluation-only. On the six-case deterministic gate,
+`role-aware` reduced the
+initial mandatory set from 25 paths to 15 while retaining all 30 selected
+routes. No model was called for that gate, so it does not establish fewer
+actual reads, lower token use, or preserved change quality. A separate
+three-repeat Sol/xhigh canary on an independent configuration task preserved
+quality but inspected both conditional routes in every run and used more
+tokens than `full`. A follow-up additive-helper canary marked the unchanged
+dependency and caller optional in its oracle; role-aware still used all six
+optional-route opportunities across three runs, while full left one unused.
+The default remains `full`, and conditional labels are not an accepted
+context-reduction mechanism.
+
+`summary-aware` removes deterministic conditional paths and emits bounded,
+pathless route decisions instead. Two three-run Sol/xhigh variants preserved
+quality but still inspected every omitted route once required files exposed
+their imports. This policy is retained for reproducibility, not promotion.
+Exact fresh capability contracts also failed to replace those reads, including
+when a dependency path was hidden behind an import alias. The alias case did
+reduce unrelated package and test-runner discovery, so contracts remain useful
+for bounded navigation and change correctness rather than as source substitutes.
+`navigation-only` removes conditional routes and summaries while retaining
+required files, normative constraints, checks, and inference-only support. Its
+first paired probe produced a smaller payload and narrower repository exposure,
+but Sol still inspected the omitted dependency and used more commands and
+tokens. It is retained for evaluation and is not enabled by default.
+
+Task-ranked graph expansion is capped at four claims per selected path.
+The compiler also admits at most two task-signaled deterministic symbolic
+routes through a shared capability or typed contract producer/consumer edge.
+This keeps known implementation targets in the initial read set without
+opening general two-hop expansion. Symbolic routes do not cross source-language
+families unless the task names the target language, exact path, or
+cross-language coordination.
+Explicit `npm`, `pytest`, and `go test` commands remain unexecuted verification
+hints, and preservation clauses remain operator-trust pact context.
+`selectTaskContractGuidance()` adds only path-matched `CapabilityContract`
+rules as declared, freshness-aware constraints and checks. Required neighbor
+capabilities route to their graph-declared implementation files. Literal pact
+values such as domain errors, event names, ordering rules, and commands are
+preserved without adapter paraphrase.
+`selectTaskContextRefinement()` provides the shared MCP/CLI refinement policy.
+It requires an anchor plus a named dependency, dependent, test, contract,
+consumer, producer, or implementation relationship; follows only deterministic graph edges; excludes
+already-read paths; and returns an explicit unresolved result instead of broad
+or semantic fallback. It is a fallback for targets absent from the compiled
+packet, not a required round trip for routes the compiler already knows.
+
 The package also exports the semantic-debt judgment prompt, strict response
 schema, versioned eligibility decision, deterministic concern coercion,
 runtime observation builder, bounded embedding-neighbor search, and pure

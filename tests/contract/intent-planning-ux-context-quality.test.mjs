@@ -279,3 +279,31 @@ test("selectLexicalGraphContextPaths is pure and matches graph file nodes", () =
   // No match → empty (never fabricates context).
   assert.deepEqual(selectLexicalGraphContextPaths("zzz qqq", graph), []);
 });
+
+test("lexical fallback drops generic one-token collisions when a strong phrase match exists", () => {
+  const graph = {
+    nodes: [
+      { kind: "file", id: "apps/risk-worker/src/review-coordinator.ts" },
+      { kind: "file", id: "src/orders/order-service.ts" },
+    ],
+    claims: [],
+    capabilities: [
+      {
+        id: "capability:payment-review-routing",
+        verb: "route",
+        noun: "payment review",
+        implementedBy: [{ kind: "file", id: "apps/risk-worker/src/review-coordinator.ts" }],
+      },
+      {
+        id: "capability:order-review",
+        verb: "review",
+        noun: "order",
+        implementedBy: [{ kind: "file", id: "src/orders/order-service.ts" }],
+      },
+    ],
+  };
+  assert.deepEqual(
+    selectLexicalGraphContextPaths("route high-risk payments to manual review", graph),
+    ["apps/risk-worker/src/review-coordinator.ts"],
+  );
+});

@@ -31,6 +31,7 @@ const EXPECTED_STEP_ORDER = [
   "publish.architecture",
   "artifacts.validate",
   "artifacts.freshness",
+  "agent-instructions.sync",
 ];
 
 const REQUIRED_ARTIFACT_TYPES = [

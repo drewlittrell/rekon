@@ -57,8 +57,11 @@ docs, not generated freshness reports or internal planning logs.
 - [Capability model](strategy/capability-model.md)
 - [Roadmap](strategy/roadmap.md)
 - [Detection quality](strategy/detection-quality.md)
+- [Model interface evaluation](strategy/model-interface-evaluation.md)
 - [Migration model](strategy/legacy-reference-migration.md)
 
 ## Examples
 
 - [Task context to handoff](demo/task-context-to-handoff.md)
+- [Agent context instructions](guides/agent-context-instructions.md)
+- [Task context workflow](guides/task-context-workflow.md)

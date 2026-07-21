@@ -20,6 +20,7 @@ Common references:
 
 - [Artifact contract](artifact-contract.md)
 - [Artifact header](artifact-header.md)
+- [Repository contracts](repository-contracts.md)
 - [EvidenceGraph](evidence-graph.md)
 - [ObservedRepo](observed-repo.md)
 - [IntelligenceSnapshot](intelligence-snapshot.md)

@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-17",
+  "runner": "openai-responses-api",
+  "model": {
+    "id": "gpt-5.6-luna@low",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "low",
+    "pricingAsOf": "2026-07-15"
+  },
+  "conditions": [
+    "baseline",
+    "rekon"
+  ],
+  "cases": 6,
+  "repeatsPerCase": 3,
+  "pairedRuns": 18,
+  "sourceRetention": "none",
+  "decision": {
+    "candidatePairs": 17,
+    "noAdvantagePairs": 1,
+    "discardPairs": 0,
+    "strictPromotionEligible": false,
+    "judgment": "accept-compact-delivery-retain-cross-system-variance"
+  },
+  "baseline": {
+    "passes": 5,
+    "averageQuality": 0.9366,
+    "averageInspectedFiles": 8.1111,
+    "averageTurns": 3.2778,
+    "usage": {
+      "inputTokens": 79584,
+      "outputTokens": 15072,
+      "reasoningTokens": 2673,
+      "cachedInputTokens": 16066,
+      "totalTokens": 94656
+    },
+    "estimatedCostUsd": 0.167965
+  },
+  "rekon": {
+    "passes": 18,
+    "averageQuality": 1,
+    "averageInspectedFiles": 4.3333,
+    "averageTurns": 2.3333,
+    "usage": {
+      "inputTokens": 52422,
+      "outputTokens": 11078,
+      "reasoningTokens": 2036,
+      "cachedInputTokens": 25133,
+      "totalTokens": 63500
+    },
+    "estimatedCostUsd": 0.098963
+  },
+  "relative": {
+    "inspectedFilesReduction": 0.4658,
+    "turnReduction": 0.2881,
+    "inputTokenReduction": 0.3413,
+    "totalTokenReduction": 0.3291,
+    "outputTokenReduction": 0.265,
+    "reasoningTokenReduction": 0.2383,
+    "estimatedCostReduction": 0.4108
+  },
+  "deliveryProjection": {
+    "deterministicCases": 17,
+    "averageEstimatedTokens": 111.7647,
+    "maxEstimatedTokens": 162,
+    "previousAverageEstimatedTokens": 399.8235,
+    "previousMaxEstimatedTokens": 697
+  },
+  "limitations": [
+    "One cross-system pair remained fully correct but inspected one compatibility caller and used an additional turn; the other two repeats were candidates.",
+    "The retained aggregate contains no prompts, source bodies, free-form model output, or credentials.",
+    "The six-case fixture is intentionally bounded and does not establish repository-wide production savings."
+  ]
+}

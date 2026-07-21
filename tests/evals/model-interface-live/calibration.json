@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.0.0",
+  "runner": "codex-subscription",
+  "conditions": ["baseline", "rekon"],
+  "repeatsPerCase": 3,
+  "tokenUsage": "not-collected-until-api-phase",
+  "sourceRetention": "source-free accepted aggregate only",
+  "cases": [
+    {
+      "id": "implementation-user-deactivation",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 19,
+      "rekonAverageExploredPaths": 7,
+      "baselineAverageCommands": 3.33,
+      "rekonAverageCommands": 2
+    },
+    {
+      "id": "debugging-expired-subscription",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 15.33,
+      "rekonAverageExploredPaths": 7,
+      "baselineAverageCommands": 3.33,
+      "rekonAverageCommands": 2
+    },
+    {
+      "id": "refactor-order-review",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 15,
+      "rekonAverageExploredPaths": 7,
+      "baselineAverageCommands": 3.67,
+      "rekonAverageCommands": 2.33
+    },
+    {
+      "id": "placement-payment-review",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 35,
+      "rekonAverageExploredPaths": 5.67,
+      "baselineAverageCommands": 3,
+      "rekonAverageCommands": 2.33
+    },
+    {
+      "id": "cross-system-account-suspension",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 34.33,
+      "rekonAverageExploredPaths": 16.33,
+      "baselineAverageCommands": 4.33,
+      "rekonAverageCommands": 2.67
+    },
+    {
+      "id": "policy-refund-authorization",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 33,
+      "rekonAverageExploredPaths": 6.67,
+      "baselineAverageCommands": 3,
+      "rekonAverageCommands": 2.33
+    }
+  ],
+  "summary": {
+    "pairedRuns": 18,
+    "isolatedRuns": 36,
+    "candidatePairs": 18,
+    "baselinePasses": 18,
+    "rekonPasses": 18,
+    "baselineAverageExploredPaths": 25.28,
+    "rekonAverageExploredPaths": 8.28,
+    "baselineAverageCommands": 3.44,
+    "rekonAverageCommands": 2.28
+  },
+  "learnings": [
+    "Paths exposed by broad discovery count toward repository exploration.",
+    "Literal domain-error contracts must be delivered literally, not summarized as generic authorization preservation.",
+    "Required neighbor capabilities need deterministic implementation-path routing."
+  ]
+}

@@ -720,7 +720,11 @@ function extractRepositoryConventionFacts(
       source: "framework-convention",
       ...(typeof observed.value.framework === "string" ? { framework: observed.value.framework } : {}),
       ...(typeof observed.value.routePath === "string" ? { routePath: observed.value.routePath } : {}),
-      ...(Array.isArray(observed.value.methods) ? { handlers: observed.value.methods } : {}),
+      ...(typeof observed.value.handler === "string"
+        ? { handlers: [observed.value.handler] }
+        : Array.isArray(observed.value.methods)
+          ? { handlers: observed.value.methods }
+          : {}),
     }, normalized));
   }
 

@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-18T21:31:02.808Z",
+  "pricingAsOf": "2026-07-15",
+  "runner": "provider-backed-structured-tool-simulation",
+  "corpus": "refinement",
+  "fixtureSha256": "9e5d292a42479aadf5e32cc75143c1229815af86e9a2986c5d27e7f2fba62a12",
+  "cases": 3,
+  "repeatsPerCase": 3,
+  "pairedRuns": 18,
+  "sourceRetention": "none",
+  "routingPolicy": "proactive-deterministic-symbolic-with-bounded-refinement-fallback",
+  "models": [
+    {
+      "id": "gpt-5.6-luna@low",
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "effort": "low",
+      "pairedRuns": 9,
+      "decisions": {
+        "candidate": 5,
+        "no-advantage": 3,
+        "discard": 0,
+        "inconclusive": 1
+      },
+      "baseline": {
+        "runs": 9,
+        "completed": 8,
+        "passes": 3,
+        "averageQuality": 0.875,
+        "averageInspectedFiles": 5.5556,
+        "averageTurns": 2.7778,
+        "averageLatencyMs": 7656.8,
+        "usage": {
+          "inputTokens": 25330,
+          "outputTokens": 7750,
+          "reasoningTokens": 1876,
+          "cachedInputTokens": 11951,
+          "cacheWriteInputTokens": 6296,
+          "totalTokens": 33080
+        },
+        "estimatedCostUsd": 0.062648
+      },
+      "rekon": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 8,
+        "averageQuality": 0.9938,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 2,
+        "averageLatencyMs": 5474.2,
+        "usage": {
+          "inputTokens": 18525,
+          "outputTokens": 5283,
+          "reasoningTokens": 1457,
+          "cachedInputTokens": 5836,
+          "cacheWriteInputTokens": 4610,
+          "totalTokens": 23808
+        },
+        "estimatedCostUsd": 0.046123
+      },
+      "refinement": {
+        "requiredRuns": 0,
+        "passedRuns": 9,
+        "targetMatchedRuns": 9,
+        "calls": 0,
+        "unnecessaryCalls": 0,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0.34,
+        "turnReduction": 0.28,
+        "totalTokenReduction": 0.2803,
+        "estimatedCostReduction": 0.2638
+      }
+    },
+    {
+      "id": "claude-sonnet-5@low",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "effort": "low",
+      "pairedRuns": 9,
+      "decisions": {
+        "candidate": 1,
+        "no-advantage": 7,
+        "discard": 1,
+        "inconclusive": 0
+      },
+      "baseline": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 7,
+        "averageQuality": 0.9877,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 2,
+        "averageLatencyMs": 10056.4,
+        "usage": {
+          "inputTokens": 35484,
+          "outputTokens": 6678,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 42162
+        },
+        "estimatedCostUsd": 0.137748
+      },
+      "rekon": {
+        "runs": 9,
+        "completed": 9,
+        "passes": 7,
+        "averageQuality": 0.9877,
+        "averageInspectedFiles": 3.6667,
+        "averageTurns": 2,
+        "averageLatencyMs": 10133.5,
+        "usage": {
+          "inputTokens": 38862,
+          "outputTokens": 6996,
+          "reasoningTokens": 0,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "totalTokens": 45858
+        },
+        "estimatedCostUsd": 0.147684
+      },
+      "refinement": {
+        "requiredRuns": 0,
+        "passedRuns": 9,
+        "targetMatchedRuns": 9,
+        "calls": 0,
+        "unnecessaryCalls": 0,
+        "excessiveRuns": 0,
+        "unresolvedCalls": 0
+      },
+      "relative": {
+        "inspectedFilesReduction": 0,
+        "turnReduction": 0,
+        "totalTokenReduction": -0.0877,
+        "estimatedCostReduction": -0.0721
+      }
+    }
+  ],
+  "limitations": [
+    "The aggregate retains no prompts, source bodies, structured model responses, raw paths, or credentials.",
+    "The symbolic-routing fixture is bounded; selection and fallback costs may differ in larger repositories and native agent tool loops."
+  ]
+}

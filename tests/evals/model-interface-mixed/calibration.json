@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T08:28:05Z",
+  "runner": "codex-subscription",
+  "conditions": ["baseline", "rekon"],
+  "repeatsPerCase": 3,
+  "comparisonDesign": "clean baseline runs plus pact-corrected Rekon runs over the same immutable source fixture",
+  "tokenUsage": "not-collected-until-api-phase",
+  "sourceRetention": "source-free accepted aggregate only",
+  "cases": [
+    {
+      "id": "python-export-redaction",
+      "candidatePairs": 3,
+      "baselinePasses": 2,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 31.33,
+      "rekonAverageExploredPaths": 5,
+      "baselineAverageCommands": 4.67,
+      "rekonAverageCommands": 3
+    },
+    {
+      "id": "python-notification-suppression",
+      "candidatePairs": 1,
+      "noAdvantagePairs": 2,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 14.33,
+      "rekonAverageExploredPaths": 6.33,
+      "baselineAverageCommands": 4,
+      "rekonAverageCommands": 4
+    },
+    {
+      "id": "cross-language-cancellation-source",
+      "candidatePairs": 3,
+      "baselinePasses": 0,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 2,
+      "rekonAverageExploredPaths": 7,
+      "baselineAverageCommands": 3,
+      "rekonAverageCommands": 3
+    }
+  ],
+  "summary": {
+    "pairedRuns": 9,
+    "isolatedRuns": 18,
+    "candidatePairs": 7,
+    "noAdvantagePairs": 2,
+    "discardPairs": 0,
+    "baselinePasses": 5,
+    "rekonPasses": 9,
+    "baselineAverageQuality": 0.9087,
+    "rekonAverageQuality": 1,
+    "baselineAverageExploredPaths": 15.8889,
+    "rekonAverageExploredPaths": 6.1111,
+    "baselineAverageCommands": 3.8889,
+    "rekonAverageCommands": 3.3333
+  },
+  "learnings": [
+    "Cross-language contract work requires deterministic routing to every consumer and language-specific regression test.",
+    "A hidden quality requirement is not a pact; required regression coverage must be declared in delivered repository law.",
+    "Generated Python bytecode must be excluded from exact-scope scoring."
+  ]
+}

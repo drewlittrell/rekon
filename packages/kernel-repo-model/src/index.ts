@@ -11,6 +11,10 @@ import {
 } from "@rekon/kernel-artifacts";
 
 export * from "./repository-check-reports.js";
+export * from "./repository-contracts.js";
+export * from "./contract-candidates.js";
+export * from "./repository-contract-drift.js";
+export * from "./task-pact.js";
 
 export type ObservedSystem = {
   id: string;
@@ -156,9 +160,10 @@ export type CapabilityMap = {
 // required checks, preservation notes — that operators have
 // authorised by writing them into
 // `.rekon/capability-contracts.json`. The artifact is
-// **diagnostic**: nothing routes, lints, or gates on it in
-// v1. A future safety review and a separate decision must
-// land before any downstream consumer reads it.
+// **declared guidance**: the task-context compiler may read
+// configured preservation and verification policy into a
+// bounded model context packet. This is context selection,
+// not enforcement or execution.
 //
 // V1 emits only `configured` and `unmatched` rows.
 // `suggested` is reserved for a future
@@ -185,8 +190,8 @@ export type CapabilityMap = {
 // - `CapabilityMap` v2 remains projection and must not grow
 //   policy fields.
 // - No source mutation. No config write. No LLM inference.
-//   No architecture linting, resolver routing, or
-//   verification planning by capability.
+//   No resolver routing, verification execution, or silent
+//   enforcement by capability.
 
 export type CapabilityContractPolicyStatus =
   | "configured"
@@ -4547,6 +4552,18 @@ export type TaskContextItemSource =
 
 export type TaskContextScoreBand = "strong" | "useful" | "weak" | "ignored";
 
+export type TaskContextRouteRole =
+  | "task-target"
+  | "repository-law"
+  | "implementation"
+  | "handoff"
+  | "verification"
+  | "dependency"
+  | "compatibility"
+  | "supporting";
+
+export type TaskContextRouteNecessity = "required" | "conditional" | "supporting";
+
 export type TaskContextItem = {
   id: string;
   kind: TaskContextItemKind;
@@ -4558,6 +4575,9 @@ export type TaskContextItem = {
   scoreBand?: TaskContextScoreBand;
   evidenceRefs: string[];
   source: TaskContextItemSource;
+  routeRole?: TaskContextRouteRole;
+  necessity?: TaskContextRouteNecessity;
+  necessityReason?: string;
 };
 
 export type TaskContextGraphNeighborhoodRef = {
@@ -4565,11 +4585,16 @@ export type TaskContextGraphNeighborhoodRef = {
   id: string;
 };
 
+export type TaskContextGuidanceSource = "operator_input" | "repository_contract";
+export type TaskContextGuidanceFreshness = "fresh" | "stale" | "partial" | "unknown";
+
 export type TaskContextDoNotTouchZone = {
   reason: string;
   path?: string;
   symbolId?: string;
   evidenceRefs: string[];
+  source?: TaskContextGuidanceSource;
+  freshness?: TaskContextGuidanceFreshness;
 };
 
 export type TaskContextVerificationHint = {
@@ -4577,6 +4602,8 @@ export type TaskContextVerificationHint = {
   artifact?: string;
   reason: string;
   evidenceRefs: string[];
+  source?: TaskContextGuidanceSource;
+  freshness?: TaskContextGuidanceFreshness;
 };
 
 export type TaskContextReportSelection = {
@@ -4649,6 +4676,19 @@ const TASK_CONTEXT_ITEM_SOURCES = new Set<string>([
   "operator_input",
 ]);
 const TASK_CONTEXT_SCORE_BANDS = new Set<string>(["strong", "useful", "weak", "ignored"]);
+const TASK_CONTEXT_ROUTE_ROLES = new Set<string>([
+  "task-target",
+  "repository-law",
+  "implementation",
+  "handoff",
+  "verification",
+  "dependency",
+  "compatibility",
+  "supporting",
+]);
+const TASK_CONTEXT_ROUTE_NECESSITIES = new Set<string>(["required", "conditional", "supporting"]);
+const TASK_CONTEXT_GUIDANCE_SOURCES = new Set<string>(["operator_input", "repository_contract"]);
+const TASK_CONTEXT_GUIDANCE_FRESHNESS = new Set<string>(["fresh", "stale", "partial", "unknown"]);
 const TASK_CONTEXT_REPORT_BOUNDARY_KEYS = [
   "retrievalIsProof",
   "approvedPlans",
@@ -4755,6 +4795,20 @@ function validateTaskContextItem(
     (typeof value.scoreBand !== "string" || !TASK_CONTEXT_SCORE_BANDS.has(value.scoreBand))
   ) {
     issues.push({ path: `${path}.scoreBand`, message: "Expected a valid score band when present." });
+  }
+  const hasRouteMetadata = value.routeRole !== undefined
+    || value.necessity !== undefined
+    || value.necessityReason !== undefined;
+  if (hasRouteMetadata) {
+    if (typeof value.routeRole !== "string" || !TASK_CONTEXT_ROUTE_ROLES.has(value.routeRole)) {
+      issues.push({ path: `${path}.routeRole`, message: "Expected a valid route role." });
+    }
+    if (typeof value.necessity !== "string" || !TASK_CONTEXT_ROUTE_NECESSITIES.has(value.necessity)) {
+      issues.push({ path: `${path}.necessity`, message: "Expected required, conditional, or supporting." });
+    }
+    if (typeof value.necessityReason !== "string" || value.necessityReason.trim().length === 0) {
+      issues.push({ path: `${path}.necessityReason`, message: "Expected a non-empty route necessity reason." });
+    }
   }
   if (!isTaskContextStringArray(value.evidenceRefs)) {
     issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
@@ -4875,6 +4929,12 @@ export function validateTaskContextReport(value: unknown): ValidationResult<Task
       if (!isTaskContextStringArray(zone.evidenceRefs)) {
         issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
       }
+      if (zone.source !== undefined && !TASK_CONTEXT_GUIDANCE_SOURCES.has(String(zone.source))) {
+        issues.push({ path: `${path}.source`, message: "Expected operator_input or repository_contract." });
+      }
+      if (zone.freshness !== undefined && !TASK_CONTEXT_GUIDANCE_FRESHNESS.has(String(zone.freshness))) {
+        issues.push({ path: `${path}.freshness`, message: "Expected a valid freshness status." });
+      }
     });
   }
 
@@ -4900,6 +4960,12 @@ export function validateTaskContextReport(value: unknown): ValidationResult<Task
       }
       if (!isTaskContextStringArray(hint.evidenceRefs)) {
         issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
+      }
+      if (hint.source !== undefined && !TASK_CONTEXT_GUIDANCE_SOURCES.has(String(hint.source))) {
+        issues.push({ path: `${path}.source`, message: "Expected operator_input or repository_contract." });
+      }
+      if (hint.freshness !== undefined && !TASK_CONTEXT_GUIDANCE_FRESHNESS.has(String(hint.freshness))) {
+        issues.push({ path: `${path}.freshness`, message: "Expected a valid freshness status." });
       }
     });
   }

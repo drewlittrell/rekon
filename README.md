@@ -31,15 +31,18 @@ rm -rf /tmp/rekon-demo
 cp -R examples/simple-js-ts /tmp/rekon-demo
 rm -rf /tmp/rekon-demo/.rekon
 
+node packages/cli/dist/index.js setup --root /tmp/rekon-demo --json
 node packages/cli/dist/index.js scan --root /tmp/rekon-demo --json
-node packages/cli/dist/index.js context task --root /tmp/rekon-demo --task "Modify the greeting in src/index.ts" --path src/index.ts --provider mock --json
+node packages/cli/dist/index.js context task --root /tmp/rekon-demo --task "Modify the greeting in src/index.ts" --path src/index.ts --profile compact --provider mock --json
 node packages/cli/dist/index.js resolve preflight --root /tmp/rekon-demo --path src/index.ts --goal "Modify the greeting" --json
 node packages/cli/dist/index.js publish agent-contract --root /tmp/rekon-demo --json
 node packages/cli/dist/index.js artifacts validate --root /tmp/rekon-demo --json
 ```
 
-The demo creates typed artifacts under `/tmp/rekon-demo/.rekon/artifacts` and
-validates their headers, index entries, and digests.
+`setup` adds a bounded Rekon block to the demo's `AGENTS.md` without replacing
+project instructions. The remaining commands create typed artifacts under
+`/tmp/rekon-demo/.rekon/artifacts` and validate their headers, index entries,
+and digests.
 
 ## Core Concepts
 
@@ -54,7 +57,35 @@ validates their headers, index entries, and digests.
   explaining source precedence, fallback, and risk.
 - **Assessments.** Risks, opportunities, semantic claims, and model diagnostics
   kept separate from proven findings.
+- **Repository law.** Committed system and flow contracts that Rekon selects
+  into a task-specific `TaskPact` instead of loading every rule at startup.
 - **Publications.** Generated docs and guidance derived from artifacts.
+
+## Model Interface
+
+Rekon keeps a short, versioned bootstrap in a managed repository's `AGENTS.md`.
+It tells coding agents to request current context instead of copying ownership,
+findings, or policy into a static instruction file.
+
+The local MCP server is the read-only model interface:
+
+```sh
+rekon mcp serve --root .
+```
+
+It advertises `context_for_task` and `resolve_source_target`. Source-target
+resolution is a bounded delta for an exact identifier found in inspected
+source, not general search. Older orientation, placement, and preflight tool
+names remain accepted for compatibility but are not advertised to coding
+agents; their CLI commands remain available. The CLI uses the same context
+compiler and selector and remains the interface for scans, artifact writes,
+and environments without MCP. Agents use
+`rekon context task ... --model-context` for the same minimal delivery payload;
+operators keep `--json` for the full audit view.
+
+For a repository without contract sources, `rekon contracts bootstrap --json`
+observes the codebase and prepares bounded candidates for source-cited agent
+judgment. It does not call a model or adopt source automatically.
 
 ## Architecture
 
@@ -80,7 +111,8 @@ Rekon's architecture rule:
 - Retrieval and embeddings are supporting evidence, not authority.
 - Approvals are explicit.
 - Verification plans do not execute commands by themselves.
-- Rekon does not write source by default.
+- Rekon does not edit implementation source by default. Setup, init, and
+  refresh may maintain only the marked Rekon block in `AGENTS.md`.
 - Reconciliation remains permissioned and artifact-first.
 - Generated docs and agent contracts are publications, not canonical truth.
 
@@ -91,6 +123,9 @@ Rekon's architecture rule:
 - [Artifact model](docs/artifacts/index.md)
 - [Capability authoring](docs/extensions/authoring-capabilities.md)
 - [Resolver packets](docs/artifacts/resolver-packet.md)
+- [Agent context instructions](docs/guides/agent-context-instructions.md)
+- [Task context workflow](docs/guides/task-context-workflow.md)
+- [Repository contracts](docs/artifacts/repository-contracts.md)
 - [North Star](docs/strategy/north-star.md)
 - [System model](docs/strategy/rekon-system-model.md)
 - [Detection quality](docs/strategy/detection-quality.md)

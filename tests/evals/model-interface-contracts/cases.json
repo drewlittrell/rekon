@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1.0.0",
+  "contextFixture": "../../fixtures/repository-law-context-eval/cases.json",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "rekon.contract.json",
+      "docs/runbook.md",
+      "src/api/checkout-controller.ts",
+      "src/api/experience-controller.ts",
+      "src/checkout/checkout-message.ts",
+      "src/checkout/checkout-service.ts",
+      "src/nlu/atomize.ts",
+      "src/nlu/compose-meaning.ts",
+      "src/nlu/experience-interpreter.ts",
+      "src/nlu/tokenize.ts",
+      "src/nlu/vocabulary.ts",
+      "src/receipts/receipt-publisher.ts",
+      "src/worker/checkout-worker.ts",
+      "tests/checkout-flow.test.ts",
+      "tests/experience-interpreter.test.ts"
+    ]
+  },
+  "cases": [
+    {
+      "id": "atomic-experience-composition",
+      "task": "Support the phrase garden concert with friends in experience interpretation. The reported vocabulary path is src/nlu/vocabulary.ts.",
+      "paths": ["src/nlu/vocabulary.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/nlu/vocabulary.ts",
+          "src/nlu/tokenize.ts",
+          "src/nlu/atomize.ts",
+          "src/nlu/compose-meaning.ts",
+          "src/nlu/experience-interpreter.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "allowedContextPaths": [
+          "rekon.contract.json",
+          "src/api/experience-controller.ts",
+          "src/nlu/vocabulary.ts",
+          "src/nlu/tokenize.ts",
+          "src/nlu/atomize.ts",
+          "src/nlu/compose-meaning.ts",
+          "src/nlu/experience-interpreter.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/nlu/tokenize.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/nlu/tokenize.ts",
+          "tests/experience-interpreter.test.ts"
+        ],
+        "protectedPaths": [
+          "src/nlu/vocabulary.ts",
+          "src/nlu/atomize.ts",
+          "src/nlu/compose-meaning.ts",
+          "src/nlu/experience-interpreter.ts",
+          "src/api/experience-controller.ts"
+        ],
+        "constraintFragments": [
+          "atomic concepts",
+          "complete phrase aliases",
+          "non-connector unknown tokens",
+          "every non-connector token"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-contracts/oracles/atomic-experience-composition.test.mjs"
+        ],
+        "planConcepts": [
+          ["connector", "token"],
+          ["atomic", "compos"],
+          ["phrase", "alias"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "checkout-baton-preservation",
+      "task": "Add optional campaignId to CheckoutRequest and carry it into receipt metadata while preserving requestId and omission compatibility.",
+      "paths": ["src/checkout/checkout-message.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "src/api/checkout-controller.ts",
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "allowedContextPaths": [
+          "rekon.contract.json",
+          "src/api/checkout-controller.ts",
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/checkout/checkout-message.ts",
+          "src/checkout/checkout-service.ts",
+          "src/worker/checkout-worker.ts",
+          "src/receipts/receipt-publisher.ts",
+          "tests/checkout-flow.test.ts"
+        ],
+        "protectedPaths": ["src/api/checkout-controller.ts"],
+        "constraintFragments": [
+          "requestId unchanged",
+          "omitted, not serialized as undefined",
+          "every checkout handoff",
+          "campaignId when present"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-contracts/oracles/checkout-baton-preservation.test.mjs"
+        ],
+        "planConcepts": [
+          ["campaignid", "optional"],
+          ["requestid", "preserv"],
+          ["message", "worker", "receipt"],
+          ["omit", "undefined"],
+          ["test", "coverage"]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0",
+  "acceptedAt": "2026-07-18T16:17:13.421Z",
+  "runner": "codex-subscription",
+  "conditions": ["baseline", "rekon"],
+  "repeatsPerCase": 3,
+  "comparisonDesign": "paired isolated baseline and direct Rekon-context runs with alternating condition order",
+  "tokenUsage": "not-collected-until-api-phase",
+  "sourceRetention": "source-free accepted aggregate only",
+  "cases": [
+    {
+      "id": "configured-region-failover",
+      "candidatePairs": 3,
+      "baselinePasses": 3,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 35,
+      "rekonAverageExploredPaths": 6,
+      "baselineAverageCommands": 5,
+      "rekonAverageCommands": 2.3333
+    },
+    {
+      "id": "plugin-bearer-redaction",
+      "candidatePairs": 3,
+      "baselinePasses": 0,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 34,
+      "rekonAverageExploredPaths": 6,
+      "baselineAverageCommands": 4,
+      "rekonAverageCommands": 3
+    },
+    {
+      "id": "audit-source-ip-compatibility",
+      "candidatePairs": 3,
+      "baselinePasses": 0,
+      "rekonPasses": 3,
+      "baselineAverageExploredPaths": 11.3333,
+      "rekonAverageExploredPaths": 7.6667,
+      "baselineAverageCommands": 3.3333,
+      "rekonAverageCommands": 3
+    }
+  ],
+  "summary": {
+    "pairedRuns": 9,
+    "isolatedRuns": 18,
+    "candidatePairs": 9,
+    "noAdvantagePairs": 0,
+    "discardPairs": 0,
+    "baselinePasses": 3,
+    "rekonPasses": 9,
+    "baselineAverageQuality": 0.8651,
+    "rekonAverageQuality": 1,
+    "baselineAverageExploredPaths": 26.7778,
+    "rekonAverageExploredPaths": 6.5556,
+    "baselineAverageCommands": 4.1111,
+    "rekonAverageCommands": 2.7778
+  },
+  "learnings": [
+    "Configuration changes need the loader, policy, public adapter, and regression test even when the edit itself remains configuration-only.",
+    "Pathless extension work benefits from explicit placement, registration, protected-core, and regression pacts.",
+    "Backward-compatible schema changes require deterministic routing to every producer, consumer, and language-specific test."
+  ]
+}

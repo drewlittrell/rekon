@@ -1,0 +1,11 @@
+{
+  "name": "rekon-model-interface-symbol-contract-route-fixture",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#log-redaction": "./extensions/log-redaction/src/sanitize.ts"
+  },
+  "scripts": {
+    "test": "node scripts/test-all.mjs"
+  }
+}

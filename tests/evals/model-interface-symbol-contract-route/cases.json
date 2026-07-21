@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "scripts/test-all.mjs",
+      "core/logging/src/logger.ts",
+      "extensions/log-redaction/src/sanitize.ts",
+      "test/logging/logger.test.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "core/logging/src/logger.ts" },
+      { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+      { "kind": "file", "id": "test/logging/logger.test.ts" }
+    ],
+    "claims": [
+      {
+        "id": "claim-logger-sanitizer",
+        "subject": { "kind": "file", "id": "core/logging/src/logger.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "extensions/log-redaction/src/sanitize.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:logger-sanitizer"]
+      },
+      {
+        "id": "claim-logger-test",
+        "subject": { "kind": "file", "id": "test/logging/logger.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "core/logging/src/logger.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:logger-test"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:format-log-messages",
+        "verb": "format",
+        "noun": "log messages",
+        "implementedBy": [
+          { "kind": "file", "id": "core/logging/src/logger.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:format-log-messages"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-symbol-contract-route-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-symbol-contract-route-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-21T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-symbol-contract-route-eval" },
+      "producer": { "id": "@rekon/model-interface-symbol-contract-route-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" },
+      "provenance": {
+        "confidence": 1,
+        "notes": ["Fixture-declared symbol contract for replacement-context evaluation."]
+      }
+    },
+    "source": {
+      "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" }
+    },
+    "summary": {
+      "total": 1,
+      "configured": 1,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 1,
+      "withPlacementRules": 0,
+      "withPreservationRules": 1
+    },
+    "contracts": [
+      {
+        "id": "format-log-messages-symbol-law",
+        "capabilityRef": {
+          "capabilityMapRef": { "type": "CapabilityMap", "id": "model-interface-symbol-contract-route-map", "schemaVersion": "0.1.0" },
+          "phraseCapabilityId": "capability:format-log-messages"
+        },
+        "match": { "verb": "format", "noun": "log messages" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "The #log-redaction boundary exports sanitizeLogLine(message: string): string.",
+          "sanitizeLogLine is pure and replaces each token=<non-whitespace> segment with token=[REDACTED].",
+          "Public formatLog(message: string): string delegates the complete message to sanitizeLogLine and returns that result unchanged.",
+          "Batch formatting preserves input order and applies existing formatLog behavior independently to each message.",
+          "Add direct regression coverage for batch formatting."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "batch-log-formatting-symbol-contract",
+      "task": "Add a formatLogBatch(messages: string[]) helper to core/logging/src/logger.ts and cover it with a direct regression test. Preserve existing single-message formatting behavior and existing exports.",
+      "paths": ["core/logging/src/logger.ts"],
+      "profile": "compact",
+      "oracle": {
+        "requiredContextPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "optionalContextPaths": [
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "allowedContextPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts",
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "requiredModifyPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "core/logging/src/logger.ts",
+          "test/logging/logger.test.ts"
+        ],
+        "protectedPaths": [
+          "extensions/log-redaction/src/sanitize.ts"
+        ],
+        "constraintFragments": [
+          "#log-redaction boundary exports sanitizeLogLine(message: string): string",
+          "sanitizeLogLine is pure",
+          "token=[REDACTED]",
+          "formatLog(message: string): string delegates",
+          "input order",
+          "regression coverage"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-symbol-contract-route/oracles/batch-log-formatting.test.mjs"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,464 @@
+{
+  "schemaVersion": "1.0.0",
+  "repository": {
+    "root": "repo",
+    "files": [
+      ".gitignore",
+      "AGENTS.md",
+      "package.json",
+      "scripts/test-all.mjs",
+      "src/api/checkout-controller.ts",
+      "src/api/user-controller.ts",
+      "src/catalog/product-service.ts",
+      "src/checkout/checkout-service.ts",
+      "src/checkout/order-repository.ts",
+      "src/events/order-event-publisher.ts",
+      "src/events/order-event-serializer.ts",
+      "src/events/order-event.ts",
+      "src/jobs/cleanup-expired-sessions.ts",
+      "src/jobs/job-registry.ts",
+      "src/profiles/profile-event-consumer.ts",
+      "src/reports/report-contract.ts",
+      "src/reports/report-exporter.ts",
+      "src/reports/report-view.ts",
+      "src/users/user-event-contract.ts",
+      "src/users/user-event-publisher.ts",
+      "tests/checkout-service.test.ts",
+      "tests/job-registry.test.ts",
+      "tests/product-service.test.ts",
+      "tests/report-view.test.ts",
+      "tests/user-event-publisher.test.ts"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "kind": "file", "id": "src/api/checkout-controller.ts" },
+      { "kind": "file", "id": "src/api/user-controller.ts" },
+      { "kind": "file", "id": "src/catalog/product-service.ts" },
+      { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+      { "kind": "file", "id": "src/checkout/order-repository.ts" },
+      { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+      { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+      { "kind": "file", "id": "src/events/order-event.ts" },
+      { "kind": "file", "id": "src/jobs/cleanup-expired-sessions.ts" },
+      { "kind": "file", "id": "src/jobs/job-registry.ts" },
+      { "kind": "file", "id": "src/profiles/profile-event-consumer.ts" },
+      { "kind": "file", "id": "src/reports/report-contract.ts" },
+      { "kind": "file", "id": "src/reports/report-exporter.ts" },
+      { "kind": "file", "id": "src/reports/report-view.ts" },
+      { "kind": "file", "id": "src/users/user-event-contract.ts" },
+      { "kind": "file", "id": "src/users/user-event-publisher.ts" },
+      { "kind": "file", "id": "tests/checkout-service.test.ts" },
+      { "kind": "file", "id": "tests/job-registry.test.ts" },
+      { "kind": "file", "id": "tests/product-service.test.ts" },
+      { "kind": "file", "id": "tests/report-view.test.ts" },
+      { "kind": "file", "id": "tests/user-event-publisher.test.ts" }
+    ],
+    "claims": [
+      {
+        "id": "claim-checkout-repository",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/order-repository.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-repository"]
+      },
+      {
+        "id": "claim-checkout-publisher",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-publisher"]
+      },
+      {
+        "id": "claim-checkout-event-type",
+        "subject": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/events/order-event.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-event-type"]
+      },
+      {
+        "id": "claim-checkout-test",
+        "subject": { "kind": "file", "id": "tests/checkout-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:checkout-test"]
+      },
+      {
+        "id": "claim-checkout-controller",
+        "subject": { "kind": "file", "id": "src/api/checkout-controller.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/checkout/checkout-service.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:checkout-controller"]
+      },
+      {
+        "id": "claim-publisher-serializer",
+        "subject": { "kind": "file", "id": "src/events/order-event-publisher.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:publisher-serializer"]
+      },
+      {
+        "id": "claim-serializer-contract",
+        "subject": { "kind": "file", "id": "src/events/order-event-serializer.ts" },
+        "predicate": "imports",
+        "object": { "kind": "file", "id": "src/events/order-event.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:serializer-contract"]
+      },
+      {
+        "id": "claim-product-test",
+        "subject": { "kind": "file", "id": "tests/product-service.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/catalog/product-service.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:product-test"]
+      },
+      {
+        "id": "claim-user-publisher-contract",
+        "subject": { "kind": "file", "id": "src/users/user-event-publisher.ts" },
+        "predicate": "imports_contract",
+        "object": { "kind": "file", "id": "src/users/user-event-contract.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:user-publisher-contract"]
+      },
+      {
+        "id": "claim-user-publisher-test",
+        "subject": { "kind": "file", "id": "tests/user-event-publisher.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/users/user-event-publisher.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:user-publisher-test"]
+      },
+      {
+        "id": "claim-profile-consumer-contract",
+        "subject": { "kind": "file", "id": "src/profiles/profile-event-consumer.ts" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "src/users/user-event-contract.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:profile-consumer-contract"]
+      },
+      {
+        "id": "claim-job-registry-test",
+        "subject": { "kind": "file", "id": "tests/job-registry.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/jobs/job-registry.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:job-registry-test"]
+      },
+      {
+        "id": "claim-report-view-contract",
+        "subject": { "kind": "file", "id": "src/reports/report-view.ts" },
+        "predicate": "consumes_contract",
+        "object": { "kind": "file", "id": "src/reports/report-contract.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:report-view-contract"]
+      },
+      {
+        "id": "claim-report-view-test",
+        "subject": { "kind": "file", "id": "tests/report-view.test.ts" },
+        "predicate": "verifies",
+        "object": { "kind": "file", "id": "src/reports/report-view.ts" },
+        "source": "test",
+        "evidenceRefs": ["EvidenceGraph:report-view-test"]
+      },
+      {
+        "id": "claim-report-producer-contract",
+        "subject": { "kind": "file", "id": "src/reports/report-exporter.ts" },
+        "predicate": "produces_contract",
+        "object": { "kind": "file", "id": "src/reports/report-contract.ts" },
+        "source": "ast",
+        "evidenceRefs": ["EvidenceGraph:report-producer-contract"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "capability:checkout-order-created-event",
+        "verb": "publish",
+        "noun": "checkout order-created event",
+        "implementedBy": [
+          { "kind": "file", "id": "src/checkout/checkout-service.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:checkout-order-created-event"]
+      },
+      {
+        "id": "capability:publish-user-created-event",
+        "verb": "publish",
+        "noun": "user-created event",
+        "implementedBy": [
+          { "kind": "file", "id": "src/users/user-event-publisher.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:publish-user-created-event"]
+      },
+      {
+        "id": "capability:cleanup-expired-sessions-job",
+        "verb": "run",
+        "noun": "cleanup expired sessions job",
+        "implementedBy": [
+          { "kind": "file", "id": "src/jobs/job-registry.ts" },
+          { "kind": "file", "id": "src/jobs/cleanup-expired-sessions.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:cleanup-expired-sessions-job"]
+      },
+      {
+        "id": "capability:render-report",
+        "verb": "render",
+        "noun": "report",
+        "implementedBy": [
+          { "kind": "file", "id": "src/reports/report-view.ts" }
+        ],
+        "evidenceRefs": ["CapabilityMap:render-report"]
+      }
+    ]
+  },
+  "capabilityContractRef": {
+    "type": "CapabilityContract",
+    "id": "model-interface-refinement-contracts",
+    "schemaVersion": "0.1.0"
+  },
+  "capabilityContract": {
+    "header": {
+      "artifactType": "CapabilityContract",
+      "artifactId": "model-interface-refinement-contracts",
+      "schemaVersion": "0.1.0",
+      "generatedAt": "2026-07-18T00:00:00.000Z",
+      "subject": { "repoId": "model-interface-refinement-eval" },
+      "producer": { "id": "@rekon/model-interface-refinement-fixture", "version": "1.0.0" },
+      "inputRefs": [
+        { "type": "CapabilityMap", "id": "model-interface-refinement-map", "schemaVersion": "0.1.0" }
+      ],
+      "freshness": { "status": "fresh" }
+    },
+    "source": {
+      "capabilityMapRef": {
+        "type": "CapabilityMap",
+        "id": "model-interface-refinement-map",
+        "schemaVersion": "0.1.0"
+      }
+    },
+    "summary": {
+      "total": 2,
+      "configured": 2,
+      "suggested": 0,
+      "unmatched": 0,
+      "withRequiredChecks": 2,
+      "withPlacementRules": 0,
+      "withPreservationRules": 2
+    },
+    "contracts": [
+      {
+        "id": "checkout-order-created-event-law",
+        "capabilityRef": {
+          "capabilityMapRef": {
+            "type": "CapabilityMap",
+            "id": "model-interface-refinement-map",
+            "schemaVersion": "0.1.0"
+          },
+          "phraseCapabilityId": "capability:checkout-order-created-event"
+        },
+        "match": { "verb": "publish", "noun": "checkout order-created event" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "Propagate the optional checkout channel into the order-created event payload.",
+          "Omit channel from legacy payloads when the request does not provide it; do not serialize channel as undefined.",
+          "Keep the checkout controller public contract stable.",
+          "Add regression coverage for channel propagation and legacy omission."
+        ]
+      },
+      {
+        "id": "report-generated-by-law",
+        "capabilityRef": {
+          "capabilityMapRef": {
+            "type": "CapabilityMap",
+            "id": "model-interface-refinement-map",
+            "schemaVersion": "0.1.0"
+          },
+          "phraseCapabilityId": "capability:render-report"
+        },
+        "match": { "verb": "render", "noun": "report" },
+        "status": "configured",
+        "requiredChecks": ["npm test"],
+        "preservationRules": [
+          "generatedBy is optional caller-supplied report metadata, not the exporter implementation ID.",
+          "exportReport must copy the caller-provided generatedBy value when present and omit the property when absent.",
+          "renderReport must identify the exact provided generatedBy value while preserving the legacy title-only output when absent.",
+          "Add regression coverage for metadata propagation, rendering, and legacy omission."
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "job-symbolic-implementation-refinement",
+      "task": "Make the cleanup-expired-sessions job registered by src/jobs/job-registry.ts return { remaining, removedCount }, preserving the active sessions in remaining.",
+      "paths": ["src/jobs/job-registry.ts"],
+      "profile": "compact",
+      "managedExpectations": {
+        "requireRefinement": false,
+        "maxRefinementCalls": 0
+      },
+      "oracle": {
+        "requiredContextPaths": [
+          "src/jobs/job-registry.ts",
+          "tests/job-registry.test.ts"
+        ],
+        "requiredRoutedContextPaths": [
+          "src/jobs/cleanup-expired-sessions.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/jobs/job-registry.ts",
+          "src/jobs/cleanup-expired-sessions.ts",
+          "tests/job-registry.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/jobs/cleanup-expired-sessions.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/jobs/cleanup-expired-sessions.ts",
+          "tests/job-registry.test.ts"
+        ],
+        "protectedPaths": ["src/jobs/job-registry.ts"],
+        "constraintFragments": [
+          "removedCount",
+          "active sessions",
+          "cleanup-expired-sessions:v1"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-refinement/oracles/job-implementation.test.mjs"
+        ],
+        "planConcepts": [
+          ["cleanup", "expired", "sessions"],
+          ["cleanupExpiredSessions", "function"],
+          ["removedCount"],
+          ["remaining", "active"]
+        ]
+      }
+    },
+    {
+      "id": "user-event-symbolic-consumer-refinement",
+      "task": "Add an optional displayName to user-created events initiated by src/users/user-event-publisher.ts. Omit it from legacy payloads when absent, and use it as the profile label when available.",
+      "paths": ["src/users/user-event-publisher.ts"],
+      "profile": "compact",
+      "managedExpectations": {
+        "requireRefinement": false,
+        "maxRefinementCalls": 0
+      },
+      "oracle": {
+        "requiredContextPaths": [
+          "src/users/user-event-publisher.ts",
+          "src/users/user-event-contract.ts",
+          "tests/user-event-publisher.test.ts"
+        ],
+        "requiredRoutedContextPaths": [
+          "src/profiles/profile-event-consumer.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/users/user-event-publisher.ts",
+          "src/users/user-event-contract.ts",
+          "src/profiles/profile-event-consumer.ts",
+          "src/api/user-controller.ts",
+          "tests/user-event-publisher.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/users/user-event-publisher.ts",
+          "src/users/user-event-contract.ts",
+          "src/profiles/profile-event-consumer.ts",
+          "tests/user-event-publisher.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/users/user-event-publisher.ts",
+          "src/users/user-event-contract.ts",
+          "src/profiles/profile-event-consumer.ts",
+          "tests/user-event-publisher.test.ts"
+        ],
+        "protectedPaths": ["src/api/user-controller.ts"],
+        "constraintFragments": [
+          "displayName",
+          "omit",
+          "legacy",
+          "profile label"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-refinement/oracles/user-event-consumer.test.mjs"
+        ],
+        "planConcepts": [
+          ["displayName"],
+          ["event", "contract"],
+          ["consumer", "profile", "label"],
+          ["legacy", "omit"],
+          ["test", "coverage"]
+        ]
+      }
+    },
+    {
+      "id": "report-symbolic-producer-refinement",
+      "task": "Add optional caller-supplied generatedBy metadata to reports rendered by src/reports/report-view.ts. ReportExportInput must accept it, exportReport must copy the exact provided value when present and omit the property when absent, and renderReport must display that value while preserving the legacy title-only output.",
+      "paths": ["src/reports/report-view.ts"],
+      "profile": "compact",
+      "managedExpectations": {
+        "requireRefinement": false,
+        "maxRefinementCalls": 0
+      },
+      "oracle": {
+        "requiredContextPaths": [
+          "src/reports/report-view.ts",
+          "src/reports/report-contract.ts",
+          "tests/report-view.test.ts"
+        ],
+        "requiredRoutedContextPaths": [
+          "src/reports/report-exporter.ts"
+        ],
+        "allowedContextPaths": [
+          "AGENTS.md",
+          "package.json",
+          "src/reports/report-view.ts",
+          "src/reports/report-contract.ts",
+          "src/reports/report-exporter.ts",
+          "tests/report-view.test.ts"
+        ],
+        "requiredModifyPaths": [
+          "src/reports/report-view.ts",
+          "src/reports/report-contract.ts",
+          "src/reports/report-exporter.ts",
+          "tests/report-view.test.ts"
+        ],
+        "allowedModifyPaths": [
+          "src/reports/report-view.ts",
+          "src/reports/report-contract.ts",
+          "src/reports/report-exporter.ts",
+          "tests/report-view.test.ts"
+        ],
+        "protectedPaths": [],
+        "constraintFragments": [
+          "generatedBy",
+          "producer",
+          "omit",
+          "legacy"
+        ],
+        "commands": ["npm test"],
+        "oracleTests": [
+          "tests/evals/model-interface-refinement/oracles/report-producer.test.mjs"
+        ],
+        "planConcepts": [
+          ["generatedBy"],
+          ["report", "contract"],
+          ["producer", "export"],
+          ["legacy", "omit"],
+          ["view", "render"]
+        ]
+      }
+    }
+  ]
+}
