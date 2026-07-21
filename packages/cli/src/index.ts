@@ -757,86 +757,13 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "contracts" && subcommand === "bootstrap") {
-    const store = createLocalArtifactStore(root);
-    await store.init();
-    await writeConfigIfMissing(root);
-    const configValidation = await validateConfig(root);
-    if (!configValidation.valid) {
-      writeOutput({ command: "contracts bootstrap", status: "failed", issues: configValidation.issues }, json);
-      process.exitCode = 1;
-      return;
-    }
-    const runtime = await createDefaultRuntime(root);
-    const evidenceRef = await runtime.runObserve();
-    const capabilityGraph = await buildRefreshCapabilityEvidenceGraph(root, store);
-    const projectionRefs = await runtime.runProject();
-    const compiled = await compileRepositoryContracts(root, store);
-    if (!compiled.valid) {
-      writeOutput({ command: "contracts bootstrap", status: "failed", compiled }, json);
-      process.exitCode = 1;
-      return;
-    }
-    const intelligence = await loadRepositoryContractIntelligence(store);
-    const candidates = discoverRepositoryContractCandidates({
-      repoId: root,
-      graph: intelligence.graph,
-      observedRepo: intelligence.observedRepo,
-      ownershipMap: intelligence.ownershipMap,
-      capabilityMap: intelligence.capabilityMap,
-      effectiveRegistry: intelligence.effectiveRegistry,
+    const result = await bootstrapRepositoryContracts({
+      root,
       maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
       maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
     });
-    const candidateRef = await store.write(candidates, { category: "actions" });
-    const snapshotRef = await runtime.runSnapshot({
-      artifactRefs: [
-        evidenceRef,
-        capabilityGraph.ref,
-        ...projectionRefs,
-        ...compiled.contracts,
-        ...(compiled.registry ? [compiled.registry] : []),
-        candidateRef,
-      ],
-    });
-    const config = await readConfig(root);
-    const agentInstructions = await syncAgentInstructions(root, agentInstructionOptions(config));
-    const prompt = candidates.summary.total > 0
-      ? buildRepositoryContractJudgmentPrompt(candidates)
-      : undefined;
-    writeOutput({
-      command: "contracts bootstrap",
-      status: candidates.summary.total > 0 ? "judgment-required" : "current",
-      artifacts: {
-        evidence: evidenceRef,
-        capabilityGraph: capabilityGraph.ref,
-        projections: projectionRefs,
-        registry: compiled.registry,
-        candidates: candidateRef,
-        snapshot: snapshotRef,
-      },
-      summary: candidates.summary,
-      unresolved: candidates.unresolved,
-      graphWarnings: intelligence.graph.warnings,
-      agentInstructions,
-      ...(prompt ? {
-        judgment: {
-          promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
-          prompt,
-          schema: REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
-          next: [
-            `Inspect the cited source and write repository-native judgments for ContractCandidateReport:${candidateRef.id}.`,
-            `rekon contracts judge --candidate-report ${candidateRef.id} --input <judgment.json> --root . --json`,
-            "rekon contracts adopt --root . --json",
-          ],
-        },
-      } : {}),
-      boundaries: {
-        calledModel: false,
-        evaluatedFindings: false,
-        wroteContractSource: false,
-        executedRepositoryCommands: false,
-      },
-    }, json);
+    writeOutput({ command: "contracts bootstrap", ...result }, json);
+    if (result.status === "failed") process.exitCode = 1;
     return;
   }
 
@@ -901,58 +828,29 @@ export async function main(argv: string[]): Promise<void> {
       }, json);
       return;
     }
-
-    const draftInput = await readRepositoryJsonInput(root, inputPath);
-    const drafts = coerceRepositoryContractJudgmentDrafts(draftInput, candidateReport);
-    const candidateById = new Map(candidateReport.candidates.map((candidate) => [candidate.id, candidate]));
-    const judgments = [];
-    for (const draft of drafts) {
-      const candidate = candidateById.get(draft.candidateId);
-      if (!candidate) throw new Error(`Judgment references unknown candidate ${draft.candidateId}.`);
-      judgments.push({
-        candidateId: draft.candidateId,
-        decision: draft.decision,
-        confidence: draft.confidence,
-        rationale: draft.rationale,
-        citations: await bindContractJudgmentCitations(root, draft.citations),
-        evidenceRefs: candidate.evidenceRefs,
-        ...(draft.proposed ? { proposed: draft.proposed } : {}),
-      });
-    }
     const judgeMode = contractJudgeMode(parsed.flags.mode);
     const model = typeof parsed.flags.model === "string" && parsed.flags.model.trim()
       ? parsed.flags.model.trim()
       : undefined;
     if (judgeMode === "provider" && !model) throw new Error("Provider contract judgments require --model <id>.");
-    const generatedAt = new Date().toISOString();
-    const report = createContractJudgmentReport({
-      header: {
-        artifactType: "ContractJudgmentReport",
-        artifactId: `contract-judgment-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
-        schemaVersion: "1.0.0",
-        generatedAt,
-        subject: { repoId: root },
-        producer: { id: "@rekon/cli.contract-judge", version: "1.0.0" },
-        inputRefs: [candidateReportRef],
-        supersession: { key: `contract-judgments:${candidateReportRef.id}` },
-        freshness: { status: "fresh" },
-        provenance: {
-          confidence: judgments.length > 0 ? Math.max(...judgments.map((judgment) => judgment.confidence)) : 0,
-          notes: ["agent judgment bound to current source digests"],
-        },
-      },
-      candidateReportRef,
+    const judged = await writeRepositoryContractJudgment({
+      root,
+      store,
+      candidateEntry,
+      inputPath,
       judge: {
         id: typeof parsed.flags["judge-id"] === "string" ? parsed.flags["judge-id"] : "rekon-agent",
         version: typeof parsed.flags["judge-version"] === "string" ? parsed.flags["judge-version"] : "1.0.0",
         mode: judgeMode,
         ...(model ? { model } : {}),
-        promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
       },
-      judgments,
     });
-    const artifact = await store.write(report, { category: "actions" });
-    writeOutput({ command: "contracts judge", artifact, summary: report.summary, judge: report.judge }, json);
+    writeOutput({
+      command: "contracts judge",
+      artifact: judged.artifact,
+      summary: judged.report.summary,
+      judge: judged.report.judge,
+    }, json);
     return;
   }
 
@@ -964,177 +862,181 @@ export async function main(argv: string[]): Promise<void> {
       "ContractJudgmentReport",
       parsed.flags["judgment-report"],
     );
-    const judgmentReport = assertContractJudgmentReport(await store.read(judgmentEntry));
+    const apply = parsed.flags.apply === true;
+    const adopted = await applyRepositoryContractJudgment({
+      root,
+      store,
+      judgmentEntry,
+      ...(typeof parsed.flags["candidate-report"] === "string"
+        ? { candidateReport: parsed.flags["candidate-report"] }
+        : {}),
+      apply,
+    });
+    writeOutput({
+      command: "contracts adopt",
+      artifact: adopted.artifact,
+      summary: adopted.report.summary,
+      operations: adopted.report.operations,
+      compiled: adopted.compiled,
+    }, json);
+    if (adopted.report.summary.blocked > 0 || adopted.compiled?.valid === false) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "contracts" && subcommand === "maintain") {
+    const inputPath = typeof parsed.flags.input === "string" ? parsed.flags.input.trim() : "";
+    if (!inputPath) {
+      const bootstrap = await bootstrapRepositoryContracts({
+        root,
+        maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+        maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+      });
+      if (bootstrap.status === "failed") {
+        writeOutput({ command: "contracts maintain", phase: "bootstrap", ...bootstrap }, json);
+        process.exitCode = 1;
+        return;
+      }
+
+      const store = createLocalArtifactStore(root);
+      await store.init();
+      const registry = await readLatestArtifactOrUndefined<EffectiveContractRegistry>(store, "EffectiveContractRegistry");
+      if ((registry?.entries.length ?? 0) === 0) {
+        writeOutput({
+          command: "contracts maintain",
+          phase: bootstrap.status === "judgment-required" ? "judgment" : "current",
+          ...bootstrap,
+        }, json);
+        return;
+      }
+
+      const reconciliation = await reconcileRepositoryContracts({
+        root,
+        store,
+        maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+        maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+      });
+      if (reconciliation.status === "blocked") {
+        writeOutput({ command: "contracts maintain", phase: "reconcile", ...reconciliation }, json);
+        process.exitCode = 1;
+        return;
+      }
+      const candidateEntry = await selectContractArtifactEntry(
+        store,
+        "ContractCandidateReport",
+        reconciliation.candidates.artifact.id,
+      );
+      const candidateReport = assertContractCandidateReport(await store.read(candidateEntry));
+      const needsJudgment = candidateReport.summary.total > 0;
+      writeOutput({
+        command: "contracts maintain",
+        phase: needsJudgment ? "judgment" : "current",
+        status: needsJudgment ? "judgment-required" : reconciliation.status,
+        bootstrap,
+        reconciliation,
+        ...(needsJudgment ? {
+          judgment: {
+            promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+            prompt: buildRepositoryContractJudgmentPrompt(candidateReport),
+            schema: REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+            next: `rekon contracts maintain --candidate-report ${candidateEntry.id} --input <judgment.json> --root . --json`,
+          },
+        } : {}),
+      }, json);
+      return;
+    }
+
+    const store = createLocalArtifactStore(root);
+    await store.init();
     const candidateEntry = await selectContractArtifactEntry(
       store,
       "ContractCandidateReport",
-      typeof parsed.flags["candidate-report"] === "string"
-        ? parsed.flags["candidate-report"]
-        : judgmentReport.candidateReportRef.id,
+      parsed.flags["candidate-report"],
     );
-    const candidateReport = assertContractCandidateReport(await store.read(candidateEntry));
-    const candidateReportRef = artifactIndexRef(candidateEntry);
-    const judgmentReportRef = artifactIndexRef(judgmentEntry);
-    assertArtifactRefLineage(judgmentReport.candidateReportRef, candidateReportRef, "Contract judgment candidate lineage");
-
-    const config = await readConfig(root);
-    const adoption = config.contracts?.adoption;
-    const apply = parsed.flags.apply === true;
-    if (apply && adoption?.allowSourceWrites !== true) {
-      throw new Error("Contract source adoption is disabled. Set contracts.adoption.allowSourceWrites to true in .rekon/config.json before using --apply.");
-    }
-    const minimumConfidence = boundedConfigConfidence(adoption?.minimumConfidence, 0.8);
-    const allowedJudgeModes = new Set(adoption?.allowedJudgeModes ?? ["agent", "provider"]);
-    const judgments = new Map(judgmentReport.judgments.map((judgment) => [judgment.candidateId, judgment]));
-    const effectiveRegistry = await readLatestArtifactOrUndefined<EffectiveContractRegistry>(store, "EffectiveContractRegistry");
-    const existingSourceByContract = new Map<string, string>();
-    for (const entry of effectiveRegistry?.entries ?? []) {
-      if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
-      const existing = await store.read(entry.ref) as SystemContract | FlowContract;
-      if (existing.source.path) existingSourceByContract.set(`${entry.contractType}:${entry.contractId}`, existing.source.path);
-    }
-    const operations: ContractAdoptionOperation[] = [];
-
-    for (const candidate of candidateReport.candidates) {
-      const judgment = judgments.get(candidate.id);
-      const contractType = candidate.kind === "system" ? "SystemContract" : "FlowContract";
-      const existingSourcePath = existingSourceByContract.get(`${contractType}:${candidate.targetId}`);
-      const sourcePath = existingSourcePath ?? repositoryContractAdoptionPath(candidate.kind, candidate.targetId);
-      if (!judgment) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "No judgment exists for this candidate." });
-        continue;
-      }
-      if (!allowedJudgeModes.has(judgmentReport.judge.mode)) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judge mode ${judgmentReport.judge.mode} is not allowed by adoption policy.` });
-        continue;
-      }
-      if (judgment.decision !== "accept") {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "skipped", reason: `Judgment decision is ${judgment.decision}.` });
-        continue;
-      }
-      if (judgment.confidence < minimumConfidence) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judgment confidence ${judgment.confidence} is below ${minimumConfidence}.` });
-        continue;
-      }
-      if (!judgment.proposed) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Accepted judgment has no repository-native contract proposal." });
-        continue;
-      }
-      if (existingSourcePath && !existingSourcePath.startsWith("rekon/contracts/")) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Rekon will not automatically replace a co-located or externally configured contract source.", sourcePath });
-        continue;
-      }
-      const citationsCurrent = await contractJudgmentCitationsAreCurrent(root, judgment.citations);
-      if (!citationsCurrent) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "One or more judgment citations no longer match current source." });
-        continue;
-      }
-      const document = contractSourceDocumentForAdoption(candidate.kind, candidate.targetId, judgment.proposed);
-      const sourceDigest = digestJson(document);
-      if (!apply) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "planned", reason: "Accepted judgment is eligible for adoption.", sourcePath, sourceDigest });
-        continue;
-      }
-      try {
-        const written = await writeRepositoryContractSource({ repoRoot: root, path: sourcePath, document, overwrite: Boolean(existingSourcePath) });
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "adopted", reason: "Accepted agent judgment was written as committed repository law.", sourcePath: written.path, sourceDigest: written.digest });
-      } catch (error) {
-        operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: error instanceof Error ? error.message : String(error), sourcePath, sourceDigest });
-      }
-    }
-
-    const generatedAt = new Date().toISOString();
-    const report = createContractAdoptionReport({
-      header: {
-        artifactType: "ContractAdoptionReport",
-        artifactId: `contract-adoption-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
-        schemaVersion: "1.0.0",
-        generatedAt,
-        subject: { repoId: root },
-        producer: { id: "@rekon/cli.contract-adopt", version: "1.0.0" },
-        inputRefs: [candidateReportRef, judgmentReportRef],
-        supersession: { key: `contract-adoption:${candidateReportRef.id}` },
-        freshness: { status: operations.some((operation) => operation.status === "blocked") ? "partial" : "fresh" },
-        provenance: { notes: [apply ? "permissioned source adoption" : "source adoption dry-run"] },
-      },
-      candidateReportRef,
-      judgmentReportRef,
-      mode: apply ? "apply" : "dry-run",
-      operations,
-    });
-    const artifact = await store.write(report, { category: "actions" });
-    const compiled = apply && report.summary.adopted > 0
-      ? await compileRepositoryContracts(root, store)
+    const judgeMode = contractJudgeMode(parsed.flags.mode);
+    const model = typeof parsed.flags.model === "string" && parsed.flags.model.trim()
+      ? parsed.flags.model.trim()
       : undefined;
-    writeOutput({ command: "contracts adopt", artifact, summary: report.summary, operations: report.operations, compiled }, json);
-    if (report.summary.blocked > 0 || compiled?.valid === false) process.exitCode = 1;
+    if (judgeMode === "provider" && !model) throw new Error("Provider contract judgments require --model <id>.");
+    const judged = await writeRepositoryContractJudgment({
+      root,
+      store,
+      candidateEntry,
+      inputPath,
+      judge: {
+        id: typeof parsed.flags["judge-id"] === "string" ? parsed.flags["judge-id"] : "rekon-agent",
+        version: typeof parsed.flags["judge-version"] === "string" ? parsed.flags["judge-version"] : "1.0.0",
+        mode: judgeMode,
+        ...(model ? { model } : {}),
+      },
+    });
+    const apply = parsed.flags.apply === true;
+    const judgmentEntry = await selectContractArtifactEntry(store, "ContractJudgmentReport", judged.artifact.id);
+    const adopted = await applyRepositoryContractJudgment({
+      root,
+      store,
+      judgmentEntry,
+      candidateReport: candidateEntry.id,
+      apply,
+    });
+    const reconciliation = apply && adopted.report.summary.adopted > 0 && adopted.compiled?.valid !== false
+      ? await reconcileRepositoryContracts({
+          root,
+          store,
+          maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
+          maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
+        })
+      : undefined;
+    const blocked = adopted.report.summary.blocked > 0
+      || adopted.compiled?.valid === false
+      || reconciliation?.status === "blocked";
+    const status = blocked
+      ? "blocked"
+      : apply && adopted.report.summary.adopted > 0
+        ? "adopted"
+        : adopted.report.summary.planned > 0
+          ? "adoption-ready"
+          : "reviewed";
+    writeOutput({
+      command: "contracts maintain",
+      phase: blocked ? "blocked" : apply ? "reconcile" : "adoption",
+      status,
+      judgment: {
+        artifact: judged.artifact,
+        summary: judged.report.summary,
+        judge: judged.report.judge,
+      },
+      adoption: {
+        artifact: adopted.artifact,
+        summary: adopted.report.summary,
+        operations: adopted.report.operations,
+        compiled: adopted.compiled,
+      },
+      reconciliation,
+      next: !apply && adopted.report.summary.planned > 0
+        ? `rekon contracts maintain --candidate-report ${candidateEntry.id} --input ${inputPath} --apply --root . --json`
+        : undefined,
+      boundaries: {
+        calledModel: false,
+        executedRepositoryCommands: false,
+        wroteContractSource: apply && adopted.report.summary.adopted > 0,
+      },
+    }, json);
+    if (blocked) process.exitCode = 1;
     return;
   }
 
   if (command === "contracts" && subcommand === "reconcile") {
     const store = createLocalArtifactStore(root);
     await store.init();
-    let intelligence = await loadRepositoryContractIntelligence(store);
-    if (!intelligence.effectiveRegistry) {
-      const compiled = await compileRepositoryContracts(root, store);
-      if (!compiled.valid) {
-        writeOutput({ command: "contracts reconcile", status: "blocked", compiled }, json);
-        process.exitCode = 1;
-        return;
-      }
-      intelligence = await loadRepositoryContractIntelligence(store);
-    }
-    const registry = intelligence.effectiveRegistry;
-    if (!registry) throw new Error("Contract reconciliation could not create an effective registry.");
-    const registryEntry = await pickLatestArtifactEntry(store, "EffectiveContractRegistry");
-    if (!registryEntry) throw new Error("Contract reconciliation could not resolve the effective registry artifact.");
-    const loadedSources = await loadRepositoryContractSources({ repoRoot: root });
-    if (!loadedSources.valid) {
-      writeOutput({ command: "contracts reconcile", status: "blocked", issues: loadedSources.issues }, json);
-      process.exitCode = 1;
-      return;
-    }
-    const contracts: Array<SystemContract | FlowContract> = [];
-    for (const entry of registry.entries) {
-      if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
-      contracts.push(await store.read(entry.ref) as SystemContract | FlowContract);
-    }
-    const drift = buildRepositoryContractDriftReport({
-      repoId: root,
-      registry,
-      registryRef: artifactIndexRef(registryEntry),
-      contracts,
-      sources: loadedSources.sources.map((source) => ({ path: source.path, digest: source.digest })),
-      graph: intelligence.graph,
-      observedRepo: intelligence.observedRepo,
-      ownershipMap: intelligence.ownershipMap,
-    });
-    const driftRef = await store.write(drift, { category: "actions" });
-    const reconsiderContractIds = drift.entries
-      .filter((entry) => entry.status !== "current")
-      .map((entry) => `${entry.contractType}:${entry.contractId}`);
-    const candidates = discoverRepositoryContractCandidates({
-      repoId: root,
-      graph: intelligence.graph,
-      observedRepo: intelligence.observedRepo,
-      ownershipMap: intelligence.ownershipMap,
-      capabilityMap: intelligence.capabilityMap,
-      effectiveRegistry: registry,
-      reconsiderContractIds,
+    const result = await reconcileRepositoryContracts({
+      root,
+      store,
       maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
       maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
     });
-    const candidateRef = await store.write(candidates, { category: "actions" });
-    writeOutput({
-      command: "contracts reconcile",
-      status: drift.summary.drifted > 0 ? "drifted" : drift.summary.unverified > 0 ? "unverified" : "current",
-      drift: { artifact: driftRef, summary: drift.summary, entries: drift.entries },
-      candidates: { artifact: candidateRef, summary: candidates.summary },
-      next: candidates.summary.total > 0
-        ? `rekon contracts judge --candidate-report ${candidateRef.id}`
-        : undefined,
-    }, json);
-    if (parsed.flags["fail-on-drift"] === true && drift.summary.drifted > 0) process.exitCode = 1;
+    writeOutput({ command: "contracts reconcile", ...result }, json);
+    if (result.status === "blocked") process.exitCode = 1;
+    if (parsed.flags["fail-on-drift"] === true && result.status === "drifted") process.exitCode = 1;
     return;
   }
 
@@ -2536,6 +2438,7 @@ export async function main(argv: string[]): Promise<void> {
         `repository-contract-${contractFreshness}: selected CapabilityContract guidance is ${contractFreshness}; verify current repository policy before relying on it`,
       );
     }
+    warnings.push(...taskPactSelection.warnings);
     warnings.push(...contractGuidance.warnings);
     if (refinement.truncated) {
       warnings.push("additional matching graph relationships were omitted by the bounded refinement limit");
@@ -2868,6 +2771,7 @@ export async function main(argv: string[]): Promise<void> {
         `repository-contract-${contractFreshness}: selected CapabilityContract guidance is ${contractFreshness}; verify current repository policy before relying on it`,
       );
     }
+    warnings.push(...taskPactSelection.warnings);
     warnings.push(...contractGuidance.warnings);
 
     const compiled = compileTaskContext({
@@ -14316,6 +14220,87 @@ async function readLatestArtifactOrUndefined<T>(
   return (await store.read(latest)) as T;
 }
 
+async function bootstrapRepositoryContracts(input: {
+  root: string;
+  maxFlows: number;
+  maxDepth: number;
+}) {
+  const store = createLocalArtifactStore(input.root);
+  await store.init();
+  await writeConfigIfMissing(input.root);
+  const configValidation = await validateConfig(input.root);
+  if (!configValidation.valid) {
+    return { status: "failed" as const, issues: configValidation.issues };
+  }
+  const runtime = await createDefaultRuntime(input.root);
+  const evidenceRef = await runtime.runObserve();
+  const capabilityGraph = await buildRefreshCapabilityEvidenceGraph(input.root, store);
+  const projectionRefs = await runtime.runProject();
+  const compiled = await compileRepositoryContracts(input.root, store);
+  if (!compiled.valid) {
+    return { status: "failed" as const, compiled };
+  }
+  const intelligence = await loadRepositoryContractIntelligence(store);
+  const candidates = discoverRepositoryContractCandidates({
+    repoId: input.root,
+    graph: intelligence.graph,
+    observedRepo: intelligence.observedRepo,
+    ownershipMap: intelligence.ownershipMap,
+    capabilityMap: intelligence.capabilityMap,
+    effectiveRegistry: intelligence.effectiveRegistry,
+    maxFlows: input.maxFlows,
+    maxDepth: input.maxDepth,
+  });
+  const candidateRef = await store.write(candidates, { category: "actions" });
+  const snapshotRef = await runtime.runSnapshot({
+    artifactRefs: [
+      evidenceRef,
+      capabilityGraph.ref,
+      ...projectionRefs,
+      ...compiled.contracts,
+      ...(compiled.registry ? [compiled.registry] : []),
+      candidateRef,
+    ],
+  });
+  const config = await readConfig(input.root);
+  const agentInstructions = await syncAgentInstructions(input.root, agentInstructionOptions(config));
+  const prompt = candidates.summary.total > 0
+    ? buildRepositoryContractJudgmentPrompt(candidates)
+    : undefined;
+  return {
+    status: candidates.summary.total > 0 ? "judgment-required" as const : "current" as const,
+    artifacts: {
+      evidence: evidenceRef,
+      capabilityGraph: capabilityGraph.ref,
+      projections: projectionRefs,
+      registry: compiled.registry,
+      candidates: candidateRef,
+      snapshot: snapshotRef,
+    },
+    summary: candidates.summary,
+    unresolved: candidates.unresolved,
+    graphWarnings: intelligence.graph.warnings,
+    agentInstructions,
+    ...(prompt ? {
+      judgment: {
+        promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+        prompt,
+        schema: REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
+        next: [
+          `Inspect the cited source and write repository-native judgments for ContractCandidateReport:${candidateRef.id}.`,
+          `rekon contracts maintain --candidate-report ${candidateRef.id} --input <judgment.json> --root . --json`,
+        ],
+      },
+    } : {}),
+    boundaries: {
+      calledModel: false,
+      evaluatedFindings: false,
+      wroteContractSource: false,
+      executedRepositoryCommands: false,
+    },
+  };
+}
+
 async function compileRepositoryContracts(
   root: string,
   store: ReturnType<typeof createLocalArtifactStore>,
@@ -14385,6 +14370,69 @@ async function loadRepositoryContractIntelligence(
   return { graph, observedRepo, ownershipMap, capabilityMap, effectiveRegistry };
 }
 
+async function reconcileRepositoryContracts(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  maxFlows: number;
+  maxDepth: number;
+}) {
+  let intelligence = await loadRepositoryContractIntelligence(input.store);
+  if (!intelligence.effectiveRegistry) {
+    const compiled = await compileRepositoryContracts(input.root, input.store);
+    if (!compiled.valid) {
+      return { status: "blocked" as const, compiled };
+    }
+    intelligence = await loadRepositoryContractIntelligence(input.store);
+  }
+  const registry = intelligence.effectiveRegistry;
+  if (!registry) throw new Error("Contract reconciliation could not create an effective registry.");
+  const registryEntry = await pickLatestArtifactEntry(input.store, "EffectiveContractRegistry");
+  if (!registryEntry) throw new Error("Contract reconciliation could not resolve the effective registry artifact.");
+  const loadedSources = await loadRepositoryContractSources({ repoRoot: input.root });
+  if (!loadedSources.valid) {
+    return { status: "blocked" as const, issues: loadedSources.issues };
+  }
+  const contracts: Array<SystemContract | FlowContract> = [];
+  for (const entry of registry.entries) {
+    if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
+    contracts.push(await input.store.read(entry.ref) as SystemContract | FlowContract);
+  }
+  const drift = buildRepositoryContractDriftReport({
+    repoId: input.root,
+    registry,
+    registryRef: artifactIndexRef(registryEntry),
+    contracts,
+    sources: loadedSources.sources.map((source) => ({ path: source.path, digest: source.digest })),
+    graph: intelligence.graph,
+    observedRepo: intelligence.observedRepo,
+    ownershipMap: intelligence.ownershipMap,
+  });
+  const driftRef = await input.store.write(drift, { category: "actions" });
+  const reconsiderContractIds = drift.entries
+    .filter((entry) => entry.status !== "current")
+    .map((entry) => `${entry.contractType}:${entry.contractId}`);
+  const candidates = discoverRepositoryContractCandidates({
+    repoId: input.root,
+    graph: intelligence.graph,
+    observedRepo: intelligence.observedRepo,
+    ownershipMap: intelligence.ownershipMap,
+    capabilityMap: intelligence.capabilityMap,
+    effectiveRegistry: registry,
+    reconsiderContractIds,
+    maxFlows: input.maxFlows,
+    maxDepth: input.maxDepth,
+  });
+  const candidateRef = await input.store.write(candidates, { category: "actions" });
+  return {
+    status: drift.summary.drifted > 0 ? "drifted" as const : drift.summary.unverified > 0 ? "unverified" as const : "current" as const,
+    drift: { artifact: driftRef, summary: drift.summary, entries: drift.entries },
+    candidates: { artifact: candidateRef, summary: candidates.summary },
+    next: candidates.summary.total > 0
+      ? `rekon contracts maintain --candidate-report ${candidateRef.id} --input <judgment.json> --root . --json`
+      : undefined,
+  };
+}
+
 type CurrentTaskPact = {
   pact?: TaskPact;
   ref?: ArtifactRef;
@@ -14400,7 +14448,7 @@ async function buildCurrentTaskPact(
   if (!registryEntry) {
     return {
       inputRefs: [],
-      warnings: ["repository-contracts-unavailable: no EffectiveContractRegistry is indexed"],
+      warnings: ["repository-contracts-unavailable: run `rekon contracts maintain --root . --json` and complete the source-cited agent judgment"],
     };
   }
   const registryRef = artifactIndexRef(registryEntry);
@@ -14438,6 +14486,9 @@ async function buildCurrentTaskPact(
   });
   const ref = input.write ? await store.write(pact, { category: "actions" }) : undefined;
   const warnings = [...pact.warnings];
+  if (systemContracts.length === 0 && flowContracts.length === 0) {
+    warnings.push("repository-contracts-unavailable: the effective registry has no adopted system or flow law; run `rekon contracts maintain --root . --json` and complete the source-cited agent judgment");
+  }
   if (latestDrift && !driftMatchesRegistry) {
     warnings.push("repository-contract-drift-unavailable: latest ContractDriftReport targets an older effective registry");
   }
@@ -14480,6 +14531,192 @@ function artifactIndexRef(entry: ArtifactIndexEntry): ArtifactRef {
     path: entry.path,
     digest: entry.digest,
   };
+}
+
+type RepositoryContractJudgeIdentity = {
+  id: string;
+  version: string;
+  mode: "deterministic" | "agent" | "provider";
+  model?: string;
+};
+
+async function writeRepositoryContractJudgment(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  candidateEntry: ArtifactIndexEntry;
+  inputPath: string;
+  judge: RepositoryContractJudgeIdentity;
+}): Promise<{ report: ContractJudgmentReport; artifact: ArtifactRef }> {
+  const candidateReport = assertContractCandidateReport(await input.store.read(input.candidateEntry));
+  const candidateReportRef = artifactIndexRef(input.candidateEntry);
+  await assertContractCandidateCurrent(input.store, candidateReportRef, "judging");
+  const draftInput = await readRepositoryJsonInput(input.root, input.inputPath);
+  const drafts = coerceRepositoryContractJudgmentDrafts(draftInput, candidateReport);
+  const candidateById = new Map(candidateReport.candidates.map((candidate) => [candidate.id, candidate]));
+  const judgments = [];
+  for (const draft of drafts) {
+    const candidate = candidateById.get(draft.candidateId);
+    if (!candidate) throw new Error(`Judgment references unknown candidate ${draft.candidateId}.`);
+    judgments.push({
+      candidateId: draft.candidateId,
+      decision: draft.decision,
+      confidence: draft.confidence,
+      rationale: draft.rationale,
+      citations: await bindContractJudgmentCitations(input.root, draft.citations),
+      evidenceRefs: candidate.evidenceRefs,
+      ...(draft.proposed ? { proposed: draft.proposed } : {}),
+    });
+  }
+  const generatedAt = new Date().toISOString();
+  const report = createContractJudgmentReport({
+    header: {
+      artifactType: "ContractJudgmentReport",
+      artifactId: `contract-judgment-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
+      schemaVersion: "1.0.0",
+      generatedAt,
+      subject: { repoId: input.root },
+      producer: { id: "@rekon/cli.contract-judge", version: "1.0.0" },
+      inputRefs: [candidateReportRef],
+      supersession: { key: `contract-judgments:${candidateReportRef.id}` },
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: judgments.length > 0 ? Math.max(...judgments.map((judgment) => judgment.confidence)) : 0,
+        notes: ["agent judgment bound to current source digests"],
+      },
+    },
+    candidateReportRef,
+    judge: {
+      ...input.judge,
+      promptVersion: REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
+    },
+    judgments,
+  });
+  const artifact = await input.store.write(report, { category: "actions" });
+  return { report, artifact };
+}
+
+async function applyRepositoryContractJudgment(input: {
+  root: string;
+  store: ReturnType<typeof createLocalArtifactStore>;
+  judgmentEntry: ArtifactIndexEntry;
+  candidateReport?: string;
+  apply: boolean;
+}) {
+  const judgmentReport = assertContractJudgmentReport(await input.store.read(input.judgmentEntry));
+  const candidateEntry = await selectContractArtifactEntry(
+    input.store,
+    "ContractCandidateReport",
+    input.candidateReport ?? judgmentReport.candidateReportRef.id,
+  );
+  const candidateReport = assertContractCandidateReport(await input.store.read(candidateEntry));
+  const candidateReportRef = artifactIndexRef(candidateEntry);
+  const judgmentReportRef = artifactIndexRef(input.judgmentEntry);
+  assertArtifactRefLineage(judgmentReport.candidateReportRef, candidateReportRef, "Contract judgment candidate lineage");
+  await assertContractCandidateCurrent(input.store, candidateReportRef, "adoption");
+
+  const config = await readConfig(input.root);
+  const adoption = config.contracts?.adoption;
+  if (input.apply && adoption?.allowSourceWrites !== true) {
+    throw new Error("Contract source adoption is disabled. Set contracts.adoption.allowSourceWrites to true in .rekon/config.json before using --apply.");
+  }
+  const minimumConfidence = boundedConfigConfidence(adoption?.minimumConfidence, 0.8);
+  const allowedJudgeModes = new Set(adoption?.allowedJudgeModes ?? ["agent", "provider"]);
+  const judgments = new Map(judgmentReport.judgments.map((judgment) => [judgment.candidateId, judgment]));
+  const effectiveRegistry = await readLatestArtifactOrUndefined<EffectiveContractRegistry>(input.store, "EffectiveContractRegistry");
+  const existingSourceByContract = new Map<string, string>();
+  for (const entry of effectiveRegistry?.entries ?? []) {
+    if (entry.contractType !== "SystemContract" && entry.contractType !== "FlowContract") continue;
+    const existing = await input.store.read(entry.ref) as SystemContract | FlowContract;
+    if (existing.source.path) existingSourceByContract.set(`${entry.contractType}:${entry.contractId}`, existing.source.path);
+  }
+  const operations: ContractAdoptionOperation[] = [];
+
+  for (const candidate of candidateReport.candidates) {
+    const judgment = judgments.get(candidate.id);
+    const contractType = candidate.kind === "system" ? "SystemContract" : "FlowContract";
+    const existingSourcePath = existingSourceByContract.get(`${contractType}:${candidate.targetId}`);
+    const sourcePath = existingSourcePath ?? repositoryContractAdoptionPath(candidate.kind, candidate.targetId);
+    if (!judgment) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "No judgment exists for this candidate." });
+      continue;
+    }
+    if (!allowedJudgeModes.has(judgmentReport.judge.mode)) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judge mode ${judgmentReport.judge.mode} is not allowed by adoption policy.` });
+      continue;
+    }
+    if (judgment.decision !== "accept") {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "skipped", reason: `Judgment decision is ${judgment.decision}.` });
+      continue;
+    }
+    if (judgment.confidence < minimumConfidence) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: `Judgment confidence ${judgment.confidence} is below ${minimumConfidence}.` });
+      continue;
+    }
+    if (!judgment.proposed) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Accepted judgment has no repository-native contract proposal." });
+      continue;
+    }
+    if (existingSourcePath && !existingSourcePath.startsWith("rekon/contracts/")) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "Rekon will not automatically replace a co-located or externally configured contract source.", sourcePath });
+      continue;
+    }
+    const citationsCurrent = await contractJudgmentCitationsAreCurrent(input.root, judgment.citations);
+    if (!citationsCurrent) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: "One or more judgment citations no longer match current source." });
+      continue;
+    }
+    const document = contractSourceDocumentForAdoption(candidate.kind, candidate.targetId, judgment.proposed);
+    const sourceDigest = digestJson(`${JSON.stringify(document, null, 2)}\n`);
+    if (!input.apply) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "planned", reason: "Accepted judgment is eligible for adoption.", sourcePath, sourceDigest });
+      continue;
+    }
+    try {
+      const written = await writeRepositoryContractSource({ repoRoot: input.root, path: sourcePath, document, overwrite: Boolean(existingSourcePath) });
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "adopted", reason: "Accepted agent judgment was written as committed repository law.", sourcePath: written.path, sourceDigest: written.digest });
+    } catch (error) {
+      operations.push({ candidateId: candidate.id, contractType, contractId: candidate.targetId, status: "blocked", reason: error instanceof Error ? error.message : String(error), sourcePath, sourceDigest });
+    }
+  }
+
+  const generatedAt = new Date().toISOString();
+  const report = createContractAdoptionReport({
+    header: {
+      artifactType: "ContractAdoptionReport",
+      artifactId: `contract-adoption-report-${generatedAt.replace(/[^0-9A-Za-z]/gu, "")}`,
+      schemaVersion: "1.0.0",
+      generatedAt,
+      subject: { repoId: input.root },
+      producer: { id: "@rekon/cli.contract-adopt", version: "1.0.0" },
+      inputRefs: [candidateReportRef, judgmentReportRef],
+      supersession: { key: `contract-adoption:${candidateReportRef.id}` },
+      freshness: { status: operations.some((operation) => operation.status === "blocked") ? "partial" : "fresh" },
+      provenance: { notes: [input.apply ? "permissioned source adoption" : "source adoption dry-run"] },
+    },
+    candidateReportRef,
+    judgmentReportRef,
+    mode: input.apply ? "apply" : "dry-run",
+    operations,
+  });
+  const artifact = await input.store.write(report, { category: "actions" });
+  const compiled = input.apply && report.summary.adopted > 0
+    ? await compileRepositoryContracts(input.root, input.store)
+    : undefined;
+  return { report, artifact, compiled, candidateEntry };
+}
+
+async function assertContractCandidateCurrent(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  candidateReportRef: ArtifactRef,
+  operation: "judging" | "adoption",
+): Promise<void> {
+  const freshness = await validateArtifactFreshness(store);
+  const candidateFreshness = freshness.artifacts.find((artifact) =>
+    artifact.type === candidateReportRef.type && artifact.id === candidateReportRef.id);
+  if (!candidateFreshness || candidateFreshness.status !== "fresh") {
+    const reasons = candidateFreshness?.issues.map((issue) => issue.code).join(", ") || "freshness unavailable";
+    throw new Error(`Contract candidate report is not current for ${operation} (${reasons}). Run \`rekon contracts maintain --root . --json\` again.`);
+  }
 }
 
 async function readRepositoryJsonInput(root: string, path: string): Promise<unknown> {
@@ -17299,6 +17536,7 @@ function usage(): string {
     "rekon contracts discover [--max-flows <n>] [--max-depth <n>] [--root <path>] [--json]",
     "rekon contracts judge [--candidate-report <id>] [--input <repo-relative.json>] [--mode agent|provider|deterministic] [--model <id>] [--root <path>] [--json]",
     "rekon contracts adopt [--candidate-report <id>] [--judgment-report <id>] [--apply] [--root <path>] [--json]",
+    "rekon contracts maintain [--candidate-report <id>] [--input <repo-relative.json>] [--apply] [--max-flows <n>] [--max-depth <n>] [--root <path>] [--json]",
     "rekon contracts reconcile [--max-flows <n>] [--max-depth <n>] [--fail-on-drift] [--root <path>] [--json]",
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",

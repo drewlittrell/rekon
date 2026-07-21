@@ -82,7 +82,9 @@ test("sync replaces stale managed content but preserves surrounding bytes", asyn
   assert.ok(updated.startsWith("# Before\n\n"));
   assert.ok(updated.endsWith("\n\n# After\n"));
   assert.ok(!updated.includes("stale content"));
-  assert.match(updated, /version="1\.8\.1"/);
+  assert.match(updated, /version="1\.8\.2"/);
+  assert.match(updated, /rekon contracts maintain --root \. --json/u);
+  assert.match(updated, /complete its judgment step yourself/u);
 });
 
 test("malformed markers fail closed without changing AGENTS.md", async () => {
@@ -184,6 +186,6 @@ test("refresh replaces a stale managed block when on-refresh sync is enabled", a
 
   assert.equal(syncStep.status, "passed");
   assert.equal(syncStep.summary.changed, true);
-  assert.match(updated, /version="1\.8\.1"/);
+  assert.match(updated, /version="1\.8\.2"/);
   assert.ok(!updated.includes("\nstale\n"));
 });

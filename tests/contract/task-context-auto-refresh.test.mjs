@@ -115,7 +115,9 @@ test("CLI and MCP task-context gateways refresh changed evidence without touchin
       "--json",
     ]);
     assert.equal(initialContext.status, 0, initialContext.stderr || initialContext.stdout);
-    assert.equal(JSON.parse(initialContext.stdout).artifactFreshness.status, "refreshed");
+    const initialPayload = JSON.parse(initialContext.stdout);
+    assert.equal(initialPayload.artifactFreshness.status, "refreshed");
+    assert.ok(initialPayload.warnings.some((warning) => warning.includes("rekon contracts maintain")));
 
     const store = createLocalArtifactStore(root);
     await store.init();
@@ -179,6 +181,9 @@ test("CLI and MCP task-context gateways refresh changed evidence without touchin
     });
     assert.equal(response.error, undefined);
     assert.equal(response.result.isError, false);
+    const mcpPayload = JSON.parse(response.result.content[0].text);
+    assert.ok(mcpPayload.data.context.warnings.value.some((warning) =>
+      warning.includes("rekon contracts maintain")));
     assert.ok(await latestCount(store, "EvidenceGraph") > beforeNoRefresh);
     assert.equal(readFileSync(sourcePath, "utf8"), mcpSource);
 

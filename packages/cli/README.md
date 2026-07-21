@@ -19,7 +19,7 @@ The CLI is the user surface for the local lifecycle:
 - `rekon observe`
 - `rekon project`
 - `rekon evaluate`
-- `rekon contracts bootstrap/compile/discover/judge/adopt/reconcile`
+- `rekon contracts maintain/bootstrap/compile/discover/judge/adopt/reconcile`
 - `rekon checks ingest --junit <report.xml>`
 - `rekon checks ingest --eslint-json <report.json>`
 - `rekon security ingest --sarif <report.sarif>`
@@ -45,13 +45,12 @@ The CLI is the user surface for the local lifecycle:
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
 
-`rekon contracts bootstrap` prepares a previously unmanaged repository for
-contract judgment without calling a model or evaluating findings. It observes
-and projects the repository, compiles any existing contract sources, discovers
-bounded system and flow candidates, writes a snapshot, and installs the managed
-agent instructions. A coding agent then inspects the cited source and submits
-judgments through `rekon contracts judge`; source adoption remains explicitly
-permission-gated.
+`rekon contracts maintain` is the resumable agent workflow. Its first call
+prepares current system and flow candidates. The coding agent inspects cited
+source and reruns it with `--input`; `--apply` adopts eligible contracts only
+when source writes are enabled in policy, then compiles and reconciles them.
+The narrower `bootstrap`, `judge`, `adopt`, and `reconcile` commands remain
+available for explicit lifecycle control. No stage calls a model provider.
 
 ## Model Interface
 

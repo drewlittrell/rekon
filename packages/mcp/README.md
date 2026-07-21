@@ -52,7 +52,11 @@ When the MCP tools are available to an agent:
    into broad search.
 3. Treat returned pact constraints and required checks as acceptance criteria.
    Respect the trust class and freshness attached to returned values.
-4. Treat unavailable or stale responses as missing evidence. Do not expand
+4. When repository law is unavailable or drifted, run `rekon contracts
+   maintain --root . --json`, inspect the cited source, and complete the
+   judgment step. Apply contract sources only when repository policy permits
+   source writes.
+5. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
 
 If MCP is unavailable, use `rekon context task --model-context`, `rekon resolve

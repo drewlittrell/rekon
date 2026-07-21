@@ -17,9 +17,13 @@ authority boundaries.
    and stop when the route is resolved. Do not refine for completeness,
    analogues, or additional tests, and do not turn an unresolved result into
    broad search.
-3. Treat a refresh failure or remaining stale warning as missing evidence.
+3. If context reports missing or drifted repository law, run `rekon contracts
+   maintain --root . --json`, inspect the cited source, and complete its
+   judgment step yourself. Apply source only when the configured policy allows
+   it.
+4. Treat a refresh failure or remaining stale warning as missing evidence.
    Inspect `rekon artifacts freshness --json` before relying on it.
-4. Check source refs, findings, work order, and verification plan before making
+5. Check source refs, findings, work order, and verification plan before making
    changes.
 
 Returned pact constraints and required checks are acceptance criteria, not
@@ -66,6 +70,7 @@ rekon mcp serve --root .
 rekon scan --root <repo> --json
 rekon context task --root <repo> --task "<task>" --path <path> --profile compact --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
+rekon contracts maintain --root <repo> --json
 rekon resolve preflight --root <repo> --path <path> --goal "<goal>" --json
 rekon artifacts validate --root <repo> --json
 ```

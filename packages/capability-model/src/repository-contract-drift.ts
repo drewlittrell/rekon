@@ -95,7 +95,7 @@ export function buildRepositoryContractDriftReport(input: BuildRepositoryContrac
       schemaVersion: "1.0.0",
       generatedAt,
       subject: { repoId: input.repoId },
-      producer: { id: "@rekon/capability-model", version: "1.0.0" },
+      producer: { id: "@rekon/capability-model", version: "0.1.0" },
       inputRefs,
       supersession: { key: "repository-contract-drift" },
       freshness: { status: entries.some((entry) => entry.status === "drifted") ? "partial" : inputRefs.length > 0 ? "fresh" : "unknown" },

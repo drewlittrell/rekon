@@ -96,6 +96,7 @@ test("contract source writer creates validated central law without overwriting",
   const loaded = await loadRepositoryContractSources({ repoRoot: root });
   assert.equal(loaded.valid, true);
   assert.equal(loaded.sources[0].document.sourceId, "adopted.intelligence");
+  assert.equal(loaded.sources[0].digest, result.digest);
   await assert.rejects(writeRepositoryContractSource({
     repoRoot: root,
     path: result.path,

@@ -85,9 +85,10 @@ environments without MCP. Agents use
 `rekon context task ... --model-context` for the same minimal delivery payload;
 operators keep `--json` for the full audit view.
 
-For a repository without contract sources, `rekon contracts bootstrap --json`
-observes the codebase and prepares bounded candidates for source-cited agent
-judgment. It does not call a model or adopt source automatically.
+For a repository without contract sources, `rekon contracts maintain --json`
+prepares bounded candidates. The coding agent inspects the cited source and
+resumes the same command with its judgment. Adoption writes source only when
+the repository's Rekon policy permits it.
 
 ## Architecture
 

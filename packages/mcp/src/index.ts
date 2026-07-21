@@ -392,7 +392,11 @@ function buildReadOnlyTaskPact(
 ): ReadOnlyTaskPactSelection {
   const registrySource = sourceRef(reader, "EffectiveContractRegistry", input.latestEvidenceAt);
   if (!registrySource.body || !registrySource.artifactRef) {
-    return { sources: [], inputRefs: [], warnings: [] };
+    return {
+      sources: [],
+      inputRefs: [],
+      warnings: ["repository-contracts-unavailable: run `rekon contracts maintain --root . --json` and complete the source-cited agent judgment"],
+    };
   }
   const registry = registrySource.body as unknown as EffectiveContractRegistry;
   const systemContracts: SystemContract[] = [];
@@ -440,6 +444,9 @@ function buildReadOnlyTaskPact(
     ],
     inputRefs: pact.header.inputRefs,
     warnings: [
+      ...(systemContracts.length === 0 && flowContracts.length === 0
+        ? ["repository-contracts-unavailable: the effective registry has no adopted system or flow law; run `rekon contracts maintain --root . --json` and complete the source-cited agent judgment"]
+        : []),
       ...pact.warnings,
       ...(drift && !driftMatchesRegistry
         ? ["latest ContractDriftReport targets an older effective registry"]

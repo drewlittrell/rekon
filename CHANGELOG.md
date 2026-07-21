@@ -8,7 +8,15 @@ All notable changes to Rekon are documented here.
   missing evidence now refreshes Rekon artifacts before context compilation,
   pathless requests can fall back to deterministic graph scope without an
   embedding index, and incremental evidence self-lineage remains fresh.
-- Updated managed agent instructions to `1.8.1` and marked the prior Sol
+- Added resumable `rekon contracts maintain` orchestration for source-cited
+  agent judgment, permissioned adoption, compilation, and drift reconciliation.
+  Missing repository law is now explicit in CLI and MCP task context. Candidate
+  lineage must remain fresh through judgment and adoption, and contract-source
+  digests now match the exact serialized input checked by freshness validation.
+- Corrected repository-contract producer metadata to the registered
+  `@rekon/capability-model` version so fresh artifacts do not report false
+  producer drift.
+- Updated managed agent instructions to `1.8.2` and marked the prior Sol
   managed-interface calibration historical pending a new canary.
 - Added contract discovery, source-cited agent judgment, permissioned adoption,
   drift reconciliation, and task-scoped pacts for system and end-to-end flow

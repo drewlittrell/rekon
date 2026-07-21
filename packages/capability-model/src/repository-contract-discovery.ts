@@ -30,7 +30,7 @@ export type DiscoverRepositoryContractCandidatesInput = {
 };
 
 const PRODUCER_ID = "@rekon/capability-model";
-const PRODUCER_VERSION = "1.0.0";
+const PRODUCER_VERSION = "0.1.0";
 const SCHEMA_VERSION = "1.0.0";
 const FLOW_PREDICATES = new Set([
   "calls",

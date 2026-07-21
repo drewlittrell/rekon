@@ -37,6 +37,9 @@ verification recording, reconciliation planning, and artifact validation.
 - Committed system and flow law compiles into an effective registry and a
   task-specific `TaskPact`; CLI and MCP share the same selection, including
   post-compaction rehydration and work-order lineage.
+- Contract maintenance is resumable by the coding agent: deterministic
+  discovery returns a source-cited judgment task, and the same command can
+  bind that judgment, perform permissioned adoption, compile, and reconcile.
 - A source-free repository-law gate covers compositional system semantics,
   cross-system baton preservation, and unrelated-law isolation. It raises
   required-path recall from 72.22% to 100% at 100% precision, with a 282-token

@@ -27,6 +27,10 @@ test("CLI discovers, judges, and permission-gates adoption of repository contrac
   ].join("\n"));
 
   execFileSync(process.execPath, [cli, "init", "--root", root, "--json"], { env });
+  const configPath = join(root, ".rekon", "config.json");
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  config.contracts = { adoption: { allowSourceWrites: true, minimumConfidence: 0.8 } };
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   execFileSync(process.execPath, [cli, "observe", "--root", root, "--json"], { env });
   execFileSync(process.execPath, [cli, "project", "--root", root, "--json"], { env });
   const output = JSON.parse(execFileSync(process.execPath, [
@@ -100,10 +104,6 @@ test("CLI discovers, judges, and permission-gates adoption of repository contrac
   const planned = dryRun.operations.find((operation) => operation.status === "planned");
   await assert.rejects(access(join(root, planned.sourcePath)));
 
-  const configPath = join(root, ".rekon", "config.json");
-  const config = JSON.parse(await readFile(configPath, "utf8"));
-  config.contracts = { adoption: { allowSourceWrites: true, minimumConfidence: 0.8 } };
-  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
   const adopted = JSON.parse(execFileSync(process.execPath, [
     cli,
     "contracts",

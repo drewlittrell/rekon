@@ -7,7 +7,7 @@ import {
   REKON_AGENT_MCP_STEPS,
 } from "@rekon/mcp";
 
-export const AGENT_INSTRUCTIONS_VERSION = "1.8.1";
+export const AGENT_INSTRUCTIONS_VERSION = "1.8.2";
 export const AGENT_INSTRUCTIONS_TARGET = "AGENTS.md";
 export const AGENT_INSTRUCTIONS_START =
   `<!-- rekon:agent-instructions:start version="${AGENT_INSTRUCTIONS_VERSION}" -->`;
@@ -47,6 +47,8 @@ export function renderAgentInstructionsBlock(): string {
     "Use the CLI only when Rekon MCP is absent or fails:",
     "",
     ...REKON_AGENT_CLI_FALLBACKS.map((command) => `- \`${command}\``),
+    "",
+    "If task context reports missing or drifted repository law, run `rekon contracts maintain --root . --json`, inspect the cited source, and complete its judgment step yourself. Apply contract sources only when the configured adoption policy permits it.",
     "",
     "If context is stale and artifact writes are allowed, run `rekon refresh --root . --json`. Context is evidence; required checks are proof.",
     "",

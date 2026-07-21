@@ -35,7 +35,7 @@ export type RepositoryContractProjection = {
 };
 
 const PRODUCER_ID = "@rekon/capability-model";
-const PRODUCER_VERSION = "1.0.0";
+const PRODUCER_VERSION = "0.1.0";
 const SCHEMA_VERSION = "1.0.0";
 
 /** Compile committed contract sources into effective, provenance-bearing artifacts. */

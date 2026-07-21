@@ -114,7 +114,7 @@ export function buildTaskPact(input: BuildTaskPactInput) {
       schemaVersion: "1.0.0",
       generatedAt,
       subject: { repoId: input.repoId, paths: selectedPaths },
-      producer: { id: "@rekon/capability-model", version: "1.0.0" },
+      producer: { id: "@rekon/capability-model", version: "0.1.0" },
       inputRefs,
       supersession: { key: `task-pact:${taskIdentity}` },
       freshness: { status: warnings.length > 0 ? "partial" : inputRefs.length > 0 ? "fresh" : "unknown" },

@@ -163,7 +163,7 @@ export async function writeRepositoryContractSource(
   }
   const physicalPath = await realpath(absolutePath);
   if (!isInside(physicalPath, realRepoRoot)) throw new Error("Written contract source resolves outside the repository.");
-  return { path, digest: digestJson(document) };
+  return { path, digest: digestJson(payload) };
 }
 
 async function readConfiguredContractPaths(
@@ -331,9 +331,11 @@ async function readSource(
     issues.push({ code: "contract_sources.source_outside_repo", severity: "error", path: relativePath, message: "Contract source resolves outside the repository." });
     return undefined;
   }
+  let payload: string;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+    payload = await readFile(absolutePath, "utf8");
+    parsed = JSON.parse(payload) as unknown;
   } catch (error) {
     issues.push({ code: "contract_sources.source_invalid_json", severity: "error", path: relativePath, message: `Contract source is not valid JSON: ${(error as Error).message}` });
     return undefined;
@@ -350,7 +352,7 @@ async function readSource(
     }
     return undefined;
   }
-  return { path: relativePath, digest: digestJson(parsed), document: validation.value };
+  return { path: relativePath, digest: digestJson(payload), document: validation.value };
 }
 
 function validateConfiguredPath(path: string, issues: RepositoryContractSourceIssue[]): string | undefined {

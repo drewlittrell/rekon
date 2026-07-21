@@ -12,7 +12,7 @@ function run(args) {
   return JSON.parse(execFileSync(process.execPath, [cli, ...args], { encoding: "utf8", env }));
 }
 
-test("contracts bootstrap carries a clean repo from observation to adopted task context without a provider call", async () => {
+test("contracts maintain carries a clean repo from discovery to adopted task context without a provider call", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-contract-bootstrap-"));
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "package.json"), `${JSON.stringify({
@@ -32,7 +32,8 @@ test("contracts bootstrap carries a clean repo from observation to adopted task 
     "void handleRequest({ requestId: 'test' });",
   ].join("\n"));
 
-  const bootstrap = run(["contracts", "bootstrap", "--root", root, "--json"]);
+  const bootstrap = run(["contracts", "maintain", "--root", root, "--json"]);
+  assert.equal(bootstrap.phase, "judgment");
   assert.equal(bootstrap.status, "judgment-required");
   assert.ok(bootstrap.summary.systems >= 1);
   assert.equal(bootstrap.boundaries.calledModel, false);
@@ -44,9 +45,16 @@ test("contracts bootstrap carries a clean repo from observation to adopted task 
   assert.match(await readFile(join(root, "AGENTS.md"), "utf8"), /After context compaction or restart/u);
   await assert.rejects(access(join(root, "rekon", "contracts")));
 
+  const configPath = join(root, ".rekon", "config.json");
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  config.contracts = { adoption: { allowSourceWrites: true, minimumConfidence: 0.8 } };
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const prepared = run(["contracts", "maintain", "--root", root, "--json"]);
+  assert.equal(prepared.status, "judgment-required");
+
   const index = JSON.parse(await readFile(join(root, ".rekon", "registry", "artifacts.index.json"), "utf8"));
   assert.ok(!index.some((entry) => entry.artifactType === "FindingReport"));
-  const candidateReport = JSON.parse(await readFile(join(root, bootstrap.artifacts.candidates.path), "utf8"));
+  const candidateReport = JSON.parse(await readFile(join(root, prepared.artifacts.candidates.path), "utf8"));
   const candidate = candidateReport.candidates.find((entry) => entry.kind === "system");
   assert.ok(candidate);
   await writeFile(join(root, "judgment.json"), `${JSON.stringify({
@@ -67,24 +75,58 @@ test("contracts bootstrap carries a clean repo from observation to adopted task 
       },
     }],
   }, null, 2)}\n`);
+  const serverPath = join(root, "src", "server.ts");
+  const currentServer = await readFile(serverPath, "utf8");
+  await writeFile(serverPath, `${currentServer}\n// candidate is now stale\n`);
+  assert.throws(
+    () => execFileSync(process.execPath, [
+      cli,
+      "contracts", "maintain", "--root", root,
+      "--candidate-report", prepared.artifacts.candidates.id,
+      "--input", "judgment.json", "--json",
+    ], { encoding: "utf8", env }),
+    (error) => /Contract candidate report is not current/u.test(error.stderr ?? ""),
+  );
+  await writeFile(serverPath, currentServer);
+
   const judged = run([
-    "contracts", "judge", "--root", root,
-    "--candidate-report", bootstrap.artifacts.candidates.id,
+    "contracts", "maintain", "--root", root,
+    "--candidate-report", prepared.artifacts.candidates.id,
     "--input", "judgment.json", "--json",
   ]);
-  assert.equal(judged.summary.accepted, 1);
+  assert.equal(judged.phase, "adoption");
+  assert.equal(judged.status, "adoption-ready");
+  assert.equal(judged.judgment.summary.accepted, 1);
+  assert.equal(judged.adoption.summary.planned, 1);
+  await assert.rejects(access(join(root, "rekon", "contracts")));
 
-  const configPath = join(root, ".rekon", "config.json");
-  const config = JSON.parse(await readFile(configPath, "utf8"));
-  config.contracts = { adoption: { allowSourceWrites: true, minimumConfidence: 0.8 } };
-  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  await writeFile(serverPath, `${currentServer}\n// judgment is now stale\n`);
+  assert.throws(
+    () => execFileSync(process.execPath, [
+      cli,
+      "contracts", "adopt", "--root", root,
+      "--candidate-report", prepared.artifacts.candidates.id,
+      "--judgment-report", judged.judgment.artifact.id,
+      "--apply", "--json",
+    ], { encoding: "utf8", env }),
+    (error) => /Contract candidate report is not current for adoption/u.test(error.stderr ?? ""),
+  );
+  await writeFile(serverPath, currentServer);
+
   const adopted = run([
-    "contracts", "adopt", "--root", root,
-    "--judgment-report", judged.artifact.id,
+    "contracts", "maintain", "--root", root,
+    "--candidate-report", prepared.artifacts.candidates.id,
+    "--input", "judgment.json",
     "--apply", "--json",
   ]);
-  assert.equal(adopted.summary.adopted, 1);
-  assert.equal(adopted.compiled.summary.byAuthority.adopted, 1);
+  assert.equal(adopted.phase, "reconcile");
+  assert.equal(adopted.status, "adopted");
+  assert.equal(adopted.adoption.summary.adopted, 1);
+  assert.equal(adopted.adoption.compiled.summary.byAuthority.adopted, 1);
+  assert.equal(adopted.reconciliation.status, "current");
+  assert.equal(adopted.boundaries.calledModel, false);
+  assert.equal(adopted.boundaries.executedRepositoryCommands, false);
+  assert.equal(adopted.boundaries.wroteContractSource, true);
 
   const context = run([
     "context", "task", "--root", root,
@@ -102,4 +144,9 @@ test("contracts bootstrap carries a clean repo from observation to adopted task 
   const publication = JSON.parse(await readFile(join(root, publicationRef.path), "utf8"));
   assert.match(publication.content, /## Adopted Repository Law/u);
   assert.match(publication.content, /Preserve requestId from input through response/u);
+});
+
+test("help lists the resumable contract maintenance command", () => {
+  const help = execFileSync(process.execPath, [cli, "help"], { encoding: "utf8", env });
+  assert.match(help, /rekon contracts maintain \[--candidate-report <id>\]/u);
 });

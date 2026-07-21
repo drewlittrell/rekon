@@ -54,6 +54,9 @@ policy accepts them.
 ## CLI
 
 ```sh
+rekon contracts maintain --root . --json
+rekon contracts maintain --root . --candidate-report <id> --input <judgment.json> --json
+rekon contracts maintain --root . --candidate-report <id> --input <judgment.json> --apply --json
 rekon contracts bootstrap --root . --json
 rekon contracts compile --root . --json
 rekon contracts discover --root . --json
@@ -64,16 +67,17 @@ rekon contracts adopt --root . --judgment-report <id> --apply --json
 rekon contracts reconcile --root . --json
 ```
 
-`bootstrap` is the cold-start path. It observes and projects a repository,
-compiles any existing contract sources, discovers bounded candidates, writes a
-snapshot, and installs the managed agent instructions. It does not call a model,
-evaluate findings, execute repository commands, or write contract source. Its
-judgment prompt is intended for the coding agent already working in the
-repository.
+`maintain` is the resumable agent path. Without `--input`, it prepares current
+intelligence and returns bounded candidates plus a judgment schema. The coding
+agent inspects cited source and reruns it with judgment JSON. The command then
+binds source digests, dry-runs or applies adoption, compiles adopted law, and
+reconciles drift. It never calls a model provider or executes repository
+commands. `--apply` still requires `contracts.adoption.allowSourceWrites`.
 
-`compile` validates source containment and schemas, writes typed contracts, and
-writes the effective registry. `discover` emits inferred candidates without
-adopting them. `judge` binds agent decisions to current source digests.
+`bootstrap`, `judge`, `adopt`, and `reconcile` expose the same stages for
+explicit control. `compile` validates source containment and schemas, writes
+typed contracts, and writes the effective registry. `discover` emits inferred
+candidates without adopting them. `judge` binds agent decisions to source.
 `adopt` is a dry run unless `--apply` is present and source writes are enabled
 in `.rekon/config.json`. `reconcile` reports drift and regenerates candidates
 for law that no longer matches the repository.
