@@ -46,6 +46,9 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
 - Agents using CLI use `--model-context` for the minimal delivery payload.
 - Operators use `--json` when they need the full `agentContext` audit block.
 - Agents using MCP receive the compact projection by default.
+- `sourceSpans`, when present, point to the strongest bounded deterministic
+  evidence inside a delivered path. Start there, then inspect enough
+  surrounding implementation to make the change safely.
 - Agents should batch the packet's `readFirst` files into one source-read
   command when practical; repeated shell turns add cost without adding context.
 - High-confidence symbolic implementation and contract producer/consumer
@@ -70,12 +73,13 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
 - Verification hints are suggested checks, not executed proof.
 - Do-not-touch zones are guidance, not automatic enforcement.
 
-The compact model delivery preserves `readFirst`, actionable
-`boundaryPaths`, supporting inference, literal pact constraints, checks, and
-warnings. Trust labels are attached by MCP and source freshness remains on the
-response source list. Evidence inventories, detailed routing reasons, full
-boundary flags, budget internals, and `contextTrace` remain in the CLI JSON and
-stored artifact for audit rather than being repeated to the model.
+The compact model delivery preserves `readFirst`, actionable `boundaryPaths`,
+bounded deterministic `sourceSpans`, supporting inference, literal pact
+constraints, checks, and warnings. Trust labels are attached by MCP and source
+freshness remains on the response source list. Evidence inventories, detailed
+routing reasons, full boundary flags, budget internals, and `contextTrace`
+remain in the CLI JSON and stored artifact for audit rather than being repeated
+to the model.
 
 ## Boundaries
 

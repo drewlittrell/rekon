@@ -8,6 +8,7 @@ import type {
 import {
   buildTaskContextReport,
   type BuildTaskContextReportInput,
+  type TaskContextGraphEvidenceLike,
 } from "./task-context-report.js";
 
 export type ContextProfile = "compact" | "standard" | "deep";
@@ -21,6 +22,8 @@ export type ContextBudget = {
   maxVerificationHints: number;
   maxEvidenceRefs: number;
   maxTraceItems: number;
+  maxSourceSpans?: number;
+  maxSourceSpanCharacters?: number;
 };
 
 export type ContextTrustClass = "deterministic" | "declared" | "inference" | "memory" | "operator";
@@ -52,6 +55,16 @@ export type ContextTraceEntry = {
   estimatedTokens: number;
 };
 
+export type ContextSourceSpan = {
+  path: string;
+  lineStart: number;
+  lineEnd: number;
+  excerpt: string;
+  evidenceRef: string;
+  reason: string;
+  freshness: "fresh" | "stale" | "partial" | "unknown";
+};
+
 export type CompiledContextPacket = {
   schemaVersion: "1.0.0";
   readBeforeEditing: string;
@@ -72,6 +85,7 @@ export type CompiledContextPacket = {
   }>;
   warnings: string[];
   evidence: string[];
+  sourceSpans?: ContextSourceSpan[];
   boundaries: TaskContextReportBoundaries;
   contextTrace: ContextTraceEntry[];
   estimatedTokens: number;
@@ -104,6 +118,7 @@ export type ModelContextProjection = {
   boundaryPaths: string[];
   coreContext: ModelContextProjectionItem[];
   supportingContext: ModelContextProjectionItem[];
+  sourceSpans?: ContextSourceSpan[];
   constraints: Array<{
     statement: string;
     path?: string;
@@ -133,6 +148,7 @@ export type ModelContextDelivery = {
   boundaryPaths?: string[];
   supportingContext?: ModelContextProjectionItem[];
   routeSummaries?: ModelContextRouteSummary[];
+  sourceSpans?: ContextSourceSpan[];
   constraints: string[];
   checks: string[];
   warnings?: string[];
@@ -170,6 +186,8 @@ export const CONTEXT_BUDGETS: Readonly<Record<ContextProfile, ContextBudget>> = 
     maxVerificationHints: 8,
     maxEvidenceRefs: 24,
     maxTraceItems: 32,
+    maxSourceSpans: 6,
+    maxSourceSpanCharacters: 1_200,
   }),
   standard: Object.freeze({
     profile: "standard",
@@ -180,6 +198,8 @@ export const CONTEXT_BUDGETS: Readonly<Record<ContextProfile, ContextBudget>> = 
     maxVerificationHints: 12,
     maxEvidenceRefs: 48,
     maxTraceItems: 64,
+    maxSourceSpans: 12,
+    maxSourceSpanCharacters: 3_000,
   }),
   deep: Object.freeze({
     profile: "deep",
@@ -190,6 +210,8 @@ export const CONTEXT_BUDGETS: Readonly<Record<ContextProfile, ContextBudget>> = 
     maxVerificationHints: 20,
     maxEvidenceRefs: 96,
     maxTraceItems: 128,
+    maxSourceSpans: 24,
+    maxSourceSpanCharacters: 8_000,
   }),
 });
 
@@ -384,6 +406,14 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     freshness: hint.freshness ?? (hint.source === "repository_contract" ? "unknown" as const : "fresh" as const),
     executed: false as const,
   }));
+  let sourceSpans = selectContextSourceSpans({
+    evidence: input.graph.evidence ?? [],
+    contextItems: coreContext,
+    taskText: report.task.text,
+    freshness,
+    maxSpans: budget.maxSourceSpans ?? 0,
+    maxCharacters: budget.maxSourceSpanCharacters ?? 0,
+  });
   let contextTrace = rawContextTrace.slice(0, budget.maxTraceItems);
   const warnings = [...(input.warnings ?? [])];
   if (rawContextTrace.length > contextTrace.length) {
@@ -411,6 +441,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     verificationHints,
     warnings,
     evidence: evidenceForPacket(),
+    sourceSpans,
     boundaries: report.boundaries,
     contextTrace,
   });
@@ -441,8 +472,15 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     }
     estimatedTokens = estimatePacket();
   }
+  const selectedContextPaths = new Set(coreContext.flatMap((item) => item.path ? [item.path] : []));
+  sourceSpans = sourceSpans.filter((span) => selectedContextPaths.has(span.path));
+  estimatedTokens = estimatePacket();
   while (estimatedTokens > budget.maxTokens && contextTrace.length > 0) {
     contextTrace = contextTrace.slice(0, -1);
+    estimatedTokens = estimatePacket();
+  }
+  while (estimatedTokens > budget.maxTokens && sourceSpans.length > 0) {
+    sourceSpans = sourceSpans.slice(0, -1);
     estimatedTokens = estimatePacket();
   }
 
@@ -467,6 +505,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
       verificationHints,
       warnings,
       evidence,
+      sourceSpans,
       boundaries: report.boundaries,
       contextTrace,
       estimatedTokens,
@@ -507,6 +546,7 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
     boundaryPaths,
     coreContext: projectedCoreContext,
     supportingContext: dedupeProjectionItems(packet.supportingContext.map(projectItem)),
+    sourceSpans: (packet.sourceSpans ?? []).map((span) => ({ ...span })),
     constraints: packet.doNotTouch.map((zone) => ({
       statement: zone.reason,
       ...(zone.path !== undefined ? { path: zone.path } : {}),
@@ -548,6 +588,8 @@ export function projectModelContextDelivery(
     && context.boundaryPaths.length > 0
     && (context.paths.length > 0 || context.selection.profile !== "compact");
   const { readFirst, supportingContext, routeSummaries } = deliveryTiers(context, policy);
+  const deliveredPathSet = new Set(readFirst);
+  const sourceSpans = (context.sourceSpans ?? []).filter((span) => deliveredPathSet.has(span.path));
   const constraints = context.constraints.map((constraint) => {
     if (constraint.path !== undefined) return `${constraint.statement} [path: ${constraint.path}]`;
     if (constraint.symbolId !== undefined) return `${constraint.statement} [symbol: ${constraint.symbolId}]`;
@@ -565,6 +607,7 @@ export function projectModelContextDelivery(
     ...(includeBoundaryPaths ? { boundaryPaths: [...context.boundaryPaths] } : {}),
     ...(supportingContext.length > 0 ? { supportingContext } : {}),
     ...(routeSummaries.length > 0 ? { routeSummaries } : {}),
+    ...(sourceSpans.length > 0 ? { sourceSpans } : {}),
     constraints,
     checks,
     ...(context.warnings.length > 0 ? { warnings: [...context.warnings] } : {}),
@@ -812,6 +855,99 @@ function isTestContextPath(path: string): boolean {
 
 export function estimateModelContextDeliveryTokens(context: ModelContextDelivery): number {
   return estimateTokens(context);
+}
+
+const DETERMINISTIC_SOURCE_SPAN_SOURCES = new Set([
+  "ast",
+  "deterministic_scan",
+  "ground_truth",
+  "import_graph",
+  "typechecker",
+]);
+
+const MAX_SOURCE_SPAN_EXCERPT_CHARACTERS = 320;
+
+function selectContextSourceSpans(input: {
+  evidence: TaskContextGraphEvidenceLike[];
+  contextItems: ContextPacketItem[];
+  taskText: string;
+  freshness: ContextSourceSpan["freshness"];
+  maxSpans: number;
+  maxCharacters: number;
+}): ContextSourceSpan[] {
+  const taskTokens = sourceSpanTokens(input.taskText);
+  const contextByPath = new Map<string, ContextPacketItem>();
+  for (const item of input.contextItems) {
+    if (item.kind !== "file" || !item.path || contextByPath.has(item.path)) continue;
+    contextByPath.set(item.path, item);
+  }
+
+  const result: ContextSourceSpan[] = [];
+  let usedCharacters = 0;
+  for (const [path, contextItem] of contextByPath) {
+    if (result.length >= input.maxSpans || usedCharacters >= input.maxCharacters) break;
+    const directEvidence = new Set(contextItem.evidenceRefs);
+    const candidates = input.evidence
+      .filter((entry) => entry.path === path)
+      .filter((entry) => typeof entry.excerpt === "string" && entry.excerpt.trim().length > 0)
+      .filter((entry) => typeof entry.lineStart === "number" && Number.isInteger(entry.lineStart) && entry.lineStart > 0)
+      .filter((entry) => entry.source !== undefined && DETERMINISTIC_SOURCE_SPAN_SOURCES.has(entry.source))
+      .map((entry) => ({ entry, score: sourceSpanScore(entry, directEvidence, taskTokens) }))
+      .sort((left, right) =>
+        right.score - left.score
+        || (left.entry.lineStart ?? 0) - (right.entry.lineStart ?? 0)
+        || left.entry.id.localeCompare(right.entry.id));
+    const selected = candidates[0]?.entry;
+    if (!selected || selected.lineStart === undefined || selected.excerpt === undefined) continue;
+
+    const remainingCharacters = input.maxCharacters - usedCharacters;
+    const excerpt = selected.excerpt.trim().slice(
+      0,
+      Math.min(MAX_SOURCE_SPAN_EXCERPT_CHARACTERS, remainingCharacters),
+    );
+    if (excerpt.length === 0) continue;
+    const completeExcerpt = excerpt === selected.excerpt.trim();
+    const lineEnd = completeExcerpt && typeof selected.lineEnd === "number" && selected.lineEnd >= selected.lineStart
+      ? selected.lineEnd
+      : selected.lineStart + excerpt.split(/\r?\n/u).length - 1;
+    result.push({
+      path,
+      lineStart: selected.lineStart,
+      lineEnd,
+      excerpt,
+      evidenceRef: selected.id,
+      reason: contextItem.necessityReason ?? contextItem.reason,
+      freshness: input.freshness,
+    });
+    usedCharacters += excerpt.length;
+  }
+  return result;
+}
+
+function sourceSpanScore(
+  evidence: TaskContextGraphEvidenceLike,
+  directEvidence: ReadonlySet<string>,
+  taskTokens: ReadonlySet<string>,
+): number {
+  const excerpt = evidence.excerpt ?? "";
+  const candidateTokens = sourceSpanTokens(`${evidence.id} ${excerpt}`);
+  let score = directEvidence.has(evidence.id) ? 1_000 : 0;
+  for (const token of candidateTokens) {
+    if (taskTokens.has(token)) score += 20;
+  }
+  if (/\b(?:class|const|function|interface|type)\b/u.test(excerpt)) score += 5;
+  if (/^\s*(?:import|require\s*\()/u.test(excerpt)) score += 2;
+  return score;
+}
+
+function sourceSpanTokens(value: string): Set<string> {
+  return new Set(
+    value
+      .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/u)
+      .filter((token) => token.length >= 3),
+  );
 }
 
 function dedupeProjectionItems(items: ModelContextProjectionItem[]): ModelContextProjectionItem[] {

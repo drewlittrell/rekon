@@ -26,6 +26,14 @@ selection collapses those routes by context identity and keeps operator or
 declared-law routing first, so duplicate graph claims cannot consume the budget
 and displace a contract-required path.
 
+When the current capability graph carries exact deterministic source evidence,
+the compact projection may include one `sourceSpans` entry per delivered
+`readFirst` path. Each entry names the path, line range, exact excerpt, evidence
+ref, freshness, and selection reason. Profile limits cap both span count and
+total excerpt characters. Spans are entry points into selected source, not a
+replacement for inspecting the implementation or proof that the surrounding
+code is correct. A delivery policy that omits a path also omits its span.
+
 Graph expansion is capped at four claims per selected path. Within that bound, deterministic claims precede
 semantic claims; task-specific related paths, verification relationships, and
 outgoing dependencies precede incidental incoming callers. Stable claim IDs

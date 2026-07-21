@@ -67,8 +67,18 @@ export type TaskContextGraphCapabilityLike = {
   evidenceRefs?: string[];
 };
 
+export type TaskContextGraphEvidenceLike = {
+  id: string;
+  source?: string;
+  path?: string;
+  lineStart?: number;
+  lineEnd?: number;
+  excerpt?: string;
+};
+
 export type TaskContextGraphLike = {
   nodes?: TaskContextGraphRefLike[];
+  evidence?: TaskContextGraphEvidenceLike[];
   claims?: TaskContextGraphClaimLike[];
   capabilities?: TaskContextGraphCapabilityLike[];
 };

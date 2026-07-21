@@ -16,9 +16,9 @@ can update local Rekon artifacts.
 ## Tools
 
 - `context_for_task`: budgeted core and supporting context for a concrete task,
-  with compact read-first routing, trust labels, source freshness, constraints,
-  checks, and warnings. Path-matched `CapabilityContract` rules are served as
-  declared guidance.
+  with compact read-first routing, bounded deterministic source spans, trust
+  labels, source freshness, constraints, checks, and warnings. Path-matched
+  `CapabilityContract` rules are served as declared guidance.
 - `resolve_source_target`: a bounded unread context delta for one exact symbol,
   type, or call named by inspected source, using a `dependency`, `dependent`,
   `test`, `contract`, `consumer`, `producer`, or `implementation` relationship.
@@ -72,6 +72,12 @@ back to broad search.
 `context_for_task` returns the compact model-delivery projection. The CLI JSON
 and stored `TaskContextReport` retain evidence refs, budget internals,
 boundaries, and selection trace for audit and debugging.
+
+`sourceSpans`, when present, identify an exact evidence-backed line range in a
+delivered `readFirst` path. They are capped by the selected profile, tagged as
+deterministic, and removed when a policy removes the corresponding path. They
+are navigation anchors, not a substitute for reading enough surrounding source
+to make and verify the change.
 
 The delivery separates `readFirst` implementation evidence from actionable
 `boundaryPaths` compatibility context. Inspect `readFirst` before planning.

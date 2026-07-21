@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added bounded deterministic `sourceSpans` to shared model-context delivery.
+  Each span carries an exact path, line range, excerpt, evidence ref, freshness,
+  and routing reason; profile budgets cap count and characters, and omitted
+  delivery routes cannot leak their source spans through CLI or MCP.
 - Added task-local freshness checks to CLI and MCP context requests. Stale or
   missing evidence now refreshes Rekon artifacts before context compilation,
   pathless requests can fall back to deterministic graph scope without an

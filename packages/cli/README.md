@@ -99,8 +99,10 @@ compaction or restart, and whenever the goal or known path scope materially
 changes. Dynamic repository law stays out of the root instruction file.
 
 Use `rekon context task ... --model-context` for the minimal JSON payload sent
-to a model. Normal `--json` retains the full audit-oriented `agentContext`,
-including evidence, routing reasons, budgets, and selection trace.
+to a model. When exact deterministic evidence exists, the payload includes
+bounded `sourceSpans` for delivered `readFirst` paths. Normal `--json` retains
+the full audit-oriented `agentContext`, including evidence, routing reasons,
+budgets, and selection trace.
 
 Use `rekon context refine` only after the initial reads expose a specific
 unresolved source identifier. Supply `--question`, the exact `--target`,

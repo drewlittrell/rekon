@@ -769,6 +769,19 @@ function tagModelContextDelivery(
           })),
         }
       : {}),
+    ...(delivery.sourceSpans !== undefined
+      ? {
+          sourceSpans: delivery.sourceSpans.map((span) => ({
+            path: tagPacketValue(span.path, "deterministic"),
+            lineStart: tagPacketValue(span.lineStart, "deterministic"),
+            lineEnd: tagPacketValue(span.lineEnd, "deterministic"),
+            excerpt: tagPacketValue(span.excerpt, "deterministic"),
+            evidenceRef: tagPacketValue(span.evidenceRef, "deterministic"),
+            reason: tagPacketValue(span.reason, "deterministic"),
+            freshness: tagPacketValue(span.freshness, "deterministic"),
+          })),
+        }
+      : {}),
     constraints: delivery.constraints.map((statement, index) => tagPacketValue(
       statement,
       projection.constraints[index]?.trust ?? "operator",

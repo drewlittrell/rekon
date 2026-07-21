@@ -427,6 +427,12 @@ test("context_for_task returns compact budgeted graph context without writing", 
   assert.equal(payload.data.context.readFirst.trust, "deterministic");
   assert.ok(Array.isArray(payload.data.context.constraints));
   assert.ok(Array.isArray(payload.data.context.checks));
+  assert.ok(Array.isArray(payload.data.context.sourceSpans));
+  assert.ok(payload.data.context.sourceSpans.some((span) =>
+    span.path.value === "src/index.ts"
+    && Number.isInteger(span.lineStart.value)
+    && typeof span.excerpt.value === "string"
+    && span.excerpt.trust === "deterministic"));
   assert.match(payload.data.context.instruction.value, /Look up only task-required targets named by inspected source/);
   assert.match(payload.data.context.instruction.value, /Batch-read every readFirst path/);
   assert.ok(Buffer.byteLength(JSON.stringify(payload.data.context), "utf8") < 4 * 1024);

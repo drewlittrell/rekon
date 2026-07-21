@@ -8,6 +8,9 @@ verification recording, reconciliation planning, and artifact validation.
 ## Current Model Interface
 
 - A shared, budget-aware compiler serves CLI and MCP task context.
+- Compact delivery can carry one exact deterministic `sourceSpans` anchor per
+  delivered path under profile-level count and character caps. This has
+  source-backed contract coverage but no accepted model-efficiency claim yet.
 - A minimal delivery adapter serves model-facing MCP, CLI, and evaluation
   payloads while the full packet remains available for audit.
 - Coding agents see two source-safe MCP tools: task context and exact
@@ -171,9 +174,9 @@ verification recording, reconciliation planning, and artifact validation.
   contract coordination; do not grow fixtures by duplicating service edits.
 - Continue recording selected refs actually used, avoidable refs, source files
   discovered outside the packet, and whether pacts and checks were sufficient.
-- Decide from those runs whether refs and routing reasons are sufficient or
-  whether the delivery projection needs bounded source, symbol, or contract
-  excerpts. Do not add payload merely because budget remains.
+- Test whether the new bounded source anchors reduce avoidable whole-file reads
+  or improve first-pass correctness on an independent task shape. Do not expand
+  them into source bundles unless that evidence justifies the added payload.
 - Expand the pinned comparison to larger mixed-layout repositories while
   retaining the same source-free, paired, repeated protocol. Treat aggregate
   efficiency as the decision signal and retain per-pair variance rather than

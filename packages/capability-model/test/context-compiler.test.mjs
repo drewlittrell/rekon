@@ -211,6 +211,152 @@ test("model projection preserves action context while omitting audit-heavy field
   assert.ok(!("boundaries" in projection));
 });
 
+test("model delivery carries one bounded deterministic source span per delivered route", () => {
+  const { packet } = compileTaskContext({
+    taskText: "Modify bootstrap runtime behavior.",
+    paths: ["src/index.ts"],
+    graph: {
+      nodes: [
+        { kind: "file", id: "src/index.ts" },
+        { kind: "file", id: "src/runtime.ts" },
+      ],
+      evidence: [
+        {
+          id: "ev:index-import",
+          source: "deterministic_scan",
+          path: "src/index.ts",
+          lineStart: 1,
+          excerpt: "import { startRuntime } from './runtime.js';",
+        },
+        {
+          id: "ev:index-bootstrap",
+          source: "deterministic_scan",
+          path: "src/index.ts",
+          lineStart: 8,
+          lineEnd: 8,
+          excerpt: "export function bootstrapApplication() {",
+        },
+        {
+          id: "ev:index-untrusted",
+          source: "llm_extraction",
+          path: "src/index.ts",
+          lineStart: 2,
+          excerpt: "bootstrap runtime behavior from a model",
+        },
+        {
+          id: "ev:runtime-start",
+          source: "deterministic_scan",
+          path: "src/runtime.ts",
+          lineStart: 4,
+          excerpt: "export function startRuntime() {",
+        },
+      ],
+      claims: [{
+        id: "claim-runtime",
+        subject: { kind: "file", id: "src/index.ts" },
+        predicate: "imports",
+        object: { kind: "file", id: "src/runtime.ts" },
+        source: "ast",
+        evidenceRefs: ["ev:runtime-start"],
+      }],
+    },
+    generatedAt: "2026-07-17T00:00:00.000Z",
+  });
+  const projection = projectModelContext(packet);
+  const delivery = projectModelContextDelivery(projection);
+
+  assert.deepEqual(delivery.sourceSpans, [
+    {
+      path: "src/index.ts",
+      lineStart: 8,
+      lineEnd: 8,
+      excerpt: "export function bootstrapApplication() {",
+      evidenceRef: "ev:index-bootstrap",
+      reason: "The operator explicitly named this path as task scope.",
+      freshness: "fresh",
+    },
+    {
+      path: "src/runtime.ts",
+      lineStart: 4,
+      lineEnd: 4,
+      excerpt: "export function startRuntime() {",
+      evidenceRef: "ev:runtime-start",
+      reason: "The task text names a concern represented by this direct dependency.",
+      freshness: "fresh",
+    },
+  ]);
+  assert.equal(JSON.stringify(delivery.sourceSpans).includes("model"), false);
+  assert.ok(packet.estimatedTokens <= CONTEXT_BUDGETS.compact.maxTokens);
+});
+
+test("delivery does not leak source spans for routes omitted by its policy", () => {
+  const projection = {
+    schemaVersion: "1.0.0",
+    instruction: "inspect",
+    paths: ["src/index.ts"],
+    readFirst: ["src/index.ts", "src/dependency.ts"],
+    boundaryPaths: [],
+    coreContext: [
+      {
+        ref: "src/index.ts",
+        kind: "file",
+        trust: "operator",
+        freshness: "fresh",
+        reason: "task target",
+        routeRole: "task-target",
+        necessity: "required",
+        necessityReason: "task target",
+      },
+      {
+        ref: "src/dependency.ts",
+        kind: "file",
+        trust: "deterministic",
+        freshness: "fresh",
+        reason: "dependency",
+        routeRole: "dependency",
+        necessity: "conditional",
+        necessityReason: "inspect when delegated",
+      },
+    ],
+    supportingContext: [],
+    sourceSpans: [
+      {
+        path: "src/index.ts",
+        lineStart: 1,
+        lineEnd: 1,
+        excerpt: "export const target = true;",
+        evidenceRef: "ev:target",
+        reason: "task target",
+        freshness: "fresh",
+      },
+      {
+        path: "src/dependency.ts",
+        lineStart: 1,
+        lineEnd: 1,
+        excerpt: "export const dependency = true;",
+        evidenceRef: "ev:dependency",
+        reason: "conditional dependency",
+        freshness: "fresh",
+      },
+    ],
+    constraints: [],
+    checks: [],
+    warnings: [],
+    selection: {
+      profile: "compact",
+      sourcePacketTokens: 100,
+      projectedTokens: 80,
+      truncated: false,
+    },
+  };
+
+  const delivery = projectModelContextDelivery(projection, { policy: "role-aware" });
+
+  assert.deepEqual(delivery.readFirst, ["src/index.ts"]);
+  assert.deepEqual(delivery.sourceSpans?.map((span) => span.path), ["src/index.ts"]);
+  assert.equal(JSON.stringify(delivery).includes("export const dependency"), false);
+});
+
 test("model delivery removes repeated audit metadata while retaining routes and pacts", () => {
   const { packet } = compileTaskContext({
     taskText: "Change src/index.ts without changing its public API. Run npm test.",
