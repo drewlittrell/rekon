@@ -225,6 +225,8 @@ import modelCapability, {
   type TaskContextSelection,
   type BuildRepositoryIntelligenceGraphInput,
   type RepositoryContractJudgmentDraftCitation,
+  type ChangeValidationResult,
+  validateChange,
 } from "@rekon/capability-model";
 import {
   RekonLlmRouter,
@@ -298,7 +300,13 @@ import {
   type Rule,
   type Rulebook,
 } from "@rekon/kernel-rulebook";
-import { runMcpServer, TASK_CONTEXT_REFINEMENT_INSTRUCTION } from "@rekon/mcp";
+import {
+  buildChangeValidationResponse,
+  buildChangeValidationUnavailable,
+  runMcpServer,
+  TASK_CONTEXT_REFINEMENT_INSTRUCTION,
+  type SourceRef,
+} from "@rekon/mcp";
 import { buildDocsFreshnessReport, renderDocsIndex } from "@rekon/capability-docs";
 import {
   IntentArtifactLineageError,
@@ -419,6 +427,7 @@ import {
   assessTaskContextFreshness,
   type TaskContextFreshnessAssessment,
 } from "./task-context-freshness.js";
+import { collectRepositoryChangeEvidence } from "./change-validation-host.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -2345,6 +2354,27 @@ export async function main(argv: string[]): Promise<void> {
       lines.push("Proposal / context, not proof. Score bands are policy labels, not proof. Deterministic facts remain stronger than embedding similarity.");
       writeOutput(lines.join("\n"), false);
     }
+    return;
+  }
+
+  if (command === "context" && subcommand === "validate-change") {
+    const task = typeof parsed.flags.task === "string" ? parsed.flags.task.trim() : "";
+    if (!task) throw new Error("rekon context validate-change requires --task <text>.");
+    const changedPaths = parseRepeatableFlag(parsed.flags["changed-path"])
+      .map((path) => path.trim())
+      .filter(Boolean);
+    if (changedPaths.length === 0) {
+      throw new Error("rekon context validate-change requires --changed-path <path>.");
+    }
+    const baseRef = typeof parsed.flags["base-ref"] === "string"
+      ? parsed.flags["base-ref"].trim()
+      : "HEAD";
+    if (!baseRef) throw new Error("rekon context validate-change --base-ref must be non-empty.");
+    const validation = await validateRepositoryChange(root, { task, changedPaths, baseRef });
+    if (validation.result.status === "blocked") process.exitCode = 1;
+    writeOutput(json
+      ? projectChangeValidationDecision(validation.result)
+      : renderChangeValidation(validation.result), json);
     return;
   }
 
@@ -5828,6 +5858,27 @@ export async function main(argv: string[]): Promise<void> {
           ? args.paths.filter((path): path is string => typeof path === "string")
           : [];
         await ensureTaskContextArtifactsFresh(root, paths);
+      },
+      handleToolCall: async ({ name, args }) => {
+        if (name !== "validate_change") return undefined;
+        if (typeof args.task !== "string" || args.task.trim().length === 0) return undefined;
+        const changedPaths = Array.isArray(args.changedPaths)
+          ? args.changedPaths.filter((path): path is string => typeof path === "string" && path.trim().length > 0)
+          : [];
+        if (changedPaths.length === 0) return undefined;
+        const baseRef = typeof args.baseRef === "string" && args.baseRef.trim().length > 0
+          ? args.baseRef.trim()
+          : "HEAD";
+        try {
+          const validation = await validateRepositoryChange(root, {
+            task: args.task.trim(),
+            changedPaths,
+            baseRef,
+          });
+          return buildChangeValidationResponse(validation.result, validation.sources);
+        } catch (error) {
+          return buildChangeValidationUnavailable(error instanceof Error ? error.message : String(error));
+        }
       },
     });
     await new Promise(() => {});
@@ -14453,6 +14504,171 @@ type CurrentTaskPact = {
   warnings: string[];
 };
 
+type RepositoryChangeValidation = {
+  result: ChangeValidationResult;
+  sources: SourceRef[];
+  warnings: string[];
+};
+
+async function validateRepositoryChange(
+  root: string,
+  input: { task: string; changedPaths: string[]; baseRef: string },
+): Promise<RepositoryChangeValidation> {
+  const store = createLocalArtifactStore(root);
+  const sources: SourceRef[] = [];
+  const warnings: string[] = [];
+  let artifactIndexAvailable = true;
+  try {
+    await access(join(root, ".rekon", "registry", "artifacts.index.json"));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      artifactIndexAvailable = false;
+      warnings.push("repository-intelligence-unavailable: no Rekon artifact index exists; validation is limited to Git and current-source evidence");
+    } else {
+      throw error;
+    }
+  }
+
+  let taskPact: TaskPact | undefined;
+  let taskPactRef: ArtifactRef | undefined;
+  const pactEntries = (artifactIndexAvailable ? await store.list("TaskPact") : [])
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+  for (const entry of pactEntries) {
+    const candidate = await store.read(entry) as TaskPact;
+    if (candidate.task.text.trim() !== input.task.trim()) continue;
+    taskPact = candidate;
+    taskPactRef = artifactIndexRef(entry);
+    addValidationSource(sources, candidate);
+    break;
+  }
+  if (!taskPact && artifactIndexAvailable) {
+    const current = await buildCurrentTaskPact(store, {
+      repoId: root,
+      taskText: input.task,
+      paths: input.changedPaths,
+      write: false,
+    });
+    taskPact = current.pact;
+    warnings.push(...current.warnings);
+  }
+
+  const ownershipEntry = artifactIndexAvailable
+    ? await pickLatestArtifactEntry(store, "OwnershipMap")
+    : undefined;
+  const ownershipMap = ownershipEntry
+    ? await store.read(ownershipEntry) as OwnershipMap
+    : undefined;
+  if (ownershipMap) addValidationSource(sources, ownershipMap);
+
+  const graphEntry = artifactIndexAvailable
+    ? await pickLatestArtifactEntry(store, "CapabilityEvidenceGraph")
+    : undefined;
+  const capabilityGraph = graphEntry
+    ? await store.read(graphEntry) as CapabilityEvidenceGraph
+    : undefined;
+  if (capabilityGraph) addValidationSource(sources, capabilityGraph);
+
+  const capabilityContractEntry = artifactIndexAvailable
+    ? await pickLatestArtifactEntry(store, "CapabilityContract")
+    : undefined;
+  const capabilityContract = capabilityContractEntry
+    ? await store.read(capabilityContractEntry) as CapabilityContract
+    : undefined;
+  if (capabilityContract) addValidationSource(sources, capabilityContract);
+
+  const flowContracts: FlowContract[] = [];
+  for (const contract of taskPact?.contracts ?? []) {
+    if (contract.contractType !== "FlowContract") continue;
+    const flow = await store.read(contract.ref) as FlowContract;
+    flowContracts.push(flow);
+    addValidationSource(sources, flow);
+  }
+
+  const knownPaths = [
+    ...(ownershipMap?.entries.map((entry) => entry.path) ?? []),
+    ...(capabilityGraph?.nodes.filter((node) => node.kind === "file").map((node) => node.id) ?? []),
+    ...(capabilityGraph?.capabilities.flatMap((capability) =>
+      capability.implementedBy.filter((ref) => ref.kind === "file").map((ref) => ref.id.split("#")[0] ?? ref.id)) ?? []),
+  ];
+  const evidence = await collectRepositoryChangeEvidence({
+    repoRoot: root,
+    baseRef: input.baseRef,
+    changedPaths: input.changedPaths,
+    knownPaths,
+  });
+  warnings.push(...evidence.warnings);
+
+  const result = validateChange({
+    task: input.task,
+    changedPaths: input.changedPaths,
+    baseRef: input.baseRef,
+    ...(taskPact ? { taskPact } : {}),
+    ...(taskPactRef ? { taskPactRef } : {}),
+    ...(ownershipMap ? { ownershipMap } : {}),
+    ...(flowContracts.length > 0 ? { flowContracts } : {}),
+    ...(capabilityContract ? { capabilityContract } : {}),
+    ...(capabilityGraph ? { capabilityGraph } : {}),
+    files: evidence.files,
+    dependencyChanges: evidence.dependencyChanges,
+  });
+  return {
+    result,
+    sources: dedupeValidationSources(sources),
+    warnings: [...new Set(warnings)].sort(),
+  };
+}
+
+function addValidationSource(sources: SourceRef[], artifact: { header: ArtifactHeader }): void {
+  const status = artifact.header.freshness?.status;
+  sources.push({
+    artifactType: artifact.header.artifactType,
+    artifactId: artifact.header.artifactId,
+    generatedAt: artifact.header.generatedAt,
+    freshness: status === "fresh" || status === "stale" || status === "partial" || status === "unknown"
+      ? status
+      : "unknown",
+  });
+}
+
+function dedupeValidationSources(sources: SourceRef[]): SourceRef[] {
+  return [...new Map(sources.map((source) => [
+    `${source.artifactType}:${source.artifactId ?? ""}`,
+    source,
+  ])).values()];
+}
+
+function renderChangeValidation(result: ChangeValidationResult): string {
+  const lines = [
+    `Change validation: ${result.status}`,
+    `Changed paths: ${result.changedPaths.join(", ") || "none"}`,
+  ];
+  if (result.affectedSystems.length > 0) lines.push(`Affected systems: ${result.affectedSystems.join(", ")}`);
+  if (result.affectedFlows.length > 0) lines.push(`Affected flows: ${result.affectedFlows.join(", ")}`);
+  if (result.blockingViolations.length > 0) {
+    lines.push("", "Blocking violations:");
+    for (const entry of result.blockingViolations) lines.push(`- ${entry.code}: ${entry.message}`);
+  }
+  if (result.unresolvedSemanticObligations.length > 0) {
+    lines.push("", "Unresolved semantic obligations:");
+    for (const entry of result.unresolvedSemanticObligations) lines.push(`- ${entry.statement} (${entry.reason})`);
+  }
+  if (result.requiredChecks.length > 0) {
+    lines.push("", "Required checks:", ...result.requiredChecks.map((command) => `- ${command}`));
+  }
+  lines.push("", "No checks were executed and no artifact or source file was written.");
+  return lines.join("\n");
+}
+
+function projectChangeValidationDecision(result: ChangeValidationResult) {
+  return {
+    status: result.status,
+    blockingViolations: result.blockingViolations,
+    unresolvedSemanticObligations: result.unresolvedSemanticObligations,
+    requiredChecks: result.requiredChecks,
+  };
+}
+
 async function buildCurrentTaskPact(
   store: ReturnType<typeof createLocalArtifactStore>,
   input: { repoId: string; taskText: string; goal?: string; paths: string[]; write: boolean },
@@ -17603,6 +17819,8 @@ function usage(): string {
     "    (prints a human brief; --json adds the full audit-oriented `agentContext`; --model-context emits only the compact model-delivery projection)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
+    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--root <path>] [--json]",
+    "    (returns post-edit blockers, semantic obligations, and required checks; writes and executes nothing)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",

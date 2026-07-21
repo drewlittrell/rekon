@@ -25,6 +25,10 @@ authority boundaries.
    Inspect `rekon artifacts freshness --json` before relying on it.
 5. Check source refs, findings, work order, and verification plan before making
    changes.
+6. After editing, call `validate_change` with the original task, every changed
+   path, and the pre-edit Git base ref. Resolve blocking violations. Judge each
+   semantic obligation against its cited source and pact, then run the returned
+   checks before completion.
 
 Returned pact constraints and required checks are acceptance criteria, not
 optional background. `boundaryPaths` are different: preserve them, but inspect
@@ -35,8 +39,8 @@ the local `.rekon/` artifact store, but it does not write repository source or
 execute project commands. The CLI is the universal interface for task context,
 scans, resolver packets, publishing, and artifact maintenance.
 
-The coding-agent MCP surface advertises only task context and exact
-source-target resolution. Orientation, placement, and preflight remain CLI
+The coding-agent MCP surface advertises task context, exact source-target
+resolution, and post-edit change validation. Orientation, placement, and preflight remain CLI
 workflows; legacy MCP calls are accepted but not advertised.
 
 ## Managed Block
@@ -70,6 +74,7 @@ rekon mcp serve --root .
 rekon scan --root <repo> --json
 rekon context task --root <repo> --task "<task>" --path <path> --profile compact --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --json
 rekon contracts maintain --root <repo> --json
 rekon resolve preflight --root <repo> --path <path> --goal "<goal>" --json
 rekon artifacts validate --root <repo> --json

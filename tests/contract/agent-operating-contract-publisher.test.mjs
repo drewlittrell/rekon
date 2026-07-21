@@ -140,6 +140,7 @@ test("agent publications explain MCP usage and the CLI task-context fallback", a
       "## Rekon Context Interfaces",
       "`context_for_task`",
       "`resolve_source_target`",
+      "`validate_change`",
       "`rekon mcp serve --root .`",
       "`rekon context task",
       "`rekon resolve preflight",
@@ -158,6 +159,7 @@ test("agent publications explain MCP usage and the CLI task-context fallback", a
     assert.ok(agentsPublication.content.includes("## Rekon Context Interfaces"));
     assert.ok(agentsPublication.content.includes("`context_for_task`"));
     assert.ok(agentsPublication.content.includes("`resolve_source_target`"));
+    assert.ok(agentsPublication.content.includes("`validate_change`"));
     assert.ok(agentsPublication.content.includes("`rekon context task"));
     assert.ok(agentsPublication.content.includes("`rekon resolve preflight"));
   });

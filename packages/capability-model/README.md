@@ -58,6 +58,9 @@ source, ownership, and flow evidence.
 `buildTaskPact()` selects the adopted system and end-to-end flow law for one
 task. `selectTaskContractGuidance()` maps that pact, plus matching capability
 rules, into the shared context constraints, required paths, and checks.
+`validateChange()` is the pure post-edit decision helper. Hosts supply Git and
+current-source evidence; it returns deterministic blockers, unresolved pact
+and handoff obligations, and required checks without writing or executing.
 `compileTaskContext()` is the shared, budget-aware context compiler used by the
 CLI and MCP. Its `compact`, `standard`, and `deep` profiles bound selected core
 context, supporting context, constraints, checks, evidence, and selection

@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { after, before, test } from "node:test";
@@ -315,6 +315,15 @@ before(async () => {
   });
   assert.equal(compile.status, 0, compile.stderr || compile.stdout);
 
+  for (const args of [
+    ["init", "-q"],
+    ["add", "src", "package.json", "rekon"],
+    ["-c", "user.email=rekon@example.test", "-c", "user.name=Rekon Test", "commit", "-qm", "fixture baseline"],
+  ]) {
+    const git = spawnSync("git", args, { cwd: fixtureRoot, encoding: "utf8" });
+    assert.equal(git.status, 0, git.stderr || git.stdout);
+  }
+
   server = startServer(fixtureRoot);
 });
 
@@ -333,7 +342,7 @@ test("protocol: initialize + tools/list expose the model context tools with sche
   const list = await server.rpc("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name).sort();
 
-  assert.deepEqual(names, ["context_for_task", "resolve_source_target"]);
+  assert.deepEqual(names, ["context_for_task", "resolve_source_target", "validate_change"]);
 
   for (const tool of list.result.tools) {
     assert.equal(tool.inputSchema.type, "object");
@@ -359,6 +368,8 @@ test("protocol: initialize + tools/list expose the model context tools with sche
     "producer",
     "implementation",
   ]);
+  const validation = list.result.tools.find((tool) => tool.name === "validate_change");
+  assert.deepEqual(validation.inputSchema.required, ["task", "changedPaths"]);
 });
 
 test("protocol: unknown method fails with -32601, server keeps serving", async () => {
@@ -442,12 +453,22 @@ test("trust-class coverage: every leaf in all fixture responses carries a servab
       arguments: { goal: "modify bootstrap", paths: ["src/index.ts"] },
     }),
   );
+  const original = readFileSync(join(fixtureRoot, "src/index.ts"), "utf8");
+  writeFileSync(join(fixtureRoot, "src/index.ts"), `${original}\n// validate change fixture\n`, "utf8");
+  const validation = toolPayload(
+    await server.rpc("tools/call", {
+      name: "validate_change",
+      arguments: { task: "modify bootstrap", changedPaths: ["src/index.ts"], baseRef: "HEAD" },
+    }),
+  );
+  writeFileSync(join(fixtureRoot, "src/index.ts"), original, "utf8");
 
   assertTrustCoverage(orientation.data);
   assertTrustCoverage(where.data);
   assertTrustCoverage(context.data);
   assertTrustCoverage(refinement.data);
   assertTrustCoverage(preflight.data);
+  assertTrustCoverage(validation.data);
 });
 
 test("context_for_task returns compact budgeted graph context without writing", async () => {
@@ -641,6 +662,7 @@ test("CLI and MCP compile the same TaskPact guidance", async () => {
     "src/index.ts",
     "--provider",
     "mock",
+    "--no-auto-refresh",
     "--profile",
     "compact",
     "--model-context",
@@ -670,7 +692,7 @@ test("resolve_source_target returns only unread paths for the named relationship
 
   assert.equal(result.result.isError, false);
   assert.equal(refinement.relationship.value, "dependency");
-  assert.equal(refinement.unresolved.value, false);
+  assert.equal(refinement.unresolved.value, false, JSON.stringify(payload, null, 2));
   assert.deepEqual(refinement.readNext.map((entry) => entry.path.value), ["src/runtime.ts"]);
   assert.ok(refinement.readNext[0].reason.value.includes("outgoing dependency"));
   assert.match(refinement.instruction.value, /never refine for completeness/i);
@@ -758,6 +780,113 @@ test("preflight_change returns ownership, checks, risk, and resolution trace wit
   assert.ok(payload.data.preflight.requiredChecks.value.includes("npm run test"));
   assert.ok(["low", "medium", "high"].includes(payload.data.preflight.risk.tier.value));
   assert.ok(payload.data.preflight.resolutionTrace.length > 0);
+});
+
+test("validate_change compares Git and current source without persisting or running checks", async () => {
+  const sourcePath = join(fixtureRoot, "src/index.ts");
+  const original = readFileSync(sourcePath, "utf8");
+  const store = createLocalArtifactStore(fixtureRoot);
+  const beforeIndex = await store.list();
+  try {
+    writeFileSync(sourcePath, `${original}\n// post-edit validation fixture\n`, "utf8");
+    const result = await server.rpc("tools/call", {
+      name: "validate_change",
+      arguments: {
+        task: "modify bootstrap",
+        changedPaths: ["src/index.ts"],
+        baseRef: "HEAD",
+      },
+    });
+    const payload = toolPayload(result);
+    const validation = payload.data.changeValidation;
+
+    assert.equal(result.result.isError, false);
+    assert.equal(validation.status.value, "needs-judgment");
+    assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
+      /bootstrap\/runtime compatibility/u.test(entry.statement.value)));
+    assert.ok(validation.requiredChecks.value.includes("npm run test:bootstrap"));
+    assert.deepEqual(Object.keys(validation).sort(), [
+      "blockingViolations",
+      "requiredChecks",
+      "status",
+      "unresolvedSemanticObligations",
+    ]);
+    assertTrustCoverage(validation);
+
+    const cli = spawnSync(process.execPath, [
+      cliEntry,
+      "context",
+      "validate-change",
+      "--root",
+      fixtureRoot,
+      "--task",
+      "modify bootstrap",
+      "--changed-path",
+      "src/index.ts",
+      "--base-ref",
+      "HEAD",
+      "--json",
+    ], { encoding: "utf8", timeout: 15000 });
+    assert.equal(cli.status, 0, cli.stderr || cli.stdout);
+    const cliValidation = JSON.parse(cli.stdout);
+    assert.equal(cliValidation.status, "needs-judgment");
+    assert.deepEqual(Object.keys(cliValidation).sort(), [
+      "blockingViolations",
+      "requiredChecks",
+      "status",
+      "unresolvedSemanticObligations",
+    ]);
+    assert.deepEqual(cliValidation.requiredChecks, validation.requiredChecks.value);
+  } finally {
+    writeFileSync(sourcePath, original, "utf8");
+  }
+  assert.deepEqual(await store.list(), beforeIndex);
+});
+
+test("CLI validate-change does not initialize Rekon in an unscanned Git repository", () => {
+  const root = mkdtempSync(join(tmpdir(), "rekon-validate-unscanned-"));
+  try {
+    mkdirSync(join(root, "src"), { recursive: true });
+    const sourcePath = join(root, "src/index.ts");
+    writeFileSync(sourcePath, "export const value = 1;\n", "utf8");
+    for (const args of [
+      ["init", "-q"],
+      ["add", "src/index.ts"],
+      ["-c", "user.email=rekon@example.test", "-c", "user.name=Rekon Test", "commit", "-qm", "baseline"],
+    ]) {
+      const git = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+      assert.equal(git.status, 0, git.stderr || git.stdout);
+    }
+    writeFileSync(sourcePath, "export const value = 2;\n", "utf8");
+    assert.equal(existsSync(join(root, ".rekon")), false);
+
+    const cli = spawnSync(process.execPath, [
+      cliEntry,
+      "context",
+      "validate-change",
+      "--root",
+      root,
+      "--task",
+      "change value",
+      "--changed-path",
+      "src/index.ts",
+      "--base-ref",
+      "HEAD",
+      "--json",
+    ], { encoding: "utf8", timeout: 15000 });
+    assert.equal(cli.status, 0, cli.stderr || cli.stdout);
+    const decision = JSON.parse(cli.stdout);
+    assert.equal(decision.status, "needs-judgment");
+    assert.deepEqual(Object.keys(decision).sort(), [
+      "blockingViolations",
+      "requiredChecks",
+      "status",
+      "unresolvedSemanticObligations",
+    ]);
+    assert.equal(existsSync(join(root, ".rekon")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("where_does_this_belong normalizes and finds declared candidates on the fixture", async () => {
@@ -913,6 +1042,44 @@ test("response ceilings exist and truncation is explicit", async () => {
   assert.equal(mcp.TASK_CONTEXT_RESPONSE_CEILING_BYTES, 12288);
   assert.equal(mcp.REFINEMENT_RESPONSE_CEILING_BYTES, 10240);
   assert.equal(mcp.PREFLIGHT_RESPONSE_CEILING_BYTES, 12288);
+  assert.equal(mcp.CHANGE_VALIDATION_RESPONSE_CEILING_BYTES, 16384);
+
+  const oversizedValidation = mcp.buildChangeValidationResponse({
+    schemaVersion: "1.0.0",
+    task: "bounded validation",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    status: "blocked",
+    affectedSystems: [],
+    affectedFlows: [],
+    blockingViolations: Array.from({ length: 20 }, (_, index) => ({
+      code: `violation-${index}`,
+      message: "x".repeat(4_000),
+      paths: Array.from({ length: 10 }, (__, pathIndex) => `src/${index}/${pathIndex}/${"p".repeat(500)}.ts`),
+      evidenceRefs: Array.from({ length: 10 }, (__, refIndex) => `Evidence:${index}-${refIndex}-${"e".repeat(500)}`),
+    })),
+    unresolvedSemanticObligations: Array.from({ length: 20 }, (_, index) => ({
+      id: `obligation-${index}`,
+      kind: "repository-law",
+      statement: "s".repeat(4_000),
+      reason: "r".repeat(4_000),
+      paths: ["src/index.ts"],
+      evidenceRefs: [],
+      blockingIfViolated: true,
+    })),
+    requiredChecks: Array.from({ length: 20 }, (_, index) => `npm run check:${index} -- ${"c".repeat(2_000)}`),
+    baseline: { files: [] },
+    boundaries: { wroteArtifact: false, wroteSource: false, executedChecks: false, invokedModel: false },
+  });
+  assert.equal(oversizedValidation.truncated, true);
+  assert.deepEqual(Object.keys(oversizedValidation.data.changeValidation).sort(), [
+    "blockingViolations",
+    "requiredChecks",
+    "status",
+    "unresolvedSemanticObligations",
+  ]);
+  assert.ok(oversizedValidation.data.changeValidation.blockingViolations.some((entry) =>
+    entry.code.value === "validation.output-truncated"));
 
   const responses = [
     [mcp.buildOrientation(fixtureRoot), mcp.ORIENTATION_RESPONSE_CEILING_BYTES],
@@ -924,6 +1091,7 @@ test("response ceilings exist and truncation is explicit", async () => {
       anchorPath: "src/index.ts",
     }), mcp.REFINEMENT_RESPONSE_CEILING_BYTES],
     [await mcp.buildPreflightChange(fixtureRoot, "modify bootstrap", ["src/index.ts"]), mcp.PREFLIGHT_RESPONSE_CEILING_BYTES],
+    [oversizedValidation, mcp.CHANGE_VALIDATION_RESPONSE_CEILING_BYTES],
   ];
   for (const [payload, ceiling] of responses) {
     assert.equal(typeof payload.truncated, "boolean");

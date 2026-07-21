@@ -9,6 +9,7 @@ import {
   MCP_SERVER_VERSION,
   MCP_TOOLS,
   callTool,
+  type McpToolResponse,
 } from "./index.js";
 
 type JsonRpcRequest = {
@@ -26,6 +27,7 @@ export type McpToolCall = {
 
 export type McpServerOptions = {
   beforeToolCall?: (call: McpToolCall) => Promise<void>;
+  handleToolCall?: (call: McpToolCall) => Promise<McpToolResponse | undefined>;
 };
 
 export async function handleMcpRequest(
@@ -56,8 +58,9 @@ export async function handleMcpRequest(
     case "tools/call": {
       const name = typeof params?.name === "string" ? params.name : "";
       const args = (params?.arguments as Record<string, unknown>) ?? {};
-      await options.beforeToolCall?.({ repoRoot, name, args });
-      const payload = await callTool(repoRoot, name, args);
+      const call = { repoRoot, name, args };
+      await options.beforeToolCall?.(call);
+      const payload = await options.handleToolCall?.(call) ?? await callTool(repoRoot, name, args);
 
       return respond({
         content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],

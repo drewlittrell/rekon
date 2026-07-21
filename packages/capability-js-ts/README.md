@@ -96,6 +96,8 @@ projection, evaluation, resolver fallback, and docs.
 
 The default export is a Rekon capability definition. Its manifest declares the
 `evidence-provider` role, consumes `SourceFile`, and produces `EvidenceGraph`.
+`extractSourceDependencies()` provides the deterministic, AST-backed module
+dependency comparison used by post-edit validation.
 `extractCacheContractEvidence()`, `extractPromiseCacheRejectionEvidence()`,
 `extractCacheKeyNormalizationEvidence()`,
 `extractCacheRevalidationEvidence()`,

@@ -10,7 +10,8 @@ network. Pass `--no-auto-refresh` only when a caller deliberately needs the
 existing artifact state.
 
 Tools are non-destructive, idempotent, and closed-world. `resolve_source_target`
-is read-only. `context_for_task` advertises `readOnlyHint: false` because a call
+and `validate_change` are read-only. `context_for_task` advertises
+`readOnlyHint: false` because a call
 can update local Rekon artifacts.
 
 ## Tools
@@ -22,6 +23,10 @@ can update local Rekon artifacts.
 - `resolve_source_target`: a bounded unread context delta for one exact symbol,
   type, or call named by inspected source, using a `dependency`, `dependent`,
   `test`, `contract`, `consumer`, `producer`, or `implementation` relationship.
+- `validate_change`: post-edit comparison against Git, task-scoped repository
+  law, ownership, dependency policy, and flow handoffs. It returns only
+  blocking violations, unresolved semantic obligations, and required checks;
+  it does not execute checks or persist a report.
 
 The server still accepts the earlier `orientation`, `where_does_this_belong`,
 `preflight_change`, and `refine_task_context` names for compatibility. They are
@@ -58,9 +63,13 @@ When the MCP tools are available to an agent:
    source writes.
 5. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
+6. After editing, call `validate_change` with the original task, every changed
+   path, and the pre-edit base ref. Resolve deterministic violations, judge the
+   cited semantic obligations yourself, and run the returned checks before
+   declaring completion.
 
-If MCP is unavailable, use `rekon context task --model-context`, `rekon resolve
-preflight`, and `rekon artifacts freshness`. The task command performs the same
+If MCP is unavailable, use `rekon context task --model-context`, `rekon context
+validate-change`, and `rekon artifacts freshness`. The task command performs the same
 freshness check and accepts `--no-auto-refresh` for deliberate artifact-state
 inspection.
 

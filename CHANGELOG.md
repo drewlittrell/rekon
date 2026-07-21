@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added model-facing `validate_change` and the equivalent `rekon context
+  validate-change` command. They compare declared changed paths with a
+  read-only Git baseline, TaskPact scope, ownership, capability dependency
+  policy, and end-to-end handoff contracts; output is limited to blocking
+  violations, unresolved semantic obligations, and required checks. No checks,
+  artifact writes, source writes, or model calls occur.
+- Updated managed agent instructions to `1.9.0` so coding agents request
+  post-edit validation before declaring completion.
 - Added bounded deterministic `sourceSpans` to shared model-context delivery.
   Each span carries an exact path, source SHA-256, line range, excerpt, evidence
   ref, freshness, and routing reason; profile budgets cap count and characters,

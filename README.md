@@ -73,13 +73,17 @@ The local MCP server is the model-facing context interface:
 rekon mcp serve --root .
 ```
 
-It advertises `context_for_task` and `resolve_source_target`. Source-target
-resolution is a bounded delta for an exact identifier found in inspected
-source, not general search. Older orientation, placement, and preflight tool
+It advertises `context_for_task`, `resolve_source_target`, and
+`validate_change`. Source-target resolution is a bounded delta for an exact
+identifier found in inspected source, not general search. After editing,
+`validate_change` compares the declared paths with a Git baseline and the
+matched task pact, then returns blocking violations, unresolved semantic
+obligations, and required checks. It does not run those checks. Older
+orientation, placement, and preflight tool
 names remain accepted for compatibility but are not advertised to coding
 agents; their CLI commands remain available. Task-context calls check source
 freshness and can update `.rekon/` artifacts before compiling a response. They
-do not write repository source, run project commands, or call a model. The CLI
+do not write repository source, run project checks, or call a model. The CLI
 uses the same context compiler and remains the interface for scans and
 environments without MCP. Agents use
 `rekon context task ... --model-context` for the same minimal delivery payload;

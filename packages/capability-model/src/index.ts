@@ -69,6 +69,18 @@ export {
 } from "./task-pact.js";
 
 export {
+  type ChangeDependency,
+  type ChangeDependencyDelta,
+  type ChangeFileEvidence,
+  type ChangeFileStatus,
+  type ChangeValidationObligation,
+  type ChangeValidationResult,
+  type ChangeValidationViolation,
+  type ValidateChangeInput,
+  validateChange,
+} from "./change-validation.js";
+
+export {
   type BuildCapabilityArchitectureLintReportInput,
   CAPABILITY_ARCHITECTURE_LINT_ARTIFACT_ID_PREFIX,
   CAPABILITY_ARCHITECTURE_LINT_FINDING_CATEGORY,

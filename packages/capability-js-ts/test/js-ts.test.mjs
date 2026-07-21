@@ -36,6 +36,7 @@ import capability, {
   extractScopeNameResolutionEvidence,
   extractScopeResolutionEvidence,
   extractScopeTraversalEscapeEvidence,
+  extractSourceDependencies,
   extractTeardownInterruptionEvidence,
   jsTsProvider,
 } from "../dist/index.js";
@@ -44,6 +45,25 @@ test("built-in capability uses defineCapability-compatible manifest", () => {
   assert.equal(capability.manifest.id, "@rekon/capability-js-ts");
   assert.deepEqual(capability.manifest.roles, ["evidence-provider"]);
   assert.deepEqual(capability.manifest.produces, ["EvidenceGraph"]);
+});
+
+test("source dependency extraction is AST-backed, resolved, and deterministic", () => {
+  const dependencies = extractSourceDependencies(
+    "src/index.ts",
+    [
+      "import type { Config } from './config.js';",
+      "import { helper } from './helper.js';",
+      "const lazy = import('./helper.js');",
+      "import fs from 'node:fs';",
+    ].join("\n"),
+    new Set(["src/index.ts", "src/config.ts", "src/helper.ts"]),
+  );
+
+  assert.deepEqual(dependencies.map(({ specifier, resolvedPath }) => ({ specifier, resolvedPath })), [
+    { specifier: "./config.js", resolvedPath: "src/config.ts" },
+    { specifier: "./helper.js", resolvedPath: "src/helper.ts" },
+    { specifier: "node:fs", resolvedPath: undefined },
+  ]);
 });
 
 test("JS/TS provider emits facts with provenance and ignores generated directories", async () => {

@@ -99,10 +99,19 @@ freshness, constraints, checks, warnings, and selection size. The full packet
 keeps provenance and selection diagnostics for audit.
 
 For managed agents, `context_for_task` is the default first call. The advertised
-MCP surface stays limited to task compilation and exact source-target
-resolution. Orientation, placement, and preflight remain operator-facing CLI
+MCP surface stays limited to task compilation, exact source-target resolution,
+and post-edit `validate_change`. Orientation, placement, and preflight remain operator-facing CLI
 workflows because advertising them to every coding run invites context calls
 that duplicate the task packet.
+
+`validate_change` closes the task loop without creating another reporting
+artifact. The CLI host compares each declared changed path with a read-only Git
+baseline, extracts deterministic dependency deltas, and loads the matching
+TaskPact, ownership, capability policy, and flow contracts. Mechanical scope or
+dependency violations block. Prose invariants, prohibited-change clauses, and
+baton guarantees remain explicit semantic obligations for the acting agent to
+judge against cited source. The call returns required checks but never runs
+them.
 
 The call is also the rehydration boundary. Managed instructions require a fresh
 task-context request after context compaction or restart and whenever the goal

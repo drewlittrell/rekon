@@ -18,7 +18,8 @@ explainable resolution.
 4. Resolve task-specific questions from the current snapshot.
 5. Publish derived guidance without making it canonical truth.
 6. Prepare work and verification artifacts when a task needs execution.
-7. Record verification and reconciliation outcomes back into artifacts.
+7. Validate the resulting diff against task scope and repository law.
+8. Record verification and reconciliation outcomes back into artifacts.
 
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The
@@ -50,6 +51,9 @@ and provenance.
 - Automatic context refresh never writes repository source, executes project
   commands, or calls a model provider.
 - MCP and CLI consume the same context compiler and selection rules.
+- Post-edit validation uses the same TaskPact and graph contracts, reads Git and
+  current source through the CLI host, and neither writes an artifact nor runs
+  project checks.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial
   packet. Absence remains unresolved rather than authorizing broad search.

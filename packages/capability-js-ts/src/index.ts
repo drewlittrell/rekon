@@ -176,6 +176,40 @@ export function __extractRegexFallbackFactsForTesting(
   ];
 }
 
+export type SourceDependency = {
+  specifier: string;
+  kind: AstImportKind | "unknown";
+  resolvedPath?: string;
+};
+
+/** Extract deterministic module dependencies from one JS/TS source file. */
+export function extractSourceDependencies(
+  path: string,
+  content: string,
+  fileSet: ReadonlySet<string> = new Set(),
+): SourceDependency[] {
+  const dependencies: SourceDependency[] = [];
+  const add = (specifier: string, kind: SourceDependency["kind"]) => {
+    const resolvedPath = resolveRelativeTarget(path, specifier, fileSet);
+    dependencies.push({ specifier, kind, ...(resolvedPath ? { resolvedPath } : {}) });
+  };
+  try {
+    const result = extractAstRecords({ path, content });
+    for (const record of result.imports) add(record.target, record.importKind);
+  } catch {
+    for (const fact of extractImportFacts(path, content, languageForPath(path))) {
+      const specifier = typeof fact.value.target === "string" ? fact.value.target : "";
+      if (specifier) add(specifier, "unknown");
+    }
+  }
+  return [...new Map(dependencies.map((entry) => [
+    `${entry.specifier}\0${entry.resolvedPath ?? ""}`,
+    entry,
+  ])).values()].sort((left, right) =>
+    left.specifier.localeCompare(right.specifier)
+      || (left.resolvedPath ?? "").localeCompare(right.resolvedPath ?? ""));
+}
+
 // ---------- WO-14 A: debt markers as evidence facts ------------------------
 //
 // Deterministic content markers (detection-design-decisions.md §B): TODO /

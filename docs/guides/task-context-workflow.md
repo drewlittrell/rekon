@@ -13,6 +13,21 @@ rekon context task --root <repo> --task "Describe the change" --path src/example
 rekon context task --root <repo> --task "Describe the change" --path src/example.ts --profile compact --model-context
 ```
 
+After editing, validate the actual task diff before running checks:
+
+```sh
+rekon context validate-change --root <repo> \
+  --task "Describe the change" \
+  --changed-path src/example.ts \
+  --base-ref HEAD \
+  --json
+```
+
+Repeat `--changed-path` for every file changed by the task. The result separates
+mechanical blockers from semantic pact and handoff obligations. The acting
+agent resolves both and then runs the returned checks; Rekon does not execute
+them in this command.
+
 When the initial reads expose one named unresolved relationship, request a
 bounded delta instead of switching to broad repository search:
 

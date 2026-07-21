@@ -16,9 +16,10 @@ verification recording, reconciliation planning, and artifact validation.
   claim yet.
 - A minimal delivery adapter serves model-facing MCP, CLI, and evaluation
   payloads while the full packet remains available for audit.
-- Coding agents see two source-safe MCP tools: task context and exact
-  source-target resolution. Task context may refresh `.rekon/` artifacts;
-  source-target resolution is read-only. Operator-facing orientation,
+- Coding agents see three source-safe MCP tools: task context, exact
+  source-target resolution, and post-edit change validation. Task context may
+  refresh `.rekon/` artifacts; source-target resolution and validation are
+  read-only. Operator-facing orientation,
   placement, and preflight remain available through the CLI and compatibility
   calls.
 - MCP and CLI resolve named dependency, dependent, test, contract, consumer,
@@ -43,6 +44,9 @@ verification recording, reconciliation planning, and artifact validation.
 - Committed system and flow law compiles into an effective registry and a
   task-specific `TaskPact`; CLI and MCP share the same selection, including
   post-compaction rehydration and work-order lineage.
+- Post-edit validation compares declared task paths with Git/current source,
+  applies TaskPact scope, ownership, capability dependency policy, and complete
+  flow handoffs, and returns checks without executing them.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.

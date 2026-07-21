@@ -35,6 +35,7 @@ import {
   type ModelContextProjection,
   type ModelContextDelivery,
   type ModelContextDeliveryPolicy,
+  type ChangeValidationResult,
   type TaskContextRefinementRelationship,
   type TaskContextGraphLike,
 } from "@rekon/capability-model";
@@ -59,7 +60,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.1.0";
+export const MCP_SERVER_VERSION = "1.2.0";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -122,6 +123,7 @@ export const WHERE_RESPONSE_CEILING_BYTES = 6 * 1024;
 export const TASK_CONTEXT_RESPONSE_CEILING_BYTES = 12 * 1024;
 export const REFINEMENT_RESPONSE_CEILING_BYTES = 10 * 1024;
 export const PREFLIGHT_RESPONSE_CEILING_BYTES = 12 * 1024;
+export const CHANGE_VALIDATION_RESPONSE_CEILING_BYTES = 16 * 1024;
 const MAX_LIST = 12;
 const MAX_CANDIDATES = 5;
 
@@ -1200,6 +1202,140 @@ export async function buildPreflightChange(
 }
 
 // ---------------------------------------------------------------------------
+// Tool: validate_change
+
+/** Convert a CLI-hosted, pure change decision into trust-tagged MCP context. */
+export function buildChangeValidationResponse(
+  result: ChangeValidationResult,
+  sources: SourceRef[] = [],
+): McpToolResponse {
+  const sourceLimit = Math.min(sources.length, 8);
+  let violationLimit = Math.min(result.blockingViolations.length, 6);
+  let obligationLimit = Math.min(result.unresolvedSemanticObligations.length, 8);
+  let checkLimit = Math.min(result.requiredChecks.length, 12);
+
+  const buildResponse = (): McpToolResponse => {
+    const omittedViolations = result.blockingViolations.length - violationLimit;
+    const omittedObligations = result.unresolvedSemanticObligations.length - obligationLimit;
+    const omittedChecks = result.requiredChecks.length - checkLimit;
+    const violations = result.blockingViolations.slice(0, violationLimit).map((entry) => ({
+      code: boundedChangeText(entry.code, 120),
+      message: boundedChangeText(entry.message, 360),
+      paths: boundedChangeList(entry.paths, 4, 220),
+      evidenceRefs: boundedChangeList(entry.evidenceRefs, 4, 220),
+    }));
+    const obligations = result.unresolvedSemanticObligations.slice(0, obligationLimit).map((entry) => ({
+      id: boundedChangeText(entry.id, 160),
+      kind: entry.kind,
+      statement: boundedChangeText(entry.statement, 420),
+      reason: boundedChangeText(entry.reason, 360),
+      paths: boundedChangeList(entry.paths, 4, 220),
+      evidenceRefs: boundedChangeList(entry.evidenceRefs, 4, 220),
+      blockingIfViolated: entry.blockingIfViolated,
+    }));
+    const checks = result.requiredChecks.slice(0, checkLimit).map((entry) => boundedChangeText(entry, 420));
+    if (omittedViolations > 0) {
+      violations.push({
+        code: "validation.output-truncated",
+        message: `${omittedViolations} additional blocking violation(s) omitted; rerun with fewer changed paths.`,
+        paths: [],
+        evidenceRefs: [],
+      });
+    }
+    if (omittedObligations > 0) {
+      obligations.push({
+        id: "validation-output-truncated",
+        kind: "baseline",
+        statement: `${omittedObligations} additional semantic obligation(s) omitted; rerun with fewer changed paths.`,
+        reason: "The bounded model-facing response cannot carry the complete decision.",
+        paths: [],
+        evidenceRefs: [],
+        blockingIfViolated: true,
+      });
+    }
+    if (omittedChecks > 0) checks.push(`${omittedChecks} additional required check(s) omitted; use the CLI for the complete list.`);
+
+    return {
+      preamble: ORIENTATION_PREAMBLE,
+      sources: sources.slice(0, sourceLimit),
+      data: {
+        changeValidation: {
+          status: tag(result.status, "deterministic"),
+          blockingViolations: violations.map((entry) => ({
+            code: tag(entry.code, "deterministic"),
+            message: tag(entry.message, "deterministic"),
+            paths: tag(entry.paths, "deterministic"),
+            evidenceRefs: tag(entry.evidenceRefs, "declared"),
+          })),
+          unresolvedSemanticObligations: obligations.map((entry) => ({
+            id: tag(entry.id, "deterministic"),
+            kind: tag(entry.kind, "deterministic"),
+            statement: tag(entry.statement, "declared"),
+            reason: tag(entry.reason, "deterministic"),
+            paths: tag(entry.paths, "deterministic"),
+            evidenceRefs: tag(entry.evidenceRefs, "declared"),
+            blockingIfViolated: tag(entry.blockingIfViolated, "declared"),
+          })),
+          requiredChecks: tag(checks, "declared"),
+        },
+      },
+      truncated: sources.length > sourceLimit
+        || omittedViolations > 0
+        || omittedObligations > 0
+        || omittedChecks > 0,
+    };
+  };
+
+  let response = buildResponse();
+  while (Buffer.byteLength(JSON.stringify(response), "utf8") > CHANGE_VALIDATION_RESPONSE_CEILING_BYTES) {
+    if (obligationLimit > 0) obligationLimit -= 1;
+    else if (violationLimit > 0) violationLimit -= 1;
+    else if (checkLimit > 0) checkLimit -= 1;
+    else break;
+    response = buildResponse();
+  }
+  if (Buffer.byteLength(JSON.stringify(response), "utf8") <= CHANGE_VALIDATION_RESPONSE_CEILING_BYTES) {
+    return response;
+  }
+
+  return {
+    preamble: ORIENTATION_PREAMBLE,
+    sources: [],
+    data: {
+      changeValidation: {
+        status: tag(result.status, "deterministic"),
+        blockingViolations: [{
+          code: tag("validation.output-truncated", "deterministic"),
+          message: tag("The decision exceeded the MCP byte ceiling; rerun with fewer changed paths.", "deterministic"),
+          paths: tag([], "deterministic"),
+          evidenceRefs: tag([], "declared"),
+        }],
+        unresolvedSemanticObligations: [],
+        requiredChecks: tag([], "declared"),
+      },
+    },
+    truncated: true,
+  };
+}
+
+function boundedChangeText(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function boundedChangeList(values: string[], maxItems: number, maxLength: number): string[] {
+  const bounded = values.slice(0, maxItems).map((value) => boundedChangeText(value, maxLength));
+  if (values.length > maxItems) bounded.push(`... ${values.length - maxItems} more`);
+  return bounded;
+}
+
+export function buildChangeValidationUnavailable(reason: string): McpToolResponse {
+  return failClosed(
+    reason,
+    "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --json",
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tool registry (consumed by the stdio server and by tests).
 
 const READ_ONLY_LOCAL_TOOL_ANNOTATIONS = {
@@ -1286,6 +1422,22 @@ const MCP_TOOL_DEFINITIONS = [
     annotations: READ_ONLY_LOCAL_TOOL_ANNOTATIONS,
   },
   {
+    name: "validate_change",
+    description:
+      "Validate the actual post-edit paths against the task pact, repository law, ownership, dependency boundaries, and handoff obligations without running checks or writing source.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: "The same concrete task used to request context." },
+        changedPaths: { type: "array", items: { type: "string" }, description: "Every path changed for this task." },
+        baseRef: { type: "string", description: "Git commit or ref used as the pre-edit baseline. Defaults to HEAD." },
+      },
+      required: ["task", "changedPaths"],
+      additionalProperties: false,
+    },
+    annotations: READ_ONLY_LOCAL_TOOL_ANNOTATIONS,
+  },
+  {
     name: "preflight_change",
     description:
       "Return ownership, risk, checks, warnings, and trace for proposed paths.",
@@ -1302,7 +1454,7 @@ const MCP_TOOL_DEFINITIONS = [
   },
 ] as const;
 
-const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_target"]);
+const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_target", "validate_change"]);
 
 export const MCP_TOOLS = MCP_TOOL_DEFINITIONS.filter((tool) => MODEL_FACING_MCP_TOOLS.has(tool.name));
 
@@ -1310,17 +1462,19 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "Call `context_for_task` with the task and known paths using `compact` at task start, after context compaction or restart, and whenever the goal or path scope materially changes. Read every `readFirst` path before planning or editing; batch those file reads into one command when practical.",
   "When inspected source names a task-required symbol, type, or call whose path is absent from `readFirst` and `boundaryPaths`, use `resolve_source_target` with that exact target before broad or text search. Pact text and preservation-only constraints do not create targets. Read every `readNext` path and stop when resolved. Never use this tool for completeness, analogues, or more tests. An unresolved result does not authorize broad search.",
   "Treat pact constraints and required checks as acceptance criteria. Follow freshness and do-not-touch guidance; unresolved ownership is not permission.",
+  "After editing and before declaring the task complete, call `validate_change` with the original task, every changed path, and the pre-edit Git base ref. Resolve every blocking violation, judge every semantic obligation against the cited source and pact, then run the returned required checks.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
   "rekon context task --task \"<task>\" --path <path> --profile compact --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
+  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
   "rekon artifacts freshness --json",
 ]);
 
 export const REKON_AGENT_MCP_BOUNDARY =
-  "MCP is local and source-safe: it never writes repository source, executes project commands, uses the network, or calls models. The CLI-hosted `context_for_task` may refresh local `.rekon/` artifacts when evidence is stale. Host command: `rekon mcp serve --root .`.";
+  "MCP is local and source-safe: it never writes repository source, executes project checks, uses the network, or calls models. The CLI host may refresh local `.rekon/` artifacts for `context_for_task` and uses read-only Git/source access for `validate_change`. Host command: `rekon mcp serve --root .`.";
 
 export function callTool(
   repoRoot: string,
@@ -1348,6 +1502,25 @@ export function callTool(
       : [];
     const profile = args.profile === "standard" || args.profile === "deep" ? args.profile : "compact";
     return buildContextForTask(repoRoot, args.task, paths, profile);
+  }
+
+  if (name === "validate_change") {
+    if (typeof args.task !== "string" || args.task.trim().length === 0) {
+      return failClosed("validate_change requires a non-empty task string.", "n/a (input error)");
+    }
+    const changedPaths = Array.isArray(args.changedPaths)
+      ? args.changedPaths.filter((path): path is string => typeof path === "string" && path.trim().length > 0)
+      : [];
+    if (changedPaths.length === 0) {
+      return failClosed("validate_change requires at least one changed path.", "n/a (input error)");
+    }
+    if (args.baseRef !== undefined && (typeof args.baseRef !== "string" || args.baseRef.trim().length === 0)) {
+      return failClosed("validate_change baseRef must be a non-empty Git ref when supplied.", "n/a (input error)");
+    }
+    return failClosed(
+      "validate_change requires the CLI-hosted MCP server so it can compare read-only Git and current-source evidence.",
+      "rekon mcp serve --root .",
+    );
   }
 
   if (name === "resolve_source_target" || name === "refine_task_context") {

@@ -29,6 +29,7 @@ The CLI is the user surface for the local lifecycle:
 - `rekon security ingest --osv <results.json>`
 - `rekon snapshot`
 - `rekon resolve preflight`
+- `rekon context validate-change`
 - `rekon publish agents`
 - `rekon memory add/list/select`
 - `rekon intent status`
@@ -112,6 +113,13 @@ unresolved source identifier. Supply `--question`, the exact `--target`,
 `--already-read` paths. The command returns only new deterministic neighbors
 and matched contract guidance; it does not invoke embedding or model providers
 and does not write an artifact.
+
+After editing, run `rekon context validate-change --task "<task>"
+--changed-path <path> --base-ref HEAD --json`. Repeat `--changed-path` for the
+complete task diff. The command reads Git and current source, reuses the
+matching TaskPact when available, and returns blocking violations, unresolved
+semantic obligations, and required checks. It writes no artifact and executes
+no check.
 
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.
