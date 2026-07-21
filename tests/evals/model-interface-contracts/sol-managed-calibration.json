@@ -9,6 +9,8 @@
   },
   "delivery": "managed-agent-instructions-and-mcp",
   "instructionVersion": "1.8.0",
+  "status": "historical",
+  "revalidationReason": "Managed instruction 1.8.1 added task-context artifact auto-refresh after this calibration was accepted.",
   "fixtureSha256": "bfc602a704076b55421b828f4462286ea0ee4ab2de3e5bcfeb95fbe5e8d6decb",
   "contextFixtureSha256": "788af2683afeff586e6a6703c43eef6ada3bf4f00efb929f2b874ff21deca4e5",
   "selectionSha256": "5654b9404fa14d22e17a63bb2c280a7ac32c81a772a862a4f5c1428ffbc1890e",

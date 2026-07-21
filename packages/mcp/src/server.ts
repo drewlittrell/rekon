@@ -18,7 +18,21 @@ type JsonRpcRequest = {
   params?: Record<string, unknown>;
 };
 
-export async function handleMcpRequest(repoRoot: string, request: JsonRpcRequest): Promise<unknown | undefined> {
+export type McpToolCall = {
+  repoRoot: string;
+  name: string;
+  args: Record<string, unknown>;
+};
+
+export type McpServerOptions = {
+  beforeToolCall?: (call: McpToolCall) => Promise<void>;
+};
+
+export async function handleMcpRequest(
+  repoRoot: string,
+  request: JsonRpcRequest,
+  options: McpServerOptions = {},
+): Promise<unknown | undefined> {
   const { id, method, params } = request;
 
   // Notifications (no id) get no response.
@@ -42,6 +56,7 @@ export async function handleMcpRequest(repoRoot: string, request: JsonRpcRequest
     case "tools/call": {
       const name = typeof params?.name === "string" ? params.name : "";
       const args = (params?.arguments as Record<string, unknown>) ?? {};
+      await options.beforeToolCall?.({ repoRoot, name, args });
       const payload = await callTool(repoRoot, name, args);
 
       return respond({
@@ -55,7 +70,7 @@ export async function handleMcpRequest(repoRoot: string, request: JsonRpcRequest
 }
 
 /** Run the stdio loop. Reads newline-delimited JSON-RPC from stdin forever. */
-export function runMcpServer(repoRoot: string): void {
+export function runMcpServer(repoRoot: string, options: McpServerOptions = {}): void {
   let buffer = "";
   let requestQueue = Promise.resolve();
 
@@ -74,12 +89,16 @@ export function runMcpServer(repoRoot: string): void {
         continue;
       }
 
-      requestQueue = requestQueue.then(() => processMcpLine(repoRoot, line));
+      requestQueue = requestQueue.then(() => processMcpLine(repoRoot, line, options));
     }
   });
 }
 
-async function processMcpLine(repoRoot: string, line: string): Promise<void> {
+async function processMcpLine(
+  repoRoot: string,
+  line: string,
+  options: McpServerOptions,
+): Promise<void> {
   let request: JsonRpcRequest;
 
   try {
@@ -94,7 +113,7 @@ async function processMcpLine(repoRoot: string, line: string): Promise<void> {
   let response: unknown | undefined;
 
   try {
-    response = await handleMcpRequest(repoRoot, request);
+    response = await handleMcpRequest(repoRoot, request, options);
   } catch (error) {
     response = request.id === undefined
       ? undefined

@@ -836,7 +836,7 @@ test("end-to-end: bench capture emits a report and preserves protected repositor
   assert.deepEqual([...after.entries()].sort(), [...before.entries()].sort());
   assert.match(
     readFileSync(join(fixtureRepo, "AGENTS.md"), "utf8"),
-    /<!-- rekon:agent-instructions:start version="1\.8\.0" -->/u,
+    /<!-- rekon:agent-instructions:start version="1\.8\.1" -->/u,
   );
   assert.ok(statSync(join(fixtureRepo, ".rekon")).isDirectory(), "refresh should have produced .rekon/ in the corpus copy");
 

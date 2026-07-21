@@ -7,7 +7,7 @@ import test from "node:test";
 
 const repoRoot = resolve(".");
 
-test("repository-law Sol calibration remains bound to the current managed interface", () => {
+test("repository-law Sol calibration remains reproducible and is marked historical after interface changes", () => {
   const calibration = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-contracts/sol-managed-calibration.json"),
     "utf8",
@@ -62,7 +62,10 @@ test("repository-law Sol calibration remains bound to the current managed interf
     commandRecall,
   }));
 
-  assert.equal(calibration.instructionVersion, currentInstructionVersion);
+  assert.equal(calibration.instructionVersion, "1.8.0");
+  assert.notEqual(calibration.instructionVersion, currentInstructionVersion);
+  assert.equal(calibration.status, "historical");
+  assert.match(calibration.revalidationReason, /auto-refresh/iu);
   assert.equal(calibration.fixtureSha256, digest(fixtureBytes));
   assert.equal(calibration.contextFixtureSha256, digest(contextFixtureBytes));
   assert.equal(calibration.selectionSha256, digest(JSON.stringify(selection)));

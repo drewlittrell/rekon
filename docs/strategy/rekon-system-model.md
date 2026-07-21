@@ -44,8 +44,11 @@ and provenance.
 ## Model Interface Boundary
 
 - `AGENTS.md` carries a short, versioned Rekon bootstrap, not dynamic repo data.
-- MCP is the model-native, read-only interface.
-- CLI is the universal interface and owns lifecycle writes.
+- MCP is the model-native context interface. Its package is read-only; the CLI
+  host may refresh Rekon-owned artifacts before task-context calls.
+- CLI is the universal interface and owns lifecycle and artifact writes.
+- Automatic context refresh never writes repository source, executes project
+  commands, or calls a model provider.
 - MCP and CLI consume the same context compiler and selection rules.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial

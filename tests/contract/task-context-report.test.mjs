@@ -268,8 +268,13 @@ test("preserving language and non-JavaScript test commands remain explicit", () 
 // ---- CLI end-to-end ----
 
 function runCli(args, { cwd } = {}) {
+  // This suite deliberately rewrites graph artifacts to exercise compiler
+  // behavior. Freshness/refresh behavior has separate end-to-end coverage.
+  const commandArgs = args[0] === "context" && args[1] === "task" && !args.includes("--no-auto-refresh")
+    ? [...args, "--no-auto-refresh"]
+    : args;
   try {
-    const stdout = execFileSync("node", [CLI, ...args], {
+    const stdout = execFileSync("node", [CLI, ...commandArgs], {
       cwd: cwd ?? repoRoot,
       encoding: "utf8",
       env: { ...process.env, VOYAGE_API_KEY: "", OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "" },

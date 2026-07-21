@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added task-local freshness checks to CLI and MCP context requests. Stale or
+  missing evidence now refreshes Rekon artifacts before context compilation,
+  pathless requests can fall back to deterministic graph scope without an
+  embedding index, and incremental evidence self-lineage remains fresh.
+- Updated managed agent instructions to `1.8.1` and marked the prior Sol
+  managed-interface calibration historical pending a new canary.
 - Added contract discovery, source-cited agent judgment, permissioned adoption,
   drift reconciliation, and task-scoped pacts for system and end-to-end flow
   law. CLI and MCP now apply the same TaskPact selection; generated work orders

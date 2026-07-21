@@ -415,6 +415,10 @@ import {
   syncAgentInstructions,
   type AgentInstructionsOptions,
 } from "./agent-instructions.js";
+import {
+  assessTaskContextFreshness,
+  type TaskContextFreshnessAssessment,
+} from "./task-context-freshness.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -597,7 +601,7 @@ function rekonIntentWorkflow(): string[] {
   return [
     "rekon scan",
     "rekon intent context prepare",
-    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json]",
+    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json]",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "rekon intent plan review",
     "rekon intent plan answer",
@@ -2629,6 +2633,10 @@ export async function main(argv: string[]): Promise<void> {
     const paths = parseRepeatableFlag(parsed.flags.path)
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
+    const autoRefresh = parsed.flags["no-auto-refresh"] !== true;
+    const freshness = autoRefresh
+      ? await ensureTaskContextArtifactsFresh(root, paths)
+      : undefined;
     const modelContextOnly = parsed.flags["model-context"] === true;
     // Explicit vs implicit provider selection drives the graph + lexical fallback
     // policy below: an EXPLICIT --provider that fails stays strict; an IMPLICITLY
@@ -2675,6 +2683,16 @@ export async function main(argv: string[]): Promise<void> {
     // able to embed, rank cached chunks; otherwise record a warning and build from
     // graph + explicit paths only. Reads the cache only — writes no embeddings here.
     const warnings: string[] = [];
+    const artifactFreshness = !autoRefresh
+      ? { status: "unchecked" as const }
+      : freshness?.refreshed
+        ? {
+            status: "refreshed" as const,
+            scope: freshness.assessment.fullRefresh ? "repository" as const : "changed-files" as const,
+            changedFiles: freshness.assessment.changedFiles,
+            reasons: freshness.assessment.reasons,
+          }
+        : { status: "current" as const };
     // Track whether an embedding-provider call was actually attempted and failed
     // (e.g. missing API key). Combined with `providerExplicit`, this decides
     // whether the no-retrieval/no-path path degrades to graph + lexical context
@@ -2741,16 +2759,14 @@ export async function main(argv: string[]): Promise<void> {
 
     // Graph + lexical fallback (Intent Planning UX / Context Quality Fix): when
     // there is no embedding retrieval AND no operator --path, degrade gracefully
-    // instead of hard-failing — BUT ONLY when an IMPLICITLY-defaulted provider was
-    // the one that failed (e.g. `voyage` with no API key). An EXPLICIT --provider
-    // failure stays strict and visible. The fallback derives candidate context
-    // paths by lexically matching the task text against graph file nodes; if it
-    // finds nothing, we still fail cleanly (never emit misleading context).
+    // for the implicit provider selection. This covers both an unavailable default
+    // provider and an absent embedding index. An EXPLICIT --provider failure stays
+    // strict and visible. If lexical scope cannot be established, fail cleanly
+    // rather than emitting repository-wide context.
     let lexicalContextPaths: string[] = [];
     let usedGraphLexicalFallback = false;
     if (retrievalResults.length === 0 && paths.length === 0) {
-      const implicitProviderFailure = providerCallFailed && !providerExplicit;
-      if (implicitProviderFailure) {
+      if (!providerExplicit) {
         lexicalContextPaths = selectLexicalGraphContextPaths(taskText, graphForContext);
       }
       if (lexicalContextPaths.length === 0) {
@@ -2777,11 +2793,13 @@ export async function main(argv: string[]): Promise<void> {
         return;
       }
       usedGraphLexicalFallback = true;
+      if (providerCallFailed) {
+        warnings.push(
+          `provider-unavailable: embedding provider ${providerId} unavailable for implicit retrieval (${providerErrorCode || "unavailable"}); using graph + lexical context fallback`,
+        );
+      }
       warnings.push(
-        `provider-unavailable: embedding provider ${providerId} unavailable for implicit retrieval (${providerErrorCode || "unavailable"}); using graph + lexical context fallback`,
-      );
-      warnings.push(
-        `graph-lexical-fallback: derived ${lexicalContextPaths.length} context path(s) from the capability graph by lexical match against the task text (embedding retrieval unavailable; proposal/context, not proof)`,
+        `graph-lexical-fallback: derived ${lexicalContextPaths.length} context path(s) from the capability graph by lexical match against the task text (embedding retrieval unavailable or unindexed; proposal/context, not proof)`,
       );
     }
 
@@ -2898,6 +2916,7 @@ export async function main(argv: string[]): Promise<void> {
           provider: providerId,
           providerExplicit,
           model,
+          artifactFreshness,
           retrieval: retrievalStatus,
           artifact: { type: ref.type, id: ref.id },
           task: report.task,
@@ -5893,12 +5912,20 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "mcp" && subcommand === "serve") {
-    // `rekon mcp serve [--root <path>]` - WO-6, the first actuator surface.
-    // Local, read-only MCP context server over stdio. No listeners, no
-    // network, no writes: it reads the artifact index and compiled grammar
-    // and serves trust-classed, freshness-honest context. Runs until the
-    // agent host closes stdin.
-    runMcpServer(root);
+    // `rekon mcp serve [--root <path>]` is a local stdio context server. The
+    // MCP package remains read-only; this CLI host refreshes Rekon-owned
+    // artifacts before task-context calls when source evidence has changed.
+    // It never writes repository source or executes project commands.
+    const autoRefresh = parsed.flags["no-auto-refresh"] !== true;
+    runMcpServer(root, {
+      beforeToolCall: async ({ name, args }) => {
+        if (!autoRefresh || name !== "context_for_task") return;
+        const paths = Array.isArray(args.paths)
+          ? args.paths.filter((path): path is string => typeof path === "string")
+          : [];
+        await ensureTaskContextArtifactsFresh(root, paths);
+      },
+    });
     await new Promise(() => {});
     return;
   }
@@ -13466,6 +13493,44 @@ const MAJOR_FRESHNESS_TYPES = [
   "Publication",
 ];
 
+type TaskContextAutoRefreshResult = {
+  refreshed: boolean;
+  assessment: TaskContextFreshnessAssessment;
+};
+
+async function ensureTaskContextArtifactsFresh(
+  root: string,
+  requestedPaths: readonly string[],
+): Promise<TaskContextAutoRefreshResult> {
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  const assessment = await assessTaskContextFreshness({
+    repoRoot: root,
+    artifacts: store,
+    requestedPaths,
+  });
+
+  if (assessment.status === "fresh") {
+    return { refreshed: false, assessment };
+  }
+
+  const refresh = await runRefresh(root, {
+    skipPublish: true,
+    syncAgentInstructions: false,
+    ...(!assessment.fullRefresh && assessment.changedFiles.length > 0
+      ? { changedFiles: assessment.changedFiles }
+      : {}),
+  });
+  if (refresh.status !== "passed") {
+    const failed = refresh.steps.find((step) => step.status === "failed");
+    throw new Error(
+      `rekon task context could not refresh stale artifacts${failed ? ` at ${failed.id}: ${failed.message ?? "failed"}` : ""}`,
+    );
+  }
+
+  return { refreshed: true, assessment };
+}
+
 async function runRefresh(root: string, options: RefreshOptions = {}): Promise<RefreshResult> {
   const startedAt = new Date().toISOString();
   const steps: RefreshStep[] = [];
@@ -17238,7 +17303,7 @@ function usage(): string {
     "rekon capabilities list [--root <path>] [--verbose] [--json]",
     "rekon capabilities inspect <capability-id> [--root <path>] [--json]",
     "rekon observe [--root <path>] [--changed-file <path>] [--json]",
-    "rekon mcp serve [--root <path>]  (read-only MCP context server over stdio)",
+    "rekon mcp serve [--root <path>] [--no-auto-refresh]  (local MCP context server over stdio)",
     "rekon docs freshness [--root <path>] [--json] [--strict]  (doc-governance freshness over git history; WO-7)",
     "rekon project [--root <path>] [--json]",
     "rekon checks ingest (--junit <report.xml> | --eslint-json <report.json>) [--verification-run <VerificationRun:id>] [--root <path>] [--json]",
@@ -17283,7 +17348,7 @@ function usage(): string {
     "rekon intent bundle write [--intent-id <id>] [--target generic|circe] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
     "    (--task-context-ref is repeatable; task context is optional bundle context, not proof — it never approves plans, satisfies gates, executes, or writes source)",
     "rekon intent context prepare [--root <path>] [--json]",
-    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--root <path>] [--json | --model-context]",
+    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json | --model-context]",
     "    (prints a human brief; --json adds the full audit-oriented `agentContext`; --model-context emits only the compact model-delivery projection)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",

@@ -10,9 +10,11 @@ verification recording, reconciliation planning, and artifact validation.
 - A shared, budget-aware compiler serves CLI and MCP task context.
 - A minimal delivery adapter serves model-facing MCP, CLI, and evaluation
   payloads while the full packet remains available for audit.
-- Coding agents see two read-only MCP tools: task context and exact
-  source-target resolution. Operator-facing orientation, placement, and
-  preflight remain available through the CLI and compatibility calls.
+- Coding agents see two source-safe MCP tools: task context and exact
+  source-target resolution. Task context may refresh `.rekon/` artifacts;
+  source-target resolution is read-only. Operator-facing orientation,
+  placement, and preflight remain available through the CLI and compatibility
+  calls.
 - MCP and CLI resolve named dependency, dependent, test, contract, consumer,
   producer, and implementation targets. Resolution requires an exact
   identifier exposed by inspected source, excludes already-read paths, and

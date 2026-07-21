@@ -306,6 +306,16 @@ test("incremental CLI flow keeps full evidence for downstream project and evalua
     assert.deepEqual(filePaths.sort(), ["src/index.ts", "src/unchanged.ts"]);
     assert.equal(latestEvidence.header.inputRefs[0].type, "EvidenceGraph");
 
+    const incrementalFreshness = await validateArtifactFreshness(store, {
+      artifactType: "EvidenceGraph",
+      artifactId: evidenceEntries[0].id,
+    });
+    assert.equal(
+      incrementalFreshness.artifacts[0].status,
+      "fresh",
+      JSON.stringify(incrementalFreshness.artifacts[0].issues, null, 2),
+    );
+
     runCli(["project", "--root", root, "--json"]);
     runCli(["evaluate", "--root", root, "--json"]);
     const ownershipEntry = (await store.list("OwnershipMap"))

@@ -143,7 +143,7 @@ test("agent publications explain MCP usage and the CLI task-context fallback", a
       "`rekon mcp serve --root .`",
       "`rekon context task",
       "`rekon resolve preflight",
-      "local and read-only",
+      "local and source-safe",
     ]) {
       assert.ok(contract.content.includes(expected), `agent contract missing ${expected}`);
     }

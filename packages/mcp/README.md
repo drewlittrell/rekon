@@ -1,14 +1,17 @@
 # `@rekon/mcp`
 
-Local, read-only MCP context server for Rekon.
+Local MCP context server for Rekon.
 
-`rekon mcp serve` exposes repository context over stdio. The server reads
-existing artifacts and returns trust-classed context; it does not write files,
-execute commands, or access the network.
+`rekon mcp serve` exposes repository context over stdio. Before
+`context_for_task`, the CLI host checks the requested scope against the latest
+evidence and refreshes `.rekon/` artifacts when needed. It does not write
+repository source, execute project commands, call models, or access the
+network. Pass `--no-auto-refresh` only when a caller deliberately needs the
+existing artifact state.
 
-Every tool advertises MCP read-only, non-destructive, idempotent, and
-closed-world annotations so non-interactive clients can enforce that boundary
-from protocol metadata.
+Tools are non-destructive, idempotent, and closed-world. `resolve_source_target`
+is read-only. `context_for_task` advertises `readOnlyHint: false` because a call
+can update local Rekon artifacts.
 
 ## Tools
 
@@ -52,10 +55,10 @@ When the MCP tools are available to an agent:
 4. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
 
-MCP never refreshes artifacts or calls a model provider. If MCP is unavailable,
-use `rekon context task --model-context`, `rekon resolve preflight`, and `rekon
-artifacts freshness`. Those commands consume the same compiler and artifact
-store.
+If MCP is unavailable, use `rekon context task --model-context`, `rekon resolve
+preflight`, and `rekon artifacts freshness`. The task command performs the same
+freshness check and accepts `--no-auto-refresh` for deliberate artifact-state
+inspection.
 
 The CLI equivalent for refinement is `rekon context refine`. Both surfaces use
 the same pure relationship selector, exclude `--already-read` paths, cap new

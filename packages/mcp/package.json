@@ -1,7 +1,7 @@
 {
   "name": "@rekon/mcp",
   "version": "1.0.0",
-  "description": "Rekon MCP context server: local, read-only, stdio-only context from existing artifacts.",
+  "description": "Rekon MCP context server: local, bounded repository context over stdio.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

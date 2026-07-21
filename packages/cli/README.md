@@ -83,12 +83,17 @@ continues to support standalone files such as `AGENTS.rekon.md`; it will not
 replace protected instruction files.
 
 `rekon context task --profile compact|standard|deep` and MCP
-`context_for_task` share the same budgeted compiler. MCP is read-only; CLI owns
-artifact writes and lifecycle changes. When the capability graph binds a
-requested path to a configured `CapabilityContract`, both surfaces include its
-declared pacts and required checks. When adopted system or flow law matches the
-task paths, both surfaces also build the same `TaskPact`; the CLI persists it
-for work-order lineage and MCP derives it read-only.
+`context_for_task` share the same budgeted compiler. Both check task-local
+freshness before compiling context; stale source evidence triggers an
+incremental refresh of Rekon artifacts. The CLI host owns those writes. Neither
+surface writes repository source or executes project commands. Use
+`--no-auto-refresh` only to inspect existing artifact state. When the capability
+graph binds a requested path to a configured `CapabilityContract`, both
+surfaces include its declared pacts and required checks. Adopted system or flow
+law is selected through the same `TaskPact` rules.
+
+CLI JSON reports the check as `artifactFreshness.status`: `current`,
+`refreshed`, or `unchecked` when `--no-auto-refresh` is set.
 
 Managed instructions require this request at task start, after context
 compaction or restart, and whenever the goal or known path scope materially

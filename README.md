@@ -67,7 +67,7 @@ Rekon keeps a short, versioned bootstrap in a managed repository's `AGENTS.md`.
 It tells coding agents to request current context instead of copying ownership,
 findings, or policy into a static instruction file.
 
-The local MCP server is the read-only model interface:
+The local MCP server is the model-facing context interface:
 
 ```sh
 rekon mcp serve --root .
@@ -77,9 +77,11 @@ It advertises `context_for_task` and `resolve_source_target`. Source-target
 resolution is a bounded delta for an exact identifier found in inspected
 source, not general search. Older orientation, placement, and preflight tool
 names remain accepted for compatibility but are not advertised to coding
-agents; their CLI commands remain available. The CLI uses the same context
-compiler and selector and remains the interface for scans, artifact writes,
-and environments without MCP. Agents use
+agents; their CLI commands remain available. Task-context calls check source
+freshness and can update `.rekon/` artifacts before compiling a response. They
+do not write repository source, run project commands, or call a model. The CLI
+uses the same context compiler and remains the interface for scans and
+environments without MCP. Agents use
 `rekon context task ... --model-context` for the same minimal delivery payload;
 operators keep `--json` for the full audit view.
 

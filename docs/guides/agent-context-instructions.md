@@ -17,8 +17,8 @@ authority boundaries.
    and stop when the route is resolved. Do not refine for completeness,
    analogues, or additional tests, and do not turn an unresolved result into
    broad search.
-3. Run or inspect the latest repository scan when MCP reports stale or
-   unavailable context.
+3. Treat a refresh failure or remaining stale warning as missing evidence.
+   Inspect `rekon artifacts freshness --json` before relying on it.
 4. Check source refs, findings, work order, and verification plan before making
    changes.
 
@@ -26,9 +26,10 @@ Returned pact constraints and required checks are acceptance criteria, not
 optional background. `boundaryPaths` are different: preserve them, but inspect
 them only when a named compatibility dependency remains unresolved.
 
-MCP is the model-native, read-only context interface. The CLI is the universal
-interface for task context, scans, resolver packets, publishing, and artifact
-maintenance. Both consume the same `.rekon/` artifact store.
+MCP is the model-native context interface. Its task-context call can refresh
+the local `.rekon/` artifact store, but it does not write repository source or
+execute project commands. The CLI is the universal interface for task context,
+scans, resolver packets, publishing, and artifact maintenance.
 
 The coding-agent MCP surface advertises only task context and exact
 source-target resolution. Orientation, placement, and preflight remain CLI

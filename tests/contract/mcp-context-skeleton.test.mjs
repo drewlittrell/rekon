@@ -22,7 +22,7 @@ const SERVABLE = new Set(["deterministic", "declared", "operator"]);
 // --- tiny stdio JSON-RPC client over a spawned `rekon mcp serve` ---------
 
 function startServer(root) {
-  const child = spawn(process.execPath, [cliEntry, "mcp", "serve", "--root", root], {
+  const child = spawn(process.execPath, [cliEntry, "mcp", "serve", "--root", root, "--no-auto-refresh"], {
     stdio: ["pipe", "pipe", "pipe"],
   });
   let buffer = "";
@@ -304,7 +304,7 @@ test("protocol: initialize + tools/list expose the model context tools with sche
     assert.equal(tool.inputSchema.type, "object");
     assert.ok(tool.description.length > 20);
     assert.deepEqual(tool.annotations, {
-      readOnlyHint: true,
+      readOnlyHint: tool.name !== "context_for_task",
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,

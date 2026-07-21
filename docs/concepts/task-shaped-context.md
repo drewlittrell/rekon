@@ -6,7 +6,10 @@ The shared compiler combines explicit paths, deterministic graph context,
 matched repository contracts, optional semantic or retrieval context, warnings,
 and evidence refs. CLI
 `rekon context task` persists a `TaskContextReport`; MCP `context_for_task`
-returns a compact model-delivery projection without writing.
+returns a compact model-delivery projection. Both gateways first compare the
+requested scope with the latest evidence and refresh Rekon artifacts when
+needed. The refresh is deterministic and source-safe; `--no-auto-refresh`
+disables it for deliberate artifact-state inspection.
 
 Profiles provide reviewed selection budgets:
 
@@ -57,7 +60,7 @@ TaskPact impact obligations are not a second instruction channel. Preserve and
 inspect obligations enter the existing declared-constraint and `readFirst`
 surfaces; verify obligations enter required checks. The structured TaskPact is
 persisted by the CLI and cited by a generated WorkOrder. MCP derives the same
-selection read-only.
+selection; its CLI host owns any freshness-driven artifact writes.
 
 Required neighbor capabilities are resolved through the current capability
 graph to their implementing files. Those files enter deterministic context

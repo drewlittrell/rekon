@@ -42,9 +42,11 @@ artifact lineage.
 Incremental observation writes a complete latest-state `EvidenceGraph`: it
 replaces changed or deleted file facts, retains unchanged facts, and recomputes
 repository-wide manifest and TypeScript diagnostic evidence. The prior graph is
-an `inputRef`.
+an `inputRef` for provenance. That same-type predecessor is historical input,
+so its supersession does not invalidate the current graph; the current graph's
+own tracked-input baseline determines freshness.
 
-Freshness checks only inputs recorded by the producer. Detecting newly added
-unobserved files requires another observe run or an external changed-file list.
-A watcher remains deferred until these rules have broader large-repository
-evidence.
+`rekon context task` and CLI-hosted MCP `context_for_task` compare known source
+digests and Git changed or untracked paths before compiling context. A stale or
+missing graph triggers a deterministic refresh, scoped to changed files when
+possible. This is an on-demand check, not a watcher.

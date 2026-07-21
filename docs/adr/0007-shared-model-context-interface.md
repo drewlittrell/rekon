@@ -17,9 +17,11 @@ paths, and context budget, then returns a typed packet containing core context,
 supporting context, constraints, verification hints, warnings, evidence refs,
 and a selection trace.
 
-MCP remains local, read-only, network-free, and command-free. CLI may persist a
-compiled packet as a typed artifact and may perform explicit lifecycle writes.
-Neither adapter may maintain its own context ranking policy.
+The MCP package remains local, read-only, network-free, and command-free. The
+CLI-hosted server may refresh Rekon-owned artifacts before compilation when
+source evidence is stale. It does not write repository source or run project
+commands. CLI may also persist a compiled packet as a typed artifact. Neither
+adapter may maintain its own context ranking policy.
 
 ## Consequences
 

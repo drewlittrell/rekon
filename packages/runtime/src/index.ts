@@ -917,6 +917,14 @@ async function validateArtifactFreshnessInternal(
         continue;
       }
 
+      // Incremental artifacts may cite their own prior generation as the
+      // historical base used to construct the current generation. The current
+      // artifact's invalidation baseline governs its freshness; it must not
+      // invalidate itself merely by superseding that predecessor.
+      if (ref.type === entry.type) {
+        continue;
+      }
+
       // An artifact may intentionally consume history (for example, lifecycle
       // compares several FindingReports). Only its newest cited generation of
       // a type participates in supersession; older cited generations are not
@@ -1132,6 +1140,10 @@ async function propagateInputFreshness(
         supersessionKeyCache,
       );
       for (const ref of inputRefs) {
+        // Same-type refs are historical self-lineage. Direct validation still
+        // reports a missing predecessor, but predecessor staleness does not
+        // propagate into a current artifact with its own invalidation state.
+        if (ref.type === artifact.type) continue;
         const indexEntryForRef = indexByKey.get(`${ref.type}:${ref.id}`);
         if (!indexEntryForRef) continue;
         const family = await supersessionFamilyKey(store, indexEntryForRef, supersessionKeyCache);

@@ -1,8 +1,9 @@
-// @rekon/mcp: the model-native read interface.
+// @rekon/mcp: the model-native context interface.
 //
-// Local, read-only, stdio-only MCP context server. Its tools compile
-// orientation, placement, task context, and preflight answers from artifacts
-// that already exist.
+// Local, stdio-only MCP context server. Its tools compile orientation,
+// placement, task context, and preflight answers from Rekon artifacts. The
+// package itself remains read-only; the CLI host may refresh Rekon-owned
+// artifacts before task-context calls when source evidence has changed.
 // Design boundary:
 //   - Read-only structurally: this module reads the artifact index, artifact
 //     bodies, and the compiled grammar/ontology. It never writes, never
@@ -1163,6 +1164,13 @@ const READ_ONLY_LOCAL_TOOL_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
+const REFRESHING_LOCAL_TOOL_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
 const MCP_TOOL_DEFINITIONS = [
   {
     name: "orientation",
@@ -1194,7 +1202,7 @@ const MCP_TOOL_DEFINITIONS = [
   {
     name: "context_for_task",
     description:
-      "Return bounded read-first paths, constraints, checks, warnings, and trust from existing Rekon artifacts.",
+      "Return bounded read-first paths, constraints, checks, warnings, and trust. The CLI-hosted server refreshes local Rekon artifacts first when source evidence is stale.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1205,7 +1213,7 @@ const MCP_TOOL_DEFINITIONS = [
       required: ["task"],
       additionalProperties: false,
     },
-    annotations: READ_ONLY_LOCAL_TOOL_ANNOTATIONS,
+    annotations: REFRESHING_LOCAL_TOOL_ANNOTATIONS,
   },
   {
     name: "resolve_source_target",
@@ -1267,7 +1275,7 @@ export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
 ]);
 
 export const REKON_AGENT_MCP_BOUNDARY =
-  "MCP is local and read-only: no refresh, command execution, source writes, or model calls. Host command: `rekon mcp serve --root .`.";
+  "MCP is local and source-safe: it never writes repository source, executes project commands, uses the network, or calls models. The CLI-hosted `context_for_task` may refresh local `.rekon/` artifacts when evidence is stale. Host command: `rekon mcp serve --root .`.";
 
 export function callTool(
   repoRoot: string,
@@ -1358,4 +1366,9 @@ export function callTool(
   return failClosed(`Unknown tool "${name}".`, "n/a (unknown tool)");
 }
 
-export { handleMcpRequest, runMcpServer } from "./server.js";
+export {
+  handleMcpRequest,
+  runMcpServer,
+  type McpServerOptions,
+  type McpToolCall,
+} from "./server.js";
