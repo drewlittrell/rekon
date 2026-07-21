@@ -82,6 +82,12 @@ candidates without adopting them. `judge` binds agent decisions to source.
 in `.rekon/config.json`. `reconcile` reports drift and regenerates candidates
 for law that no longer matches the repository.
 
+`rekon refresh` also runs reconciliation after projection when an effective
+registry already exists. The resulting `ContractDriftReport` and
+`ContractCandidateReport` join the current snapshot run. Missing law remains a
+separate bootstrap decision rather than causing refresh to create an empty
+contract system.
+
 Task context automatically builds a `TaskPact` from the current effective
 registry. MCP derives the same pact in memory without writing. The CLI persists
 it so downstream intent and work-order artifacts can cite the exact law used.

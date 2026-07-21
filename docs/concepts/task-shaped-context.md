@@ -118,6 +118,12 @@ set rather than guessing. A failed check may use the existing exact
 source-target resolver for a path or symbol named by the failure; failure alone
 does not authorize broad search.
 
+Once those selected checks pass, the managed workflow runs one incremental
+refresh for all changed source paths. That updates lower-layer evidence and
+models, reruns governance, and reconciles an existing repository-contract
+registry before the new snapshot and architecture publication are written.
+Refresh does not create repository law when no registry exists.
+
 The call is also the rehydration boundary. Managed instructions require a fresh
 task-context request after context compaction or restart and whenever the goal
 or known path scope materially changes. The root instruction file remains a

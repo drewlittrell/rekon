@@ -20,6 +20,7 @@ const EXPECTED_STEP_ORDER = [
   "observe",
   "capability.graph",
   "project",
+  "contracts.reconcile",
   "rulebook",
   "evaluate",
   "findings.filter",
@@ -63,6 +64,10 @@ test("rekon refresh on a clean fixture creates expected artifact families and pa
     assert.ok(result.freshness);
     assert.ok(Array.isArray(result.freshness.latestMajor));
 
+    const reconciliation = result.steps.find((step) => step.id === "contracts.reconcile");
+    assert.equal(reconciliation.status, "skipped");
+    assert.match(reconciliation.message, /No effective repository contract registry/);
+
     const allFresh = result.freshness.latestMajor.every((entry) => entry.status === "fresh");
     assert.ok(allFresh, `expected all latest-major artifacts fresh, got ${JSON.stringify(result.freshness.latestMajor)}`);
 
@@ -87,6 +92,96 @@ test("rekon refresh runs steps in the documented order", async () => {
 
     const stepIds = result.steps.map((step) => step.id);
     assert.deepEqual(stepIds, EXPECTED_STEP_ORDER);
+  });
+});
+
+test("rekon refresh reconciles an existing repository contract registry", async () => {
+  await withFixture(exampleRoot, async (root) => {
+    const contractPath = join(root, "rekon.contract.json");
+    const sourcePath = join(root, "src", "index.ts");
+    const contractSource = `${JSON.stringify({
+      version: "1.0.0",
+      sourceId: "refresh-contract",
+      systems: [{
+        id: "app",
+        systemId: "app",
+        scope: { paths: ["src/**"] },
+        purpose: "Own the example application behavior.",
+        invariants: [{ id: "bootstrap", statement: "Preserve application bootstrap behavior." }],
+        requiredChecks: ["npm run typecheck"],
+      }],
+    }, null, 2)}\n`;
+    await writeFile(contractPath, contractSource, "utf8");
+    const sourceBefore = await readFile(sourcePath, "utf8");
+
+    const compiled = JSON.parse(runCli(["contracts", "compile", "--root", root, "--json"]).stdout);
+    assert.equal(compiled.valid, true);
+
+    const result = JSON.parse(runCli([
+      "refresh",
+      "--root", root,
+      "--changed-file", "src/index.ts",
+      "--json",
+    ]).stdout);
+    const reconciliation = result.steps.find((step) => step.id === "contracts.reconcile");
+
+    assert.equal(result.status, "passed");
+    assert.equal(reconciliation.status, "passed");
+    assert.ok(["current", "drifted", "unverified"].includes(reconciliation.summary.status));
+    assert.deepEqual(
+      new Set(reconciliation.artifacts.map((ref) => ref.type)),
+      new Set(["ContractDriftReport", "ContractCandidateReport"]),
+    );
+    assert.ok(result.artifacts.some((ref) => ref.type === "ContractDriftReport"));
+    assert.ok(result.artifacts.some((ref) => ref.type === "ContractCandidateReport"));
+    const snapshotRef = result.artifacts.find((ref) => ref.type === "IntelligenceSnapshot");
+    assert.ok(snapshotRef);
+    const snapshot = JSON.parse(await readFile(join(root, snapshotRef.path), "utf8"));
+    assert.ok(snapshot.actions.ContractDriftReport?.some(
+      (ref) => ref.id === reconciliation.artifacts.find((entry) => entry.type === "ContractDriftReport").id,
+    ));
+    assert.ok(snapshot.actions.ContractCandidateReport?.some(
+      (ref) => ref.id === reconciliation.artifacts.find((entry) => entry.type === "ContractCandidateReport").id,
+    ));
+    assert.equal(await readFile(contractPath, "utf8"), contractSource);
+    assert.equal(await readFile(sourcePath, "utf8"), sourceBefore);
+  });
+});
+
+test("rekon refresh fails closed when existing repository contract source becomes malformed", async () => {
+  await withFixture(exampleRoot, async (root) => {
+    const contractPath = join(root, "rekon.contract.json");
+    await writeFile(contractPath, JSON.stringify({
+      version: "1.0.0",
+      sourceId: "refresh-contract",
+      systems: [{
+        id: "app",
+        systemId: "app",
+        scope: { paths: ["src/**"] },
+        purpose: "Own the example application behavior.",
+        invariants: [{ id: "bootstrap", statement: "Preserve application bootstrap behavior." }],
+      }],
+    }), "utf8");
+    const compiled = JSON.parse(runCli(["contracts", "compile", "--root", root, "--json"]).stdout);
+    assert.equal(compiled.valid, true);
+    await writeFile(contractPath, "not valid json", "utf8");
+
+    const processResult = spawnSync(process.execPath, [
+      cliPath,
+      "refresh",
+      "--root", root,
+      "--changed-file", "src/index.ts",
+      "--json",
+    ], { cwd: repoRoot, encoding: "utf8" });
+    const result = JSON.parse(processResult.stdout);
+    const reconciliation = result.steps.find((step) => step.id === "contracts.reconcile");
+
+    assert.notEqual(processResult.status, 0);
+    assert.equal(result.status, "failed");
+    assert.equal(reconciliation.status, "failed");
+    assert.match(reconciliation.message, /blocked/);
+    assert.ok(reconciliation.issues.length > 0);
+    assert.equal(result.steps.some((step) => step.id === "snapshot"), false);
   });
 });
 

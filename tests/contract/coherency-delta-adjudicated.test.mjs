@@ -286,6 +286,7 @@ test("rekon refresh runs issues.adjudicate between findings.lifecycle and cohere
         "observe",
         "capability.graph",
         "project",
+        "contracts.reconcile",
         "rulebook",
         "evaluate",
         "findings.filter",

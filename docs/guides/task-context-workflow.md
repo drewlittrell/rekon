@@ -31,6 +31,19 @@ contract checks to the observed diff. If a check failure names an unread exact
 path or symbol, use the refinement command below with relationship `test` or
 `dependency` before broader search.
 
+After every selected check is green, update Rekon's maintained knowledge once:
+
+```sh
+rekon refresh --root <repo> \
+  --changed-file src/example.ts \
+  --json
+```
+
+Repeat `--changed-file` for each changed source path. This refreshes evidence,
+models, findings, snapshot, and architecture publications. If adopted
+repository law exists, it also records current drift and new candidates before
+the snapshot is built.
+
 When the initial reads expose one named unresolved relationship, request a
 bounded delta instead of switching to broad repository search:
 

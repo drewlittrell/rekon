@@ -14,9 +14,14 @@ All notable changes to Rekon are documented here.
   by the observed diff, with an explicit conservative TaskPact fallback when
   contract bodies are unavailable. Check-selection provenance remains
   available on the pure `validateChange()` result.
-- Updated managed agent instructions to `1.9.1` so coding agents request
+- Updated managed agent instructions to `1.9.2` so coding agents request
   post-edit validation before declaring completion and use exact source-target
-  resolution for check-failure context.
+  resolution for check-failure context. After selected checks pass, agents run
+  one changed-file refresh to update repository intelligence.
+- `rekon refresh` now reconciles an existing effective repository-contract
+  registry against the newly projected model. Drift and candidate reports join
+  the current run before snapshot construction; repositories without adopted
+  law keep the step explicitly skipped.
 - Added bounded deterministic `sourceSpans` to shared model-context delivery.
   Each span carries an exact path, source SHA-256, line range, excerpt, evidence
   ref, freshness, and routing reason; profile budgets cap count and characters,

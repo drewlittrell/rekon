@@ -13378,6 +13378,7 @@ type RefreshStepId =
   | "observe"
   | "capability.graph"
   | "project"
+  | "contracts.reconcile"
   | "rulebook"
   | "snapshot"
   | "evaluate"
@@ -13614,6 +13615,58 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     steps.push({ id: "project", status: "passed", artifacts: recordArtifacts(refs) });
   } catch (error) {
     steps.push({ id: "project", status: "failed", message: messageOf(error) });
+    return finalize("failed");
+  }
+
+  // Re-evaluate adopted repository law against the freshly projected model.
+  // A first scan does not create empty law implicitly; contract bootstrap and
+  // adoption remain explicit workflows.
+  try {
+    const contractStore = createLocalArtifactStore(root);
+    await contractStore.init();
+    const registryEntry = await pickLatestArtifactEntry(contractStore, "EffectiveContractRegistry");
+    if (!registryEntry) {
+      steps.push({
+        id: "contracts.reconcile",
+        status: "skipped",
+        message: "No effective repository contract registry exists.",
+      });
+    } else {
+      const reconciliation = await reconcileRepositoryContracts({
+        root,
+        store: contractStore,
+        maxFlows: 50,
+        maxDepth: 8,
+      });
+      if (reconciliation.status === "blocked") {
+        const issues = "issues" in reconciliation
+          ? reconciliation.issues
+          : reconciliation.compiled.issues;
+        steps.push({
+          id: "contracts.reconcile",
+          status: "failed",
+          issues,
+          message: "Repository contract reconciliation is blocked.",
+        });
+        return finalize("failed");
+      }
+      steps.push({
+        id: "contracts.reconcile",
+        status: "passed",
+        artifacts: recordArtifacts([
+          reconciliation.drift.artifact,
+          reconciliation.candidates.artifact,
+        ]),
+        summary: {
+          status: reconciliation.status,
+          drift: reconciliation.drift.summary,
+          candidates: reconciliation.candidates.summary,
+          ...(reconciliation.next ? { next: reconciliation.next } : {}),
+        },
+      });
+    }
+  } catch (error) {
+    steps.push({ id: "contracts.reconcile", status: "failed", message: messageOf(error) });
     return finalize("failed");
   }
 

@@ -21,6 +21,10 @@ explainable resolution.
 7. Validate the resulting diff against task scope and repository law.
 8. Record verification and reconciliation outcomes back into artifacts.
 
+After selected checks pass, one changed-file refresh advances the maintained
+repository model. Existing adopted contracts are reconciled after projection;
+missing contracts remain an explicit bootstrap decision.
+
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The
 compiler selects current repository law, ownership, graph context, scoped

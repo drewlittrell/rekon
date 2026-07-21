@@ -71,6 +71,9 @@ When the MCP tools are available to an agent:
    that target through `resolve_source_target` with the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green; do not broaden repository search merely because a check failed.
+8. After every selected check passes, run one incremental `rekon refresh`,
+   repeating `--changed-file` for each changed source path. Treat a failed step
+   or reported contract drift as incomplete work.
 
 If MCP is unavailable, use `rekon context task --model-context`, `rekon context
 validate-change`, and `rekon artifacts freshness`. The task command performs the same

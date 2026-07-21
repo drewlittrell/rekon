@@ -33,6 +33,9 @@ authority boundaries.
    `resolve_source_target` with that target and the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green.
+8. After all selected checks pass, run one incremental `rekon refresh`,
+   repeating `--changed-file` for each changed source path. A failed refresh or
+   reported contract drift means the task is not complete.
 
 Returned pact constraints and required checks are acceptance criteria, not
 optional background. `boundaryPaths` are different: preserve them, but inspect

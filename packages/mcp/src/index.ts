@@ -1464,6 +1464,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "Treat pact constraints and required checks as acceptance criteria. Follow freshness and do-not-touch guidance; unresolved ownership is not permission.",
   "After editing and before declaring the task complete, call `validate_change` with the original task, every changed path, and the pre-edit Git base ref. Resolve every blocking violation, judge every semantic obligation against the cited source and pact, then run the returned required checks.",
   "Returned checks are selected from the task and contracts touched by the observed diff. If a check fails and names an unread exact path or symbol, use `resolve_source_target` with that target and the matching `test` or `dependency` relationship before broad search; then rerun the failed check and any selected check not yet green.",
+  "After selected checks pass, run `rekon refresh --changed-file <path> --json`, repeating the flag per changed source path. A failed step or contract drift means incomplete.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([

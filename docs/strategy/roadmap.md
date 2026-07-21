@@ -50,6 +50,9 @@ verification recording, reconciliation planning, and artifact validation.
   Task-declared checks are retained; unavailable scoped contract bodies trigger
   a conservative TaskPact fallback. Check failures reuse exact source-target
   resolution rather than adding another model-facing tool.
+- After selected checks pass, managed agents run one changed-file refresh.
+  Existing adopted contracts reconcile against the new projection before the
+  current snapshot; first scans do not create implicit repository law.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.

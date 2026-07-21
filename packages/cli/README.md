@@ -92,6 +92,11 @@ graph binds a requested path to a configured `CapabilityContract`, both
 surfaces include its declared pacts and required checks. Adopted system or flow
 law is selected through the same `TaskPact` rules.
 
+After a change passes its selected checks, run one `rekon refresh` with a
+repeatable `--changed-file` for each changed source path. The incremental run
+updates evidence and projections, reconciles any existing contract registry,
+then rebuilds governance, snapshot, and architecture publication artifacts.
+
 CLI JSON reports the check as `artifactFreshness.status`: `current`,
 `refreshed`, or `unchecked` when `--no-auto-refresh` is set.
 
@@ -170,7 +175,8 @@ projection. The same run builds `CapabilityEvidenceGraph`, projects only
 high-confidence artifact-backed capability signals, evaluates policy, and
 records the model inputs in snapshot lineage. `rekon refresh` also rebuilds the
 capability graph from current source and any current semantic reports already
-in the workspace.
+in the workspace. When an effective repository-contract registry exists, the
+same run writes current drift and candidate reports before snapshot creation.
 Semantic file analysis uses OpenAI Responses with `gpt-5.6-luna` at `low`
 effort by default. `--llm-model` and `REKON_LLM_MODEL` can select another model;
 older OpenAI models continue to use Chat Completions when required.
