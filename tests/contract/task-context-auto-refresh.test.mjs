@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
+import { digestJson } from "@rekon/kernel-artifacts";
 import { createLocalArtifactStore } from "@rekon/runtime";
 import { assessTaskContextFreshness } from "../../packages/cli/dist/task-context-freshness.js";
 
@@ -246,5 +247,59 @@ test("task-context freshness never hashes a source path through a symlinked pare
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(externalRoot, { recursive: true, force: true });
+  }
+});
+
+test("task-context freshness replaces capability graphs whose exact source evidence predates digest binding", async () => {
+  const root = mkdtempSync(join(tmpdir(), "rekon-context-digest-migration-"));
+  const source = 'export const bootstrap = "current";\n';
+  const generatedAt = new Date(Date.now() + 60_000).toISOString();
+
+  try {
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(join(root, "src", "index.ts"), source);
+    const entries = {
+      EvidenceGraph: [{ type: "EvidenceGraph", id: "evidence", writtenAt: generatedAt }],
+      CapabilityEvidenceGraph: [{ type: "CapabilityEvidenceGraph", id: "graph", writtenAt: generatedAt }],
+    };
+    const artifacts = {
+      async list(type) {
+        return entries[type] ?? [];
+      },
+      async read(entry) {
+        if (entry.type === "EvidenceGraph") {
+          return {
+            header: { generatedAt },
+            facts: [{
+              kind: "file",
+              subject: "src/index.ts",
+              value: { path: "src/index.ts", digest: digestJson(source) },
+            }],
+          };
+        }
+        return {
+          header: { generatedAt },
+          evidence: [{
+            id: "ev:index",
+            source: "deterministic_scan",
+            path: "src/index.ts",
+            lineStart: 1,
+            excerpt: 'export const bootstrap = "current";',
+          }],
+        };
+      },
+    };
+
+    const assessment = await assessTaskContextFreshness({
+      repoRoot: root,
+      artifacts,
+      requestedPaths: ["src/index.ts"],
+    });
+
+    assert.equal(assessment.status, "refresh-required");
+    assert.equal(assessment.fullRefresh, true);
+    assert.ok(assessment.reasons.includes("CapabilityEvidenceGraph source evidence lacks SHA-256 binding"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

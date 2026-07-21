@@ -74,10 +74,16 @@ and stored `TaskContextReport` retain evidence refs, budget internals,
 boundaries, and selection trace for audit and debugging.
 
 `sourceSpans`, when present, identify an exact evidence-backed line range in a
-delivered `readFirst` path. They are capped by the selected profile, tagged as
+delivered `readFirst` path. Each includes the source SHA-256 recorded when the
+graph was built. They are capped by the selected profile, tagged as
 deterministic, and removed when a policy removes the corresponding path. They
 are navigation anchors, not a substitute for reading enough surrounding source
 to make and verify the change.
+
+Extension or placement tasks may receive one `repositoryExemplar`. MCP tags
+the selected path and rationale as inference, while its exact span and digest
+remain deterministic. MCP does not call a provider to obtain it, and the packet
+budget may omit it.
 
 The delivery separates `readFirst` implementation evidence from actionable
 `boundaryPaths` compatibility context. Inspect `readFirst` before planning.

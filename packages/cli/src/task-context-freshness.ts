@@ -22,7 +22,22 @@ type EvidenceGraphLike = {
 
 type CapabilityGraphLike = {
   header?: { generatedAt?: string };
+  evidence?: Array<{
+    source?: string;
+    path?: string;
+    lineStart?: number;
+    excerpt?: string;
+    sourceSha256?: string;
+  }>;
 };
+
+const DIGEST_BOUND_SOURCE_EVIDENCE = new Set([
+  "ast",
+  "deterministic_scan",
+  "ground_truth",
+  "import_graph",
+  "typechecker",
+]);
 
 export type TaskContextFreshnessAssessment = {
   status: "fresh" | "refresh-required";
@@ -66,6 +81,15 @@ export async function assessTaskContextFreshness(input: {
   }
   if (graphGeneratedAt < evidenceGeneratedAt) {
     reasons.push("CapabilityEvidenceGraph predates the latest EvidenceGraph");
+  }
+  const exactSourceEvidence = (graph.evidence ?? []).filter((entry) =>
+    entry.source !== undefined
+    && DIGEST_BOUND_SOURCE_EVIDENCE.has(entry.source)
+    && typeof entry.path === "string"
+    && typeof entry.lineStart === "number"
+    && typeof entry.excerpt === "string");
+  if (exactSourceEvidence.some((entry) => !/^[a-f0-9]{64}$/u.test(entry.sourceSha256 ?? ""))) {
+    reasons.push("CapabilityEvidenceGraph source evidence lacks SHA-256 binding");
   }
 
   const evidenceDigests = collectEvidenceDigests(evidence.facts ?? []);
@@ -147,7 +171,8 @@ export async function assessTaskContextFreshness(input: {
 
   return {
     status: reasons.length > 0 ? "refresh-required" : "fresh",
-    fullRefresh: reasons.some((reason) => reason.includes("predates")),
+    fullRefresh: reasons.some((reason) =>
+      reason.includes("predates") || reason.includes("lacks SHA-256 binding")),
     changedFiles,
     reasons,
   };

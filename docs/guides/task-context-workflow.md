@@ -47,8 +47,12 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
 - Operators use `--json` when they need the full `agentContext` audit block.
 - Agents using MCP receive the compact projection by default.
 - `sourceSpans`, when present, point to the strongest bounded deterministic
-  evidence inside a delivered path. Start there, then inspect enough
-  surrounding implementation to make the change safely.
+  evidence inside a delivered path and bind it to a source SHA-256. Start
+  there, then inspect enough surrounding implementation to make the change
+  safely.
+- `repositoryExemplar`, when present, is one inference-selected local precedent
+  with a deterministic digest-bound excerpt. Use it only when placement or
+  extension conventions matter; do not copy unrelated behavior.
 - Agents should batch the packet's `readFirst` files into one source-read
   command when practical; repeated shell turns add cost without adding context.
 - High-confidence symbolic implementation and contract producer/consumer
@@ -75,7 +79,8 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
 
 The compact model delivery preserves `readFirst`, actionable `boundaryPaths`,
 bounded deterministic `sourceSpans`, supporting inference, literal pact
-constraints, checks, and warnings. Trust labels are attached by MCP and source
+constraints, checks, warnings, and at most one budget-permitting repository
+exemplar. Trust labels are attached by MCP and source
 freshness remains on the response source list. Evidence inventories, detailed
 routing reasons, full boundary flags, budget internals, and `contextTrace`
 remain in the CLI JSON and stored artifact for audit rather than being repeated

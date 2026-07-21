@@ -225,6 +225,7 @@ test("model delivery carries one bounded deterministic source span per delivered
           id: "ev:index-import",
           source: "deterministic_scan",
           path: "src/index.ts",
+          sourceSha256: "a".repeat(64),
           lineStart: 1,
           excerpt: "import { startRuntime } from './runtime.js';",
         },
@@ -232,6 +233,7 @@ test("model delivery carries one bounded deterministic source span per delivered
           id: "ev:index-bootstrap",
           source: "deterministic_scan",
           path: "src/index.ts",
+          sourceSha256: "a".repeat(64),
           lineStart: 8,
           lineEnd: 8,
           excerpt: "export function bootstrapApplication() {",
@@ -240,6 +242,7 @@ test("model delivery carries one bounded deterministic source span per delivered
           id: "ev:index-untrusted",
           source: "llm_extraction",
           path: "src/index.ts",
+          sourceSha256: "a".repeat(64),
           lineStart: 2,
           excerpt: "bootstrap runtime behavior from a model",
         },
@@ -247,6 +250,7 @@ test("model delivery carries one bounded deterministic source span per delivered
           id: "ev:runtime-start",
           source: "deterministic_scan",
           path: "src/runtime.ts",
+          sourceSha256: "b".repeat(64),
           lineStart: 4,
           excerpt: "export function startRuntime() {",
         },
@@ -268,6 +272,7 @@ test("model delivery carries one bounded deterministic source span per delivered
   assert.deepEqual(delivery.sourceSpans, [
     {
       path: "src/index.ts",
+      sourceSha256: "a".repeat(64),
       lineStart: 8,
       lineEnd: 8,
       excerpt: "export function bootstrapApplication() {",
@@ -277,6 +282,7 @@ test("model delivery carries one bounded deterministic source span per delivered
     },
     {
       path: "src/runtime.ts",
+      sourceSha256: "b".repeat(64),
       lineStart: 4,
       lineEnd: 4,
       excerpt: "export function startRuntime() {",
@@ -322,6 +328,7 @@ test("delivery does not leak source spans for routes omitted by its policy", () 
     sourceSpans: [
       {
         path: "src/index.ts",
+        sourceSha256: "a".repeat(64),
         lineStart: 1,
         lineEnd: 1,
         excerpt: "export const target = true;",
@@ -331,6 +338,7 @@ test("delivery does not leak source spans for routes omitted by its policy", () 
       },
       {
         path: "src/dependency.ts",
+        sourceSha256: "b".repeat(64),
         lineStart: 1,
         lineEnd: 1,
         excerpt: "export const dependency = true;",
@@ -355,6 +363,108 @@ test("delivery does not leak source spans for routes omitted by its policy", () 
   assert.deepEqual(delivery.readFirst, ["src/index.ts"]);
   assert.deepEqual(delivery.sourceSpans?.map((span) => span.path), ["src/index.ts"]);
   assert.equal(JSON.stringify(delivery).includes("export const dependency"), false);
+});
+
+test("model delivery selects one digest-bound repository exemplar only for extension-style tasks", () => {
+  const base = {
+    paths: ["src/new-handler.ts"],
+    graph: {
+      nodes: [
+        { kind: "file", id: "src/new-handler.ts" },
+        { kind: "file", id: "src/existing-handler.ts" },
+      ],
+      evidence: [
+        {
+          id: "ev:new-handler",
+          source: "deterministic_scan",
+          path: "src/new-handler.ts",
+          sourceSha256: "a".repeat(64),
+          lineStart: 1,
+          excerpt: "export function createNewHandler() {",
+        },
+        {
+          id: "ev:existing-handler",
+          source: "deterministic_scan",
+          path: "src/existing-handler.ts",
+          sourceSha256: "b".repeat(64),
+          lineStart: 7,
+          excerpt: "export function createExistingHandler() {",
+        },
+      ],
+    },
+    retrievalResults: [{
+      path: "src/existing-handler.ts",
+      score: 0.91,
+      scoreBand: "strong",
+      chunkId: "chunk:existing-handler",
+    }],
+    generatedAt: "2026-07-21T00:00:00.000Z",
+  };
+  const extension = compileTaskContext({
+    ...base,
+    taskText: "Add a payment handler that follows the repository convention.",
+  });
+  const delivery = projectModelContextDelivery(projectModelContext(extension.packet));
+
+  assert.equal(delivery.repositoryExemplar?.path, "src/existing-handler.ts");
+  assert.equal(delivery.repositoryExemplar?.trust, "inference");
+  assert.equal(delivery.repositoryExemplar?.sourceSpan.sourceSha256, "b".repeat(64));
+  assert.equal(delivery.repositoryExemplar?.sourceSpan.excerpt, "export function createExistingHandler() {");
+  assert.ok(delivery.supportingContext?.some((item) => item.ref === "src/existing-handler.ts"));
+  assert.ok(extension.packet.estimatedTokens <= CONTEXT_BUDGETS.compact.maxTokens);
+
+  const localFix = compileTaskContext({
+    ...base,
+    taskText: "Fix the payment handler return value.",
+  });
+  assert.equal(projectModelContextDelivery(projectModelContext(localFix.packet)).repositoryExemplar, undefined);
+});
+
+test("cached graph similarity can supply the exemplar without a provider call", () => {
+  const { packet } = compileTaskContext({
+    taskText: "Add a payment handler that follows the repository pattern.",
+    paths: ["src/new-handler.ts"],
+    graph: {
+      nodes: [
+        { kind: "file", id: "src/new-handler.ts" },
+        { kind: "file", id: "src/existing-handler.ts" },
+      ],
+      evidence: [
+        {
+          id: "ev:existing-handler",
+          source: "deterministic_scan",
+          path: "src/existing-handler.ts",
+          sourceSha256: "b".repeat(64),
+          lineStart: 7,
+          excerpt: "export function createExistingHandler() {",
+        },
+        {
+          id: "embed:new-existing",
+          source: "embedding_similarity",
+          path: "src/new-handler.ts",
+          excerpt: "cached similarity",
+        },
+      ],
+      claims: [{
+        id: "claim:embedding:new-existing",
+        subject: { kind: "file", id: "src/new-handler.ts" },
+        predicate: "similar_to",
+        object: { kind: "file", id: "src/existing-handler.ts" },
+        claimType: "inference",
+        source: "embedding",
+        confidence: 0.91,
+        evidenceRefs: ["embed:new-existing"],
+        status: "accepted",
+      }],
+    },
+    generatedAt: "2026-07-21T00:00:00.000Z",
+  });
+  const delivery = projectModelContextDelivery(projectModelContext(packet));
+
+  assert.equal(delivery.repositoryExemplar?.path, "src/existing-handler.ts");
+  assert.equal(delivery.repositoryExemplar?.sourceSpan.evidenceRef, "ev:existing-handler");
+  assert.ok(delivery.supportingContext?.some((item) =>
+    item.ref === "src/existing-handler.ts" && item.trust === "inference"));
 });
 
 test("model delivery removes repeated audit metadata while retaining routes and pacts", () => {

@@ -23,6 +23,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -215,6 +216,16 @@ test("every claim references evidence ids that exist", () => {
   const sample = graph.evidence[0];
   assert.equal(sample.source, "deterministic_scan");
   assert.equal(typeof sample.path, "string");
+  assert.equal(sample.sourceSha256, createHash("sha256").update(SAMPLE_SOURCE).digest("hex"));
+});
+
+test("source evidence rejects malformed SHA-256 bindings", () => {
+  const graph = structuredClone(buildSampleGraph());
+  graph.evidence[0].sourceSha256 = "not-a-digest";
+  const result = validateCapabilityEvidenceGraph(graph);
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path === "$.evidence[0].sourceSha256"));
 });
 
 // ---------- 11: summary counts match the graph ----------

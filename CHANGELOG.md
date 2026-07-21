@@ -5,9 +5,16 @@ All notable changes to Rekon are documented here.
 ## Unreleased
 
 - Added bounded deterministic `sourceSpans` to shared model-context delivery.
-  Each span carries an exact path, line range, excerpt, evidence ref, freshness,
-  and routing reason; profile budgets cap count and characters, and omitted
-  delivery routes cannot leak their source spans through CLI or MCP.
+  Each span carries an exact path, source SHA-256, line range, excerpt, evidence
+  ref, freshness, and routing reason; profile budgets cap count and characters,
+  and omitted delivery routes cannot leak their source spans through CLI or MCP.
+- Added one optional repository-native exemplar for extension and placement
+  tasks. Cached similarity may propose the file, but its bounded excerpt must
+  come from deterministic digest-bound evidence and remains inference-tagged.
+  Packet budgets may omit it, and memory or model claims remain unservable.
+- Capability-graph refresh now replaces pre-digest source evidence before task
+  context is compiled, preventing stale excerpts from being served without a
+  current source binding.
 - Added task-local freshness checks to CLI and MCP context requests. Stale or
   missing evidence now refreshes Rekon artifacts before context compilation,
   pathless requests can fall back to deterministic graph scope without an

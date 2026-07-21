@@ -105,6 +105,13 @@ function claimObjectRef(claim: TaskContextGraphClaimLike): TaskContextGraphRefLi
   return typeof claim.object === "string" ? undefined : claim.object;
 }
 
+function isInferenceClaim(claim: TaskContextGraphClaimLike): boolean {
+  return claim.source === "llm"
+    || claim.source === "embedding"
+    || claim.claimType === "inference"
+    || claim.claimType === "recommendation";
+}
+
 function isTestRelationship(claim: TaskContextGraphClaimLike, candidatePath: string): boolean {
   return claim.source === "test"
     || /(?:^|[._-])(test|tests|verify|verifies|verified_by)(?:$|[._-])/i.test(claim.predicate)
@@ -273,8 +280,8 @@ export function selectTaskContextRefinement(
     const subjectMatches = refIsAnchor(claim.subject);
     const objectMatches = objectRef ? refIsAnchor(objectRef) : false;
     if (!subjectMatches && !objectMatches) continue;
-    if (claim.source === "llm") {
-      trace.push({ sourceId: claim.id, decision: "excluded", reason: "model-derived graph claims are outside the deterministic refinement gate" });
+    if (isInferenceClaim(claim)) {
+      trace.push({ sourceId: claim.id, decision: "excluded", reason: "inference and recommendation graph claims are outside the deterministic refinement gate" });
       continue;
     }
 

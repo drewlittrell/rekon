@@ -10967,11 +10967,20 @@ async function buildRefreshCapabilityEvidenceGraph(
   }
 
   const semanticReports = [...latestSemanticByPath.values()];
+  const embeddingRecords = await readEmbeddingIndexRecords(embeddingCacheDir(root));
+  const embeddingSearch = embeddingRecords.length > 0
+    ? await computeEmbeddingSimilaritiesFromCache(embeddingCacheDir(root), embeddingRecords, {
+        topK: GRAPH_EMBEDDING_NEIGHBOR_TOP_K,
+        floor: GRAPH_EMBEDDING_NEIGHBOR_FLOOR,
+      })
+    : undefined;
+  const embeddingSimilarities = embeddingSearch?.similarities ?? [];
   const graph = buildCapabilityEvidenceGraph({
     root,
     files,
     generatedAt: new Date().toISOString(),
     ...(semanticReports.length > 0 ? { semanticFileUnderstandingReports: semanticReports } : {}),
+    ...(embeddingSimilarities.length > 0 ? { embeddingSimilarities } : {}),
   });
   const ref = await store.write(graph, { category: "graphs" });
   return {
@@ -10980,6 +10989,10 @@ async function buildRefreshCapabilityEvidenceGraph(
     summary: {
       ...graph.summary,
       semanticFileReports: semanticReports.length,
+      embeddingSimilarityPairs: embeddingSimilarities.reduce(
+        (total, similarity) => total + similarity.neighbors.length,
+        0,
+      ),
     },
   };
 }

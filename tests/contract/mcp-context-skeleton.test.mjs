@@ -6,6 +6,7 @@
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -17,7 +18,7 @@ const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliEntry = join(repoRoot, "packages/cli/dist/index.js");
 const mcp = await import(join(repoRoot, "packages/mcp/dist/index.js"));
 
-const SERVABLE = new Set(["deterministic", "declared", "operator"]);
+const SERVABLE = new Set(["deterministic", "declared", "inference", "operator"]);
 
 // --- tiny stdio JSON-RPC client over a spawned `rekon mcp serve` ---------
 
@@ -162,6 +163,10 @@ before(async () => {
     mkdirSync(dirname(join(fixtureRoot, path)), { recursive: true });
     writeFileSync(join(fixtureRoot, path), `export const value = ${JSON.stringify(path)};\n`, "utf8");
   }
+  const exemplarPath = "examples/greeting-handler.ts";
+  const exemplarSource = "export function createGreetingHandler() { return 'hello'; }\n";
+  mkdirSync(dirname(join(fixtureRoot, exemplarPath)), { recursive: true });
+  writeFileSync(join(fixtureRoot, exemplarPath), exemplarSource, "utf8");
   graph = {
     ...graph,
     header: {
@@ -173,9 +178,39 @@ before(async () => {
     nodes: [
       ...graph.nodes,
       ...summarizedRouteFiles.map((id) => ({ kind: "file", id })),
+      { kind: "file", id: exemplarPath },
+    ],
+    evidence: [
+      ...graph.evidence,
+      {
+        id: "ev:mcp-fixture:greeting-handler",
+        source: "deterministic_scan",
+        path: exemplarPath,
+        sourceSha256: createHash("sha256").update(exemplarSource).digest("hex"),
+        lineStart: 1,
+        lineEnd: 1,
+        excerpt: "export function createGreetingHandler() { return 'hello'; }",
+      },
+      {
+        id: "embed-ev:mcp-fixture:greeting-handler",
+        source: "embedding_similarity",
+        path: "src/index.ts",
+        excerpt: "cached repository similarity",
+      },
     ],
     claims: [
       ...graph.claims,
+      {
+        id: "claim:mcp-fixture:greeting-exemplar",
+        subject: { kind: "file", id: "src/index.ts" },
+        predicate: "similar_to",
+        object: { kind: "file", id: exemplarPath },
+        claimType: "inference",
+        source: "embedding",
+        confidence: 0.91,
+        evidenceRefs: ["embed-ev:mcp-fixture:greeting-handler"],
+        status: "accepted",
+      },
       {
         id: "claim:mcp-fixture:summary-dependency",
         subject: { kind: "file", id: "extensions/summary-target.ts" },
@@ -430,6 +465,7 @@ test("context_for_task returns compact budgeted graph context without writing", 
   assert.ok(Array.isArray(payload.data.context.sourceSpans));
   assert.ok(payload.data.context.sourceSpans.some((span) =>
     span.path.value === "src/index.ts"
+    && /^[a-f0-9]{64}$/u.test(span.sourceSha256.value)
     && Number.isInteger(span.lineStart.value)
     && typeof span.excerpt.value === "string"
     && span.excerpt.trust === "deterministic"));
@@ -441,6 +477,25 @@ test("context_for_task returns compact budgeted graph context without writing", 
   assert.equal("selection" in payload.data.context, false);
   assert.equal("contextTrace" in payload.data.context, false);
   assert.equal("evidence" in payload.data.context, false);
+});
+
+test("context_for_task serves one inferred exemplar with deterministic source binding", async () => {
+  const result = await server.rpc("tools/call", {
+    name: "context_for_task",
+    arguments: {
+      task: "Add a greeting handler that follows the repository pattern.",
+      paths: ["src/index.ts"],
+      profile: "standard",
+    },
+  });
+  const context = toolPayload(result).data.context;
+
+  assert.equal(result.result.isError, false);
+  assert.equal(context.repositoryExemplar.path.value, "examples/greeting-handler.ts");
+  assert.equal(context.repositoryExemplar.path.trust, "inference");
+  assert.equal(context.repositoryExemplar.sourceSpan.excerpt.trust, "deterministic");
+  assert.match(context.repositoryExemplar.sourceSpan.sourceSha256.value, /^[a-f0-9]{64}$/u);
+  assertTrustCoverage(context);
 });
 
 test("context_for_task serves matched repository law with declared trust", async () => {
@@ -826,11 +881,10 @@ test("MCP artifact reader refuses forged index paths outside .rekon/artifacts", 
 
 test("the trust gate is enforced by construction: tag() refuses unservable classes", () => {
   assert.equal(mcp.tag("x", "declared").trust, "declared");
+  assert.equal(mcp.tag("x", "inference").trust, "inference");
   assert.equal(mcp.tag("x", "operator").trust, "operator");
 
-  for (const gated of ["inference", "memory"]) {
-    assert.throws(() => mcp.tag("x", gated), /not servable in v1/);
-  }
+  assert.throws(() => mcp.tag("x", "memory"), /not servable/);
 });
 
 test("read-only structurally: no process, network, or write capability in @rekon/mcp source", () => {

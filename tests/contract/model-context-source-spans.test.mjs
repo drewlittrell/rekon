@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -41,6 +42,8 @@ test("compact model context selects exact source-backed spans without a provider
   assert.equal(delivery.sourceSpans?.length, 2);
   assert.ok(delivery.sourceSpans.every((span) => delivery.readFirst.includes(span.path)));
   assert.ok(delivery.sourceSpans.every((span) => sources.get(span.path)?.includes(span.excerpt)));
+  assert.ok(delivery.sourceSpans.every((span) =>
+    span.sourceSha256 === createHash("sha256").update(sources.get(span.path) ?? "").digest("hex")));
   assert.ok(delivery.sourceSpans.every((span) => span.lineStart > 0 && span.lineEnd >= span.lineStart));
   assert.ok(delivery.sourceSpans.every((span) => span.freshness === "fresh"));
   assert.ok(delivery.sourceSpans.reduce((total, span) => total + span.excerpt.length, 0)

@@ -7,6 +7,7 @@ import type {
 } from "@rekon/kernel-repo-model";
 import {
   buildTaskContextReport,
+  taskNeedsRepositoryExemplar,
   type BuildTaskContextReportInput,
   type TaskContextGraphEvidenceLike,
 } from "./task-context-report.js";
@@ -57,12 +58,23 @@ export type ContextTraceEntry = {
 
 export type ContextSourceSpan = {
   path: string;
+  sourceSha256: string;
   lineStart: number;
   lineEnd: number;
   excerpt: string;
   evidenceRef: string;
   reason: string;
   freshness: "fresh" | "stale" | "partial" | "unknown";
+};
+
+export type ContextRepositoryExemplar = {
+  ref: string;
+  path: string;
+  reason: string;
+  trust: "inference";
+  freshness: "fresh" | "stale" | "partial" | "unknown";
+  inspectWhen: string;
+  sourceSpan: ContextSourceSpan;
 };
 
 export type CompiledContextPacket = {
@@ -86,6 +98,7 @@ export type CompiledContextPacket = {
   warnings: string[];
   evidence: string[];
   sourceSpans?: ContextSourceSpan[];
+  repositoryExemplar?: ContextRepositoryExemplar;
   boundaries: TaskContextReportBoundaries;
   contextTrace: ContextTraceEntry[];
   estimatedTokens: number;
@@ -119,6 +132,7 @@ export type ModelContextProjection = {
   coreContext: ModelContextProjectionItem[];
   supportingContext: ModelContextProjectionItem[];
   sourceSpans?: ContextSourceSpan[];
+  repositoryExemplar?: ContextRepositoryExemplar;
   constraints: Array<{
     statement: string;
     path?: string;
@@ -149,6 +163,7 @@ export type ModelContextDelivery = {
   supportingContext?: ModelContextProjectionItem[];
   routeSummaries?: ModelContextRouteSummary[];
   sourceSpans?: ContextSourceSpan[];
+  repositoryExemplar?: ContextRepositoryExemplar;
   constraints: string[];
   checks: string[];
   warnings?: string[];
@@ -414,6 +429,9 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     maxSpans: budget.maxSourceSpans ?? 0,
     maxCharacters: budget.maxSourceSpanCharacters ?? 0,
   });
+  let repositoryExemplar: ContextRepositoryExemplar | undefined;
+  let repositoryExemplarOmittedForBudget = false;
+  let sourceSpanOmittedForBudget = false;
   let contextTrace = rawContextTrace.slice(0, budget.maxTraceItems);
   const warnings = [...(input.warnings ?? [])];
   if (rawContextTrace.length > contextTrace.length) {
@@ -442,6 +460,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     warnings,
     evidence: evidenceForPacket(),
     sourceSpans,
+    ...(repositoryExemplar ? { repositoryExemplar } : {}),
     boundaries: report.boundaries,
     contextTrace,
   });
@@ -474,13 +493,26 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
   }
   const selectedContextPaths = new Set(coreContext.flatMap((item) => item.path ? [item.path] : []));
   sourceSpans = sourceSpans.filter((span) => selectedContextPaths.has(span.path));
+  repositoryExemplar = selectContextRepositoryExemplar({
+    taskText: report.task.text,
+    coreContext,
+    supportingContext,
+    evidence: input.graph.evidence ?? [],
+    freshness,
+  });
   estimatedTokens = estimatePacket();
+  if (estimatedTokens > budget.maxTokens && repositoryExemplar) {
+    repositoryExemplar = undefined;
+    repositoryExemplarOmittedForBudget = true;
+    estimatedTokens = estimatePacket();
+  }
   while (estimatedTokens > budget.maxTokens && contextTrace.length > 0) {
     contextTrace = contextTrace.slice(0, -1);
     estimatedTokens = estimatePacket();
   }
   while (estimatedTokens > budget.maxTokens && sourceSpans.length > 0) {
     sourceSpans = sourceSpans.slice(0, -1);
+    sourceSpanOmittedForBudget = true;
     estimatedTokens = estimatePacket();
   }
 
@@ -489,6 +521,8 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     || rawContextTrace.length > contextTrace.length
     || report.doNotTouch.length > doNotTouch.length
     || report.verificationHints.length > verificationHints.length
+    || repositoryExemplarOmittedForBudget
+    || sourceSpanOmittedForBudget
     || estimatedTokens > budget.maxTokens;
 
   return {
@@ -506,6 +540,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
       warnings,
       evidence,
       sourceSpans,
+      ...(repositoryExemplar ? { repositoryExemplar } : {}),
       boundaries: report.boundaries,
       contextTrace,
       estimatedTokens,
@@ -547,6 +582,14 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
     coreContext: projectedCoreContext,
     supportingContext: dedupeProjectionItems(packet.supportingContext.map(projectItem)),
     sourceSpans: (packet.sourceSpans ?? []).map((span) => ({ ...span })),
+    ...(packet.repositoryExemplar
+      ? {
+          repositoryExemplar: {
+            ...packet.repositoryExemplar,
+            sourceSpan: { ...packet.repositoryExemplar.sourceSpan },
+          },
+        }
+      : {}),
     constraints: packet.doNotTouch.map((zone) => ({
       statement: zone.reason,
       ...(zone.path !== undefined ? { path: zone.path } : {}),
@@ -590,6 +633,11 @@ export function projectModelContextDelivery(
   const { readFirst, supportingContext, routeSummaries } = deliveryTiers(context, policy);
   const deliveredPathSet = new Set(readFirst);
   const sourceSpans = (context.sourceSpans ?? []).filter((span) => deliveredPathSet.has(span.path));
+  const deliveredSupportingRefs = new Set(supportingContext.map((item) => item.ref));
+  const repositoryExemplar = context.repositoryExemplar
+    && deliveredSupportingRefs.has(context.repositoryExemplar.ref)
+    ? context.repositoryExemplar
+    : undefined;
   const constraints = context.constraints.map((constraint) => {
     if (constraint.path !== undefined) return `${constraint.statement} [path: ${constraint.path}]`;
     if (constraint.symbolId !== undefined) return `${constraint.statement} [symbol: ${constraint.symbolId}]`;
@@ -608,6 +656,14 @@ export function projectModelContextDelivery(
     ...(supportingContext.length > 0 ? { supportingContext } : {}),
     ...(routeSummaries.length > 0 ? { routeSummaries } : {}),
     ...(sourceSpans.length > 0 ? { sourceSpans } : {}),
+    ...(repositoryExemplar
+      ? {
+          repositoryExemplar: {
+            ...repositoryExemplar,
+            sourceSpan: { ...repositoryExemplar.sourceSpan },
+          },
+        }
+      : {}),
     constraints,
     checks,
     ...(context.warnings.length > 0 ? { warnings: [...context.warnings] } : {}),
@@ -886,42 +942,129 @@ function selectContextSourceSpans(input: {
   let usedCharacters = 0;
   for (const [path, contextItem] of contextByPath) {
     if (result.length >= input.maxSpans || usedCharacters >= input.maxCharacters) break;
-    const directEvidence = new Set(contextItem.evidenceRefs);
-    const candidates = input.evidence
-      .filter((entry) => entry.path === path)
-      .filter((entry) => typeof entry.excerpt === "string" && entry.excerpt.trim().length > 0)
-      .filter((entry) => typeof entry.lineStart === "number" && Number.isInteger(entry.lineStart) && entry.lineStart > 0)
-      .filter((entry) => entry.source !== undefined && DETERMINISTIC_SOURCE_SPAN_SOURCES.has(entry.source))
-      .map((entry) => ({ entry, score: sourceSpanScore(entry, directEvidence, taskTokens) }))
-      .sort((left, right) =>
-        right.score - left.score
-        || (left.entry.lineStart ?? 0) - (right.entry.lineStart ?? 0)
-        || left.entry.id.localeCompare(right.entry.id));
-    const selected = candidates[0]?.entry;
-    if (!selected || selected.lineStart === undefined || selected.excerpt === undefined) continue;
-
     const remainingCharacters = input.maxCharacters - usedCharacters;
-    const excerpt = selected.excerpt.trim().slice(
-      0,
-      Math.min(MAX_SOURCE_SPAN_EXCERPT_CHARACTERS, remainingCharacters),
-    );
-    if (excerpt.length === 0) continue;
-    const completeExcerpt = excerpt === selected.excerpt.trim();
-    const lineEnd = completeExcerpt && typeof selected.lineEnd === "number" && selected.lineEnd >= selected.lineStart
-      ? selected.lineEnd
-      : selected.lineStart + excerpt.split(/\r?\n/u).length - 1;
-    result.push({
+    const span = selectSourceSpanForPath({
+      evidence: input.evidence,
       path,
-      lineStart: selected.lineStart,
-      lineEnd,
-      excerpt,
-      evidenceRef: selected.id,
+      directEvidence: new Set(contextItem.evidenceRefs),
+      taskTokens,
       reason: contextItem.necessityReason ?? contextItem.reason,
       freshness: input.freshness,
+      maxCharacters: Math.min(MAX_SOURCE_SPAN_EXCERPT_CHARACTERS, remainingCharacters),
     });
-    usedCharacters += excerpt.length;
+    if (!span) continue;
+    result.push(span);
+    usedCharacters += span.excerpt.length;
   }
   return result;
+}
+
+function selectContextRepositoryExemplar(input: {
+  taskText: string;
+  coreContext: ContextPacketItem[];
+  supportingContext: ContextPacketItem[];
+  evidence: TaskContextGraphEvidenceLike[];
+  freshness: ContextRepositoryExemplar["freshness"];
+}): ContextRepositoryExemplar | undefined {
+  if (!taskNeedsRepositoryExemplar(input.taskText)) return undefined;
+  const corePaths = new Set(input.coreContext.flatMap((item) => item.path ? [item.path] : []));
+  const coreLanguages = new Set([...corePaths].flatMap((path) => {
+    const language = sourcePathLanguage(path);
+    return language ? [language] : [];
+  }));
+  const taskTokens = sourceSpanTokens(input.taskText);
+  const candidates = input.supportingContext
+    .filter((item) => item.source === "embedding_retrieval")
+    .filter((item) => item.scoreBand === "strong" || item.scoreBand === "useful")
+    .filter((item): item is ContextPacketItem & { path: string } => Boolean(item.path))
+    .filter((item) => !corePaths.has(item.path))
+    .filter((item) => {
+      const language = sourcePathLanguage(item.path);
+      return coreLanguages.size === 0 || language === undefined || coreLanguages.has(language);
+    })
+    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0) || left.ref.localeCompare(right.ref));
+
+  for (const candidate of candidates) {
+    const sourceSpan = selectSourceSpanForPath({
+      evidence: input.evidence,
+      path: candidate.path,
+      directEvidence: new Set(candidate.evidenceRefs),
+      taskTokens,
+      reason: "Exact source entry point for the selected repository exemplar.",
+      freshness: input.freshness,
+      maxCharacters: MAX_SOURCE_SPAN_EXCERPT_CHARACTERS,
+    });
+    if (!sourceSpan) continue;
+    return {
+      ref: candidate.ref,
+      path: candidate.path,
+      reason: "A high-signal local precedent was selected because this task adds or extends an established repository pattern.",
+      trust: "inference",
+      freshness: input.freshness,
+      inspectWhen: "Use this precedent only to match repository placement and extension conventions; do not copy behavior that the task does not require.",
+      sourceSpan,
+    };
+  }
+  return undefined;
+}
+
+function selectSourceSpanForPath(input: {
+  evidence: TaskContextGraphEvidenceLike[];
+  path: string;
+  directEvidence: ReadonlySet<string>;
+  taskTokens: ReadonlySet<string>;
+  reason: string;
+  freshness: ContextSourceSpan["freshness"];
+  maxCharacters: number;
+}): ContextSourceSpan | undefined {
+  const candidates = input.evidence
+    .filter((entry) => entry.path === input.path)
+    .filter((entry) => typeof entry.excerpt === "string" && entry.excerpt.trim().length > 0)
+    .filter((entry) => typeof entry.lineStart === "number" && Number.isInteger(entry.lineStart) && entry.lineStart > 0)
+    .filter((entry) => typeof entry.sourceSha256 === "string" && /^[a-f0-9]{64}$/u.test(entry.sourceSha256))
+    .filter((entry) => entry.source !== undefined && DETERMINISTIC_SOURCE_SPAN_SOURCES.has(entry.source))
+    .map((entry) => ({ entry, score: sourceSpanScore(entry, input.directEvidence, input.taskTokens) }))
+    .sort((left, right) =>
+      right.score - left.score
+      || (left.entry.lineStart ?? 0) - (right.entry.lineStart ?? 0)
+      || left.entry.id.localeCompare(right.entry.id));
+  const selected = candidates[0]?.entry;
+  if (
+    !selected
+    || selected.lineStart === undefined
+    || selected.excerpt === undefined
+    || selected.sourceSha256 === undefined
+    || input.maxCharacters <= 0
+  ) return undefined;
+
+  const excerpt = selected.excerpt.trim().slice(0, input.maxCharacters);
+  if (excerpt.length === 0) return undefined;
+  const completeExcerpt = excerpt === selected.excerpt.trim();
+  const lineEnd = completeExcerpt && typeof selected.lineEnd === "number" && selected.lineEnd >= selected.lineStart
+    ? selected.lineEnd
+    : selected.lineStart + excerpt.split(/\r?\n/u).length - 1;
+  return {
+    path: input.path,
+    sourceSha256: selected.sourceSha256,
+    lineStart: selected.lineStart,
+    lineEnd,
+    excerpt,
+    evidenceRef: selected.id,
+    reason: input.reason,
+    freshness: input.freshness,
+  };
+}
+
+function sourcePathLanguage(path: string): string | undefined {
+  const normalized = path.toLowerCase();
+  if (/\.[cm]?[jt]sx?$/u.test(normalized)) return "js-ts";
+  if (/\.pyi?$/u.test(normalized)) return "python";
+  if (/\.go$/u.test(normalized)) return "go";
+  if (/\.(?:java|kt|kts)$/u.test(normalized)) return "java-kotlin";
+  if (/\.rb$/u.test(normalized)) return "ruby";
+  if (/\.rs$/u.test(normalized)) return "rust";
+  if (/\.cs$/u.test(normalized)) return "csharp";
+  return undefined;
 }
 
 function sourceSpanScore(

@@ -83,3 +83,6 @@ implementation, handoff, verification, dependency, compatibility, and
 supporting routes without changing the underlying evidence. Legacy items may
 omit all three fields; when any route field is present, validation requires the
 complete route description.
+Exact `CapabilityEvidenceRef` source excerpts may carry `sourceSha256`, binding
+their line range and text to the scanned source. Consumers must not serve an
+exact source span unless this digest is present and valid.

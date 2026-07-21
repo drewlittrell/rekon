@@ -58,6 +58,15 @@ const graph = {
       object: { kind: "file", id: "src/event-consumer.ts" },
       source: "llm",
     },
+    {
+      id: "claim-embedding-only",
+      subject: { kind: "file", id: "src/service.ts" },
+      predicate: "imports",
+      object: { kind: "file", id: "src/event-consumer.ts" },
+      claimType: "inference",
+      source: "embedding",
+      confidence: 0.92,
+    },
   ],
   capabilities: [{
     id: "capability:run:service",
@@ -179,4 +188,5 @@ test("refinement fails closed for unknown anchors and never promotes model claim
   });
   assert.equal(deterministic.unresolved, true);
   assert.ok(deterministic.trace.some((entry) => entry.sourceId === "claim-model-only" && /outside/.test(entry.reason)));
+  assert.ok(deterministic.trace.some((entry) => entry.sourceId === "claim-embedding-only" && /outside/.test(entry.reason)));
 });

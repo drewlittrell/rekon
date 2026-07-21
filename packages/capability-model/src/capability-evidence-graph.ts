@@ -9,6 +9,7 @@
 // runs NO Circe — the artifact factory forces every boundary boolean false. The
 // graph is evidence-backed context, not proof by itself.
 
+import { createHash } from "node:crypto";
 import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   createCapabilityEvidenceGraph,
@@ -367,6 +368,7 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
   const deterministicExportsByFile = new Map<string, Set<string>>();
   const deterministicImportsByFile = new Map<string, Set<string>>();
   const sourceTextByFile = new Map<string, string>();
+  const sourceSha256ByFile = new Map<string, string>();
 
   for (const rawFile of input.files ?? []) {
     if (!rawFile || typeof rawFile.path !== "string" || rawFile.path.length === 0) continue;
@@ -376,13 +378,22 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
 
     const text = typeof rawFile.text === "string" ? rawFile.text : "";
     sourceTextByFile.set(filePath, text);
+    const sourceSha256 = createHash("sha256").update(text).digest("hex");
+    sourceSha256ByFile.set(filePath, sourceSha256);
     const { imports, symbols } = extractFile(text);
     deterministicImportsByFile.set(filePath, new Set(imports.map((imp) => imp.module)));
     deterministicExportsByFile.set(filePath, new Set(symbols.map((symbol) => symbol.name)));
 
     for (const imp of imports) {
       const evId = `ev:${filePath}:${(evidenceCounter += 1)}`;
-      evidence.push({ id: evId, source: "deterministic_scan", path: filePath, lineStart: imp.line, excerpt: imp.excerpt });
+      evidence.push({
+        id: evId,
+        source: "deterministic_scan",
+        path: filePath,
+        sourceSha256,
+        lineStart: imp.line,
+        excerpt: imp.excerpt,
+      });
       claims.push({
         id: `claim:imports:${filePath}:${imp.module}`,
         subject: fileRef,
@@ -403,7 +414,14 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
       const symbolRef: CapabilityGraphRef = { kind: "symbol", id: `${filePath}#${symbol.name}` };
       addNode(symbolRef);
       const exposeEvId = `ev:${filePath}:${(evidenceCounter += 1)}`;
-      evidence.push({ id: exposeEvId, source: "deterministic_scan", path: filePath, lineStart: symbol.line, excerpt: symbol.excerpt });
+      evidence.push({
+        id: exposeEvId,
+        source: "deterministic_scan",
+        path: filePath,
+        sourceSha256,
+        lineStart: symbol.line,
+        excerpt: symbol.excerpt,
+      });
       claims.push({
         id: `claim:exposes:${filePath}#${symbol.name}`,
         subject: fileRef,
@@ -616,6 +634,8 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
             path,
             excerpt: truncate(typeof first.excerpt === "string" ? first.excerpt : "", 200),
           };
+          const sourceSha256 = sourceSha256ByFile.get(path);
+          if (sourceSha256) signalEvidence.sourceSha256 = sourceSha256;
           if (usable.ref) signalEvidence.artifactRef = usable.ref;
           if (typeof first.lineStart === "number") signalEvidence.lineStart = first.lineStart;
           if (typeof first.lineEnd === "number") signalEvidence.lineEnd = first.lineEnd;

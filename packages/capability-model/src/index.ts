@@ -404,6 +404,7 @@ export {
   type ContextPacketItem,
   type ContextTraceEntry,
   type ContextSourceSpan,
+  type ContextRepositoryExemplar,
   type CompiledContextPacket,
   type CompileTaskContextInput,
   type CompileTaskContextResult,

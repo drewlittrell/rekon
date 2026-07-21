@@ -72,10 +72,11 @@ export const ORIENTATION_PREAMBLE =
 
 export type TrustClass = "deterministic" | "declared" | "inference" | "memory" | "operator";
 
-/** v1 gate: only these classes may be served (D5). */
+/** Only explicitly reviewed trust classes may be served. */
 export const SERVABLE_TRUST_CLASSES: ReadonlyArray<TrustClass> = Object.freeze([
   "deterministic",
   "declared",
+  "inference",
   "operator",
 ]);
 
@@ -91,7 +92,7 @@ export function tag<T extends string | number | boolean | null | ReadonlyArray<s
 ): Tagged<T> {
   if (!SERVABLE_TRUST_CLASSES.includes(trust)) {
     throw new Error(
-      `rekon-mcp: trust class "${trust}" is not servable in v1 (gate not built); refusing to tag.`,
+      `rekon-mcp: trust class "${trust}" is not servable (gate not built); refusing to tag.`,
     );
   }
 
@@ -773,6 +774,7 @@ function tagModelContextDelivery(
       ? {
           sourceSpans: delivery.sourceSpans.map((span) => ({
             path: tagPacketValue(span.path, "deterministic"),
+            sourceSha256: tagPacketValue(span.sourceSha256, "deterministic"),
             lineStart: tagPacketValue(span.lineStart, "deterministic"),
             lineEnd: tagPacketValue(span.lineEnd, "deterministic"),
             excerpt: tagPacketValue(span.excerpt, "deterministic"),
@@ -780,6 +782,28 @@ function tagModelContextDelivery(
             reason: tagPacketValue(span.reason, "deterministic"),
             freshness: tagPacketValue(span.freshness, "deterministic"),
           })),
+        }
+      : {}),
+    ...(delivery.repositoryExemplar !== undefined
+      ? {
+          repositoryExemplar: {
+            ref: tagPacketValue(delivery.repositoryExemplar.ref, "inference"),
+            path: tagPacketValue(delivery.repositoryExemplar.path, "inference"),
+            reason: tagPacketValue(delivery.repositoryExemplar.reason, "inference"),
+            trust: tagPacketValue(delivery.repositoryExemplar.trust, "inference"),
+            freshness: tagPacketValue(delivery.repositoryExemplar.freshness, "inference"),
+            inspectWhen: tagPacketValue(delivery.repositoryExemplar.inspectWhen, "inference"),
+            sourceSpan: {
+              path: tagPacketValue(delivery.repositoryExemplar.sourceSpan.path, "deterministic"),
+              sourceSha256: tagPacketValue(delivery.repositoryExemplar.sourceSpan.sourceSha256, "deterministic"),
+              lineStart: tagPacketValue(delivery.repositoryExemplar.sourceSpan.lineStart, "deterministic"),
+              lineEnd: tagPacketValue(delivery.repositoryExemplar.sourceSpan.lineEnd, "deterministic"),
+              excerpt: tagPacketValue(delivery.repositoryExemplar.sourceSpan.excerpt, "deterministic"),
+              evidenceRef: tagPacketValue(delivery.repositoryExemplar.sourceSpan.evidenceRef, "deterministic"),
+              reason: tagPacketValue(delivery.repositoryExemplar.sourceSpan.reason, "deterministic"),
+              freshness: tagPacketValue(delivery.repositoryExemplar.sourceSpan.freshness, "deterministic"),
+            },
+          },
         }
       : {}),
     constraints: delivery.constraints.map((statement, index) => tagPacketValue(
@@ -838,8 +862,9 @@ export function buildContextForTask(
   }
 
   // MCP never calls an embedding or model provider. It compiles from the latest
-  // graph and explicit caller input only. Semantic graph claims are excluded so
-  // no inference crosses the v1 MCP trust gate.
+  // graph and explicit caller input only. Model-derived graph claims are
+  // excluded; a cached embedding claim may propose tagged supporting context,
+  // but it remains inference and cannot become repository law.
   const deterministicGraph: TaskContextGraphLike = {
     ...graph,
     claims: (graph.claims ?? []).filter((claim) => claim.source !== "llm"),

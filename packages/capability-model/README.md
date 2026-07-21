@@ -69,10 +69,15 @@ for model consumption while preserving the selected read order, pacts, checks,
 supporting inference, and warnings. `estimateModelContextDeliveryTokens()` is
 the deterministic size guard used by the interface evaluation.
 When deterministic graph evidence includes an exact path, line, and excerpt,
-the compiler also selects at most one source span per delivered path. Compact,
-standard, and deep profiles cap span count and total characters. Spans point to
-the likely entry region; they do not replace source inspection or admit
-model-derived evidence across the deterministic trust boundary.
+the compiler also selects at most one source span per delivered path. Every
+span includes the SHA-256 of the source text used to produce that evidence.
+Compact, standard, and deep profiles cap span count and total characters.
+Spans point to the likely entry region; they do not replace source inspection
+or admit model-derived evidence across the deterministic trust boundary.
+For extension and placement tasks, cached similarity may additionally propose
+one repository exemplar. Its selection remains inference while its bounded
+source excerpt must be deterministic and digest-bound. The exemplar is omitted
+when the packet budget cannot carry it.
 Compiled file routes include a deterministic role, necessity class, and reason.
 Required task targets, repository law, handoffs, implementation paths, and
 tests stay in the initial read set. Conditional dependencies and compatibility

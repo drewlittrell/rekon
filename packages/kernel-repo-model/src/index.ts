@@ -7880,6 +7880,7 @@ export type CapabilityEvidenceRef = {
   source: CapabilityEvidenceSource;
   artifactRef?: ArtifactRef;
   path?: string;
+  sourceSha256?: string;
   lineStart?: number;
   lineEnd?: number;
   excerpt?: string;
@@ -8063,6 +8064,9 @@ export function createCapabilityEvidenceGraph(input: CapabilityEvidenceGraph): C
     const ref: CapabilityEvidenceRef = { id: raw.id, source: raw.source as CapabilityEvidenceSource };
     if (raw.artifactRef) ref.artifactRef = assertArtifactRef(raw.artifactRef);
     if (typeof raw.path === "string" && raw.path.length > 0) ref.path = raw.path;
+    if (typeof raw.sourceSha256 === "string" && raw.sourceSha256.length > 0) {
+      ref.sourceSha256 = raw.sourceSha256;
+    }
     if (typeof raw.lineStart === "number" && Number.isInteger(raw.lineStart)) ref.lineStart = raw.lineStart;
     if (typeof raw.lineEnd === "number" && Number.isInteger(raw.lineEnd)) ref.lineEnd = raw.lineEnd;
     if (typeof raw.excerpt === "string" && raw.excerpt.length > 0) ref.excerpt = raw.excerpt;
@@ -8232,6 +8236,12 @@ export function validateCapabilityEvidenceGraph(value: unknown): ValidationResul
       if (ref.artifactRef !== undefined) {
         const result = validateArtifactRef(ref.artifactRef);
         if (!result.ok) issues.push(...prefixIssues(result.issues, `${refPath}.artifactRef`));
+      }
+      if (
+        ref.sourceSha256 !== undefined
+        && (typeof ref.sourceSha256 !== "string" || !/^[a-f0-9]{64}$/u.test(ref.sourceSha256))
+      ) {
+        issues.push({ path: `${refPath}.sourceSha256`, message: "Expected a lowercase SHA-256 digest." });
       }
     });
   }

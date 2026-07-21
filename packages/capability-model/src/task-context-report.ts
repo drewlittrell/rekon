@@ -53,6 +53,7 @@ export type TaskContextGraphClaimLike = {
   subject: TaskContextGraphRefLike;
   predicate: string;
   object: TaskContextGraphRefLike | string;
+  claimType?: string;
   source?: string;
   confidence?: number;
   evidenceRefs?: string[];
@@ -71,6 +72,7 @@ export type TaskContextGraphEvidenceLike = {
   id: string;
   source?: string;
   path?: string;
+  sourceSha256?: string;
   lineStart?: number;
   lineEnd?: number;
   excerpt?: string;
@@ -192,6 +194,12 @@ function taskSignalsHandoffChange(taskText: string): boolean {
   return /\b(?:carry|propagat(?:e|es|ed|ing)|forward|preserv(?:e|es|ed|ing)|pass(?:es|ed|ing)?|thread|handoff|end[- ]to[- ]end)\b/iu.test(taskText)
     || /\b(?:event|message|payload|request|response|contract|schema|metadata)\b[^.!?\n]{0,100}\b(?:add|remove|rename|change|extend|include|omit)\b/iu.test(taskText)
     || /\b(?:add|remove|rename|change|extend|include|omit)\b[^.!?\n]{0,100}\b(?:event|message|payload|request|response|contract|schema|metadata)\b/iu.test(taskText);
+}
+
+export function taskNeedsRepositoryExemplar(taskText: string): boolean {
+  const extendsRepository = /\b(?:add|create|implement|introduce|extend|register|wire|integrate|scaffold)\b/iu.test(taskText);
+  const conventionMatters = /\b(?:adapter|capability|command|component|convention|endpoint|evaluator|handler|middleware|pattern|placement|plugin|projector|provider|publisher|resolver|route|service|style|workflow)\b/iu.test(taskText);
+  return extendsRepository && conventionMatters;
 }
 
 function graphRouteMetadata(input: {
@@ -416,6 +424,36 @@ function selectProactiveSymbolicRoutes(input: {
   return [...routes.values()]
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
     .slice(0, MAX_PROACTIVE_SYMBOLIC_PATHS);
+}
+
+function selectGraphRepositoryExemplar(input: {
+  taskText: string;
+  selectedPaths: ReadonlySet<string>;
+  graphNodes: TaskContextGraphRefLike[];
+  graphClaims: TaskContextGraphClaimLike[];
+}): { path: string; claim: TaskContextGraphClaimLike; score: number; anchorPath: string } | undefined {
+  if (!taskNeedsRepositoryExemplar(input.taskText)) return undefined;
+  const fileNodes = new Set(
+    input.graphNodes.filter((node) => node.kind === "file").map((node) => node.id),
+  );
+  const candidates = input.graphClaims.flatMap((claim) => {
+    if (claim.source !== "embedding" || claim.status === "rejected") return [];
+    const score = typeof claim.confidence === "number" ? claim.confidence : 0;
+    if (classifyBand(score) !== "strong" && classifyBand(score) !== "useful") return [];
+    const subjectPath = filePathFromRef(claim.subject);
+    const objectPath = filePathFromRef(objectToRef(claim.object));
+    const anchorPath = subjectPath && input.selectedPaths.has(subjectPath)
+      ? subjectPath
+      : objectPath && input.selectedPaths.has(objectPath)
+        ? objectPath
+        : undefined;
+    const path = anchorPath === subjectPath ? objectPath : subjectPath;
+    if (!anchorPath || !path || input.selectedPaths.has(path) || !fileNodes.has(path)) return [];
+    if (!taskAllowsLanguageBoundary(input.taskText, anchorPath, path)) return [];
+    return [{ path, claim, score, anchorPath }];
+  });
+  return candidates.sort((left, right) =>
+    right.score - left.score || left.path.localeCompare(right.path) || left.claim.id.localeCompare(right.claim.id))[0];
 }
 
 // Extract do-not-touch zones from explicit task-text constraints. v1 is
@@ -832,6 +870,43 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
       .filter((item) => item.source === "embedding_retrieval" && typeof item.path === "string")
       .map((item) => item.path as string),
   ]);
+
+  // Keep one high-signal local precedent available for extension and placement
+  // tasks even when deterministic one-hop claims fill the normal graph budget.
+  // Similarity proposes the file; exact digest-bound evidence is still required
+  // before the compiler can expose any source excerpt from it.
+  const graphExemplar = selectGraphRepositoryExemplar({
+    taskText,
+    selectedPaths,
+    graphNodes,
+    graphClaims,
+  });
+  if (graphExemplar) {
+    const { claim, path, score, anchorPath } = graphExemplar;
+    pushItem(
+      {
+        kind: "file",
+        path,
+        reason: `high-signal cached repository precedent related to ${anchorPath}`,
+        score: Number(score.toFixed(6)),
+        scoreBand: classifyBand(score),
+        evidenceRefs: [...(claim.evidenceRefs ?? []), claim.id],
+        source: "embedding_retrieval",
+        ...routeMetadata(
+          "supporting",
+          "supporting",
+          "Cached similarity proposes this local precedent; inspect it only when repository placement or extension conventions matter.",
+        ),
+      },
+      `graph-exemplar:${path}`,
+    );
+    addNeighborhoodNode({ kind: "file", id: path });
+    if (!includedClaimIds.has(claim.id)) {
+      includedClaimIds.add(claim.id);
+      claimIds.push(claim.id);
+    }
+  }
+
   for (const path of selectedPaths) {
     const fileRef: TaskContextGraphRefLike = { kind: "file", id: path };
     const selectedPathTokens = lexicalQueryTokens(path);
@@ -861,7 +936,10 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
         contextPath,
         pathMatches,
         testRelationship,
-        deterministic: claim.source !== "llm",
+        deterministic: claim.source !== "llm"
+          && claim.source !== "embedding"
+          && claim.claimType !== "inference"
+          && claim.claimType !== "recommendation",
       }];
     }).sort((left, right) =>
       Number(right.deterministic) - Number(left.deterministic)
@@ -872,13 +950,17 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
 
     for (const candidate of connectedClaims.slice(0, MAX_GRAPH_CLAIMS_PER_PATH)) {
       const { claim, relatedFileRef, contextPath } = candidate;
-      const isSemantic = claim.source === "llm";
+      const isEmbedding = claim.source === "embedding";
+      const isInference = isEmbedding
+        || claim.source === "llm"
+        || claim.claimType === "inference"
+        || claim.claimType === "recommendation";
       const objectText = typeof claim.object === "string" ? claim.object : `${claim.object.kind}:${claim.object.id}`;
-      const route = isSemantic
+      const route = isInference
         ? routeMetadata(
             "supporting",
             "supporting",
-            "Model-derived context is advisory and must not become a required repository route.",
+            "Inferred context is advisory and must not become a required repository route.",
           )
         : graphRouteMetadata({
             taskText,
@@ -891,11 +973,21 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
           });
       pushItem(
         {
-          kind: isSemantic ? "semantic_summary" : "file",
+          kind: isInference && !isEmbedding ? "semantic_summary" : "file",
           path: contextPath,
           reason: `graph claim: ${claim.subject.kind}:${claim.subject.id} ${claim.predicate} ${objectText}`,
+          ...(isEmbedding && typeof claim.confidence === "number"
+            ? {
+                score: Number(claim.confidence.toFixed(6)),
+                scoreBand: classifyBand(claim.confidence),
+              }
+            : {}),
           evidenceRefs: [...(claim.evidenceRefs ?? []), claim.id],
-          source: isSemantic ? "semantic_file_understanding" : "deterministic_graph",
+          source: isEmbedding
+            ? "embedding_retrieval"
+            : isInference
+              ? "semantic_file_understanding"
+              : "deterministic_graph",
           ...route,
         },
         `claim:${claim.id}`,
