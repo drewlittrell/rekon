@@ -4,6 +4,8 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added the MCP package's complete TypeScript workspace references so clean
+  clones typecheck without relying on previously generated declarations.
 - Added typed proof obligations, verifier results, and `ProofGateReport` to the
   public repository-model contract. Post-edit validation now binds selected
   checks and runtime observations to affected handoff edges, accepts model

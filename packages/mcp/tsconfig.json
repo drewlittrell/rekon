@@ -10,7 +10,10 @@
     "src/**/*.ts"
   ],
   "references": [
+    { "path": "../capability-model" },
     { "path": "../kernel-artifacts" },
-    { "path": "../capability-ontology" }
+    { "path": "../capability-ontology" },
+    { "path": "../capability-resolver" },
+    { "path": "../kernel-repo-model" }
   ]
 }
