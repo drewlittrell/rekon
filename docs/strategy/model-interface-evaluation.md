@@ -389,6 +389,8 @@ is correct conditional behavior rather than an instruction failure. The result
 does not show that role-aware delivery can skip a truly optional route, and it
 does not support promotion or token-savings claims. The source-free record is
 `tests/evals/model-interface-independent/role-aware-delivery-calibration.json`.
+It is retained as historical because managed instructions 2.0.0 changed the
+delivery payload to include proof-gated change validation.
 
 A follow-up isolated an additive logging helper with two oracle-confirmed
 optional routes: its unchanged sanitizer dependency and an existing caller.
@@ -401,8 +403,10 @@ visible-estimate tokens, and 6.7 percent more commands.
 
 This result rejects the hypothesis that conditional labels alone cause Sol to
 skip optional source routes. It does not justify role-aware promotion or lazy
-route materialization. The digest-bound source-free record is
+route materialization. The source-free record is
 `tests/evals/model-interface-optional-route/role-aware-calibration.json`.
+It is retained as historical because managed instructions 2.0.0 changed the
+delivery payload to include proof-gated change validation.
 
 The next experiment removed both optional paths from delivery and replaced
 them with pathless dependency and compatibility summaries. The first variant

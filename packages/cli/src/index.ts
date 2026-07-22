@@ -41,6 +41,7 @@ import intentCapability, {
   type VerificationEvidenceSummary,
   type VerificationPlanLike,
   type VerificationPlanCoverage,
+  type VerificationResult,
   type VerificationRun,
   type VerificationRunCommand,
 } from "@rekon/capability-intent";
@@ -232,6 +233,9 @@ import modelCapability, {
   type BuildRepositoryIntelligenceGraphInput,
   type RepositoryContractJudgmentDraftCitation,
   type ChangeValidationResult,
+  type ChangeModelJudgment,
+  type ChangeRuntimeEvidence,
+  type ChangeVerificationEvidence,
   validateChange,
 } from "@rekon/capability-model";
 import {
@@ -358,6 +362,7 @@ import {
   type EffectiveContractRegistry,
   type FlowContractSource,
   type FlowContract,
+  type ProofGateReport,
   type RepositoryContractSourceDocument,
   type SystemContractSource,
   type SystemContract,
@@ -368,6 +373,8 @@ import {
   createContractAdoptionReport,
   createContractJudgmentReport,
   createEffectiveContractRegistry,
+  createProofGateReport,
+  assertProofGateReport,
   INTENT_TASK_KINDS,
   isIntentTaskKind,
 } from "@rekon/kernel-repo-model";
@@ -1062,11 +1069,21 @@ export async function main(argv: string[]): Promise<void> {
   if (command === "refresh") {
     const skipPublish = parsed.flags["skip-publish"] === true;
     const skipFreshness = parsed.flags["skip-freshness"] === true;
-    const changedFiles = parseRepeatableFlag(parsed.flags["changed-file"]);
+    let changedFiles = parseRepeatableFlag(parsed.flags["changed-file"]);
+    let proofGateRef: ArtifactRef | undefined;
+    if (parsed.flags["proof-gate"] !== undefined) {
+      if (typeof parsed.flags["proof-gate"] !== "string" || !parsed.flags["proof-gate"].trim()) {
+        throw new Error("rekon refresh --proof-gate requires a ProofGateReport ref.");
+      }
+      const proof = await validateProofGateForRefresh(root, parsed.flags["proof-gate"].trim(), changedFiles);
+      changedFiles = proof.changedFiles;
+      proofGateRef = proof.ref;
+    }
     const result = await runRefresh(root, {
       skipPublish,
       skipFreshness,
       changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
+      ...(proofGateRef ? { seedArtifactRefs: [proofGateRef] } : {}),
     });
 
     writeOutput(result, json);
@@ -2382,11 +2399,54 @@ export async function main(argv: string[]): Promise<void> {
       ? parsed.flags["base-ref"].trim()
       : "HEAD";
     if (!baseRef) throw new Error("rekon context validate-change --base-ref must be non-empty.");
-    const validation = await validateRepositoryChange(root, { task, changedPaths, baseRef });
+    const verificationResultRefs = parseRepeatableFlag(parsed.flags["verification-result"]);
+    const runtimeObservationRefs = parseRepeatableFlag(parsed.flags["runtime-observation"]);
+    const modelJudgments = parseChangeModelJudgments(parsed.flags["judgment-json"]);
+    const prepareVerification = parsed.flags["prepare-verification"] === true;
+    if (prepareVerification && parsed.flags["record-proof"] === true) {
+      throw new Error("rekon context validate-change cannot prepare verification and record proof in the same call.");
+    }
+    const validation = await validateRepositoryChange(root, {
+      task,
+      changedPaths,
+      baseRef,
+      verificationResultRefs,
+      runtimeObservationRefs,
+      modelJudgments,
+    });
+    let verificationPlan: ArtifactRef | undefined;
+    if (prepareVerification && validation.result.blockingViolations.length === 0) {
+      verificationPlan = await recordChangeVerificationPlan(root, validation.result);
+    }
+    let proofArtifact: ArtifactRef | undefined;
+    if (parsed.flags["record-proof"] === true) {
+      if (validation.result.status !== "passed") {
+        process.exitCode = 1;
+      } else {
+        proofArtifact = await recordChangeProofGate(root, validation.result);
+      }
+    }
     if (validation.result.status === "blocked") process.exitCode = 1;
     writeOutput(json
-      ? projectChangeValidationDecision(validation.result)
-      : renderChangeValidation(validation.result), json);
+      ? {
+          ...projectChangeValidationDecision(validation.result),
+          ...(verificationPlan ? {
+            verificationPlan,
+            next: [
+              `rekon verify run --plan ${verificationPlan.type}:${verificationPlan.id} --execute --root . --json`,
+              "rekon verify result from-run --run <VerificationRun:id> --root . --json",
+            ],
+          } : {}),
+          ...(proofArtifact ? { proofArtifact } : {}),
+        }
+      : [
+          renderChangeValidation(validation.result),
+          ...(verificationPlan ? [
+            `Verification plan: ${verificationPlan.type}:${verificationPlan.id}`,
+            `Next: rekon verify run --plan ${verificationPlan.type}:${verificationPlan.id} --execute --root . --json`,
+          ] : []),
+          ...(proofArtifact ? [`Proof gate: ${proofArtifact.type}:${proofArtifact.id}`] : []),
+        ].join("\n"), json);
     return;
   }
 
@@ -5896,10 +5956,16 @@ export async function main(argv: string[]): Promise<void> {
           ? args.baseRef.trim()
           : "HEAD";
         try {
+          const verificationResultRefs = parseMcpArtifactRefList(args.verificationResults, "verificationResults");
+          const runtimeObservationRefs = parseMcpArtifactRefList(args.runtimeObservations, "runtimeObservations");
+          const modelJudgments = parseChangeModelJudgments(args.judgments);
           const validation = await validateRepositoryChange(root, {
             task: args.task.trim(),
             changedPaths,
             baseRef,
+            verificationResultRefs,
+            runtimeObservationRefs,
+            modelJudgments,
           });
           return buildChangeValidationResponse(validation.result, validation.sources);
         } catch (error) {
@@ -14707,9 +14773,18 @@ type RepositoryChangeValidation = {
   warnings: string[];
 };
 
+type RepositoryChangeValidationInput = {
+  task: string;
+  changedPaths: string[];
+  baseRef: string;
+  verificationResultRefs?: string[];
+  runtimeObservationRefs?: string[];
+  modelJudgments?: ChangeModelJudgment[];
+};
+
 async function validateRepositoryChange(
   root: string,
-  input: { task: string; changedPaths: string[]; baseRef: string },
+  input: RepositoryChangeValidationInput,
 ): Promise<RepositoryChangeValidation> {
   const store = createLocalArtifactStore(root);
   const sources: SourceRef[] = [];
@@ -14734,6 +14809,7 @@ async function validateRepositoryChange(
   for (const entry of pactEntries) {
     const candidate = await store.read(entry) as TaskPact;
     if (candidate.task.text.trim() !== input.task.trim()) continue;
+    if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
     taskPact = candidate;
     taskPactRef = artifactIndexRef(entry);
     addValidationSource(sources, candidate);
@@ -14751,13 +14827,16 @@ async function validateRepositoryChange(
   }
 
   let taskContextReport: TaskContextReport | undefined;
+  let taskContextRef: ArtifactRef | undefined;
   const taskContextEntries = (artifactIndexAvailable ? await store.list("TaskContextReport") : [])
     .slice()
     .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
   for (const entry of taskContextEntries) {
     const candidate = await store.read(entry) as TaskContextReport;
     if (candidate.task.text.trim() !== input.task.trim()) continue;
+    if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
     taskContextReport = candidate;
+    taskContextRef = artifactIndexRef(entry);
     addValidationSource(sources, candidate);
     break;
   }
@@ -14814,12 +14893,55 @@ async function validateRepositoryChange(
   });
   warnings.push(...evidence.warnings);
 
+  const latestSourceMtime = await latestChangedSourceMtime(root, evidence.files);
+  const verificationEvidence: ChangeVerificationEvidence[] = [];
+  for (const requested of input.verificationResultRefs ?? []) {
+    const entry = await findArtifactEntry(store, requested);
+    if (entry.type !== "VerificationResult") {
+      throw new Error(`Expected VerificationResult for ${requested}; found ${entry.type}.`);
+    }
+    const artifact = await store.read(entry) as VerificationResult;
+    assertProofArtifactRepository(root, artifact.header, requested);
+    addValidationSource(sources, artifact);
+    verificationEvidence.push(toChangeVerificationEvidence(
+      artifact,
+      artifactIndexRef(entry),
+      latestSourceMtime,
+    ));
+  }
+
+  const runtimeEvidence: ChangeRuntimeEvidence[] = [];
+  for (const requested of input.runtimeObservationRefs ?? []) {
+    const entry = await findArtifactEntry(store, requested);
+    if (entry.type !== "RuntimeGraphObservationReport") {
+      throw new Error(`Expected RuntimeGraphObservationReport for ${requested}; found ${entry.type}.`);
+    }
+    const artifact = await store.read(entry) as RuntimeGraphObservationReport;
+    assertProofArtifactRepository(root, artifact.header, requested);
+    addValidationSource(sources, artifact);
+    runtimeEvidence.push({
+      ref: artifactIndexRef(entry),
+      freshness: proofArtifactFreshness(artifact.header.generatedAt, latestSourceMtime),
+      producer: {
+        id: artifact.header.producer.id,
+        version: artifact.header.producer.version,
+      },
+      edges: artifact.edges.map((edge) => ({
+        kind: edge.kind,
+        fromNodeId: edge.fromNodeId,
+        toNodeId: edge.toNodeId,
+        observedCount: edge.observedCount,
+      })),
+    });
+  }
+
   const result = validateChange({
     task: input.task,
     changedPaths: input.changedPaths,
     baseRef: input.baseRef,
     ...(taskPact ? { taskPact } : {}),
     ...(taskPactRef ? { taskPactRef } : {}),
+    ...(taskContextRef ? { taskContextRef } : {}),
     ...(ownershipMap ? { ownershipMap } : {}),
     ...(systemContracts.length > 0 ? { systemContracts } : {}),
     ...(flowContracts.length > 0 ? { flowContracts } : {}),
@@ -14837,12 +14959,98 @@ async function validateRepositoryChange(
     } : {}),
     files: evidence.files,
     dependencyChanges: evidence.dependencyChanges,
+    ...(verificationEvidence.length > 0 ? { verificationEvidence } : {}),
+    ...(runtimeEvidence.length > 0 ? { runtimeEvidence } : {}),
+    ...((input.modelJudgments?.length ?? 0) > 0 ? { modelJudgments: input.modelJudgments } : {}),
   });
   return {
     result,
     sources: dedupeValidationSources(sources),
     warnings: [...new Set(warnings)].sort(),
   };
+}
+
+function sameTaskPathScope(left: string[], right: string[]): boolean {
+  const normalize = (paths: string[]) => [...new Set(paths
+    .map((path) => path.replace(/\\/g, "/").replace(/^\.\//u, "").trim())
+    .filter(Boolean))].sort();
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
+function assertProofArtifactRepository(root: string, header: ArtifactHeader, requested: string): void {
+  const accepted = new Set([subjectRepoIdFromStore(createLocalArtifactStore(root)), resolve(root)]);
+  if (!accepted.has(header.subject.repoId)) {
+    throw new Error(
+      `Proof artifact ${requested} belongs to repository ${header.subject.repoId}; expected ${[...accepted].join(" or ")}.`,
+    );
+  }
+}
+
+async function latestChangedSourceMtime(
+  root: string,
+  files: ChangeValidationResult["baseline"]["files"],
+): Promise<number | undefined> {
+  let latest: number | undefined;
+  for (const file of files) {
+    if (file.status === "unavailable") return undefined;
+    try {
+      const absolutePath = join(root, file.path);
+      const metadata = await stat(file.status === "deleted" ? dirname(absolutePath) : absolutePath);
+      latest = latest === undefined ? metadata.mtimeMs : Math.max(latest, metadata.mtimeMs);
+    } catch {
+      return undefined;
+    }
+  }
+  return latest;
+}
+
+function toChangeVerificationEvidence(
+  artifact: VerificationResult,
+  ref: ArtifactRef,
+  latestSourceMtime: number | undefined,
+): ChangeVerificationEvidence {
+  const completionTimes = artifact.commandResults
+    .map((result) => result.completedAt ? Date.parse(result.completedAt) : Number.NaN)
+    .filter(Number.isFinite);
+  const proofTime = completionTimes.length > 0
+    ? Math.min(...completionTimes)
+    : Date.parse(artifact.recordedAt || artifact.header.generatedAt);
+  const generatedAt = Number.isFinite(proofTime)
+    ? new Date(proofTime).toISOString()
+    : artifact.header.generatedAt;
+  const runnerDerived = artifact.header.inputRefs.some((inputRef) => inputRef.type === "VerificationRun")
+    || artifact.header.producer.id === "@rekon/capability-verify";
+  return {
+    ref,
+    generatedAt,
+    freshness: proofTimeFreshness(proofTime, latestSourceMtime),
+    provenance: runnerDerived ? "runner-derived" : "recorded",
+    verifier: {
+      id: artifact.recordedBy ?? artifact.header.producer.id,
+      version: artifact.header.producer.version,
+    },
+    commandResults: artifact.commandResults.map((result) => ({
+      command: result.command,
+      status: result.status,
+      ...(result.completedAt ? { completedAt: result.completedAt } : {}),
+    })),
+  };
+}
+
+function proofArtifactFreshness(
+  generatedAt: string,
+  latestSourceMtime: number | undefined,
+): ChangeRuntimeEvidence["freshness"] {
+  return proofTimeFreshness(Date.parse(generatedAt), latestSourceMtime);
+}
+
+function proofTimeFreshness(
+  proofTime: number,
+  latestSourceMtime: number | undefined,
+): "fresh" | "stale" | "unknown" {
+  if (!Number.isFinite(proofTime)) return "unknown";
+  if (latestSourceMtime === undefined) return "unknown";
+  return proofTime + 1 >= latestSourceMtime ? "fresh" : "stale";
 }
 
 function addValidationSource(sources: SourceRef[], artifact: { header: ArtifactHeader }): void {
@@ -14868,6 +15076,7 @@ function renderChangeValidation(result: ChangeValidationResult): string {
   const lines = [
     `Change validation: ${result.status}`,
     `Changed paths: ${result.changedPaths.join(", ") || "none"}`,
+    `Proof gate: ${result.proofGate.evaluation.status} (${result.proofGate.evaluation.summary.satisfied}/${result.proofGate.evaluation.summary.required} required obligations satisfied)`,
   ];
   if (result.affectedSystems.length > 0) lines.push(`Affected systems: ${result.affectedSystems.join(", ")}`);
   if (result.affectedFlows.length > 0) lines.push(`Affected flows: ${result.affectedFlows.join(", ")}`);
@@ -14882,7 +15091,10 @@ function renderChangeValidation(result: ChangeValidationResult): string {
   if (result.requiredChecks.length > 0) {
     lines.push("", "Required checks:", ...result.requiredChecks.map((command) => `- ${command}`));
   }
-  lines.push("", "No checks were executed and no artifact or source file was written.");
+  if (result.proofGate.warnings.length > 0) {
+    lines.push("", "Proof warnings:", ...result.proofGate.warnings.map((warning) => `- ${warning}`));
+  }
+  lines.push("", "Validation executed no checks and wrote no source files.");
   return lines.join("\n");
 }
 
@@ -14891,8 +15103,170 @@ function projectChangeValidationDecision(result: ChangeValidationResult) {
     status: result.status,
     blockingViolations: result.blockingViolations,
     unresolvedSemanticObligations: result.unresolvedSemanticObligations,
+    proofGate: result.proofGate,
     requiredChecks: result.requiredChecks,
   };
+}
+
+async function recordChangeProofGate(root: string, result: ChangeValidationResult): Promise<ArtifactRef> {
+  if (result.status !== "passed" || result.proofGate.evaluation.status !== "satisfied") {
+    throw new Error("Only a satisfied change proof gate can be recorded.");
+  }
+  const files = result.baseline.files.map((file) => {
+    if (file.status !== "added" && file.status !== "modified" && file.status !== "deleted") {
+      throw new Error(`Cannot record proof for ${file.path} with status ${file.status}.`);
+    }
+    return {
+      path: file.path,
+      status: file.status,
+      ...(file.beforeSha256 ? { beforeSha256: file.beforeSha256 } : {}),
+      ...(file.afterSha256 ? { afterSha256: file.afterSha256 } : {}),
+    };
+  });
+  const inputRefs = dedupeArtifactRefs([
+    ...(result.baseline.taskPactRef ? [result.baseline.taskPactRef] : []),
+    ...result.proofGate.obligations.flatMap((obligation) => obligation.sourceRefs),
+    ...result.proofGate.results.flatMap((proof) => [...proof.evidenceRefs, ...proof.counterEvidenceRefs]),
+  ]);
+  const generatedAt = new Date().toISOString();
+  const report: ProofGateReport = createProofGateReport({
+    header: {
+      artifactType: "ProofGateReport",
+      artifactId: `proof-gate-${digestJson({
+        task: result.task,
+        baseRef: result.baseRef,
+        files,
+        obligations: result.proofGate.obligations,
+        results: result.proofGate.results,
+      }).slice(0, 20)}`,
+      schemaVersion: "1.0.0",
+      generatedAt,
+      supersession: { key: `change-proof:${digestJson({ task: result.task, paths: result.changedPaths }).slice(0, 20)}` },
+      subject: { repoId: root, paths: result.changedPaths },
+      producer: { id: "@rekon/cli.change-validation", version: "1.0.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 1,
+        notes: ["Bound to the recorded post-edit source digests and explicit verifier results."],
+      },
+    },
+    task: { text: result.task, paths: result.changedPaths },
+    sourceState: { baseRef: result.baseRef, files },
+    obligations: result.proofGate.obligations,
+    results: result.proofGate.results,
+  });
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  return store.write(report, { category: "actions" });
+}
+
+async function recordChangeVerificationPlan(root: string, result: ChangeValidationResult): Promise<ArtifactRef | undefined> {
+  if (result.requiredChecks.length === 0) return undefined;
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  const inputRefs = dedupeArtifactRefs([
+    ...(result.baseline.taskPactRef ? [result.baseline.taskPactRef] : []),
+    ...result.proofGate.obligations.flatMap((obligation) => obligation.sourceRefs),
+  ]);
+  const generatedAt = new Date().toISOString();
+  const plan: VerificationPlanLike & { proofObligationIds: string[]; baseRef: string } = {
+    header: {
+      artifactType: "VerificationPlan",
+      artifactId: `verification-plan-change-${digestJson({
+        task: result.task,
+        baseRef: result.baseRef,
+        files: result.baseline.files,
+        checks: result.requiredChecks,
+      }).slice(0, 20)}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      supersession: { key: `change-verification:${digestJson({ task: result.task, paths: result.changedPaths }).slice(0, 20)}` },
+      subject: { repoId: subjectRepoIdFromStore(store), paths: result.changedPaths },
+      producer: { id: "@rekon/cli.change-validation", version: "1.0.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+      provenance: { confidence: 1, notes: ["Selected from the current post-edit change proof obligations."] },
+    },
+    commands: result.requiredChecks,
+    successCriteria: result.proofGate.obligations
+      .filter((obligation) => obligation.required)
+      .map((obligation) => obligation.assertion),
+    source: "change-validation",
+    proofObligationIds: result.proofGate.obligations
+      .filter((obligation) => obligation.required)
+      .map((obligation) => obligation.id),
+    baseRef: result.baseRef,
+  };
+  return store.write(plan, { category: "actions" });
+}
+
+async function validateProofGateForRefresh(
+  root: string,
+  requested: string,
+  requestedChangedFiles: string[],
+): Promise<{ ref: ArtifactRef; changedFiles: string[] }> {
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  const entry = await findArtifactEntry(store, requested);
+  if (entry.type !== "ProofGateReport") {
+    throw new Error(`rekon refresh --proof-gate expected ProofGateReport; found ${entry.type}.`);
+  }
+  const report = assertProofGateReport(await store.read(entry));
+  assertProofArtifactRepository(root, report.header, requested);
+  if (report.evaluation.status !== "satisfied") {
+    throw new Error(`Proof gate ${entry.id} is ${report.evaluation.status}; refresh requires satisfied proof.`);
+  }
+  if (!report.sourceState || report.sourceState.files.length === 0) {
+    throw new Error(`Proof gate ${entry.id} has no digest-bound source state.`);
+  }
+
+  const proofPaths = report.sourceState.files.map((file) => normalizeProofPath(file.path));
+  if (requestedChangedFiles.length > 0) {
+    const requestedPaths = requestedChangedFiles.map(normalizeProofPath).sort();
+    const expectedPaths = [...proofPaths].sort();
+    if (JSON.stringify(requestedPaths) !== JSON.stringify(expectedPaths)) {
+      throw new Error("rekon refresh changed-file paths must exactly match the ProofGateReport source state.");
+    }
+  }
+
+  for (const file of report.sourceState.files) {
+    const path = normalizeProofPath(file.path);
+    const absolutePath = resolve(root, path);
+    const relativePath = relative(root, absolutePath).replace(/\\/g, "/");
+    if (relativePath === ".." || relativePath.startsWith("../") || isAbsolute(relativePath)) {
+      throw new Error(`Proof gate path escapes the repository root: ${file.path}`);
+    }
+    if (file.status === "deleted") {
+      try {
+        await lstat(absolutePath);
+      } catch (error) {
+        if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+      throw new Error(`Proof gate source state changed after validation: deleted path exists (${path}).`);
+    }
+    const selected = await resolveReadableRepoFile(root, path, "rekon refresh proof gate");
+    const digest = createHash("sha256").update(await readFile(selected.absolutePath)).digest("hex");
+    if (!file.afterSha256 || digest !== file.afterSha256) {
+      throw new Error(`Proof gate source state changed after validation: ${path}.`);
+    }
+  }
+
+  return { ref: artifactIndexRef(entry), changedFiles: proofPaths };
+}
+
+function normalizeProofPath(value: string): string {
+  const path = value.replace(/\\/g, "/").replace(/^\.\//u, "");
+  if (!path || isAbsolute(path) || path === ".." || path.startsWith("../") || path.includes("/../")) {
+    throw new Error(`Invalid proof-gate source path: ${value}`);
+  }
+  return path;
+}
+
+function dedupeArtifactRefs(refs: ArtifactRef[]): ArtifactRef[] {
+  return [...new Map(refs.map((ref) => [`${ref.type}:${ref.id}`, ref])).values()]
+    .sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
 }
 
 async function buildCurrentTaskPact(
@@ -16517,6 +16891,51 @@ function parseRepeatableFlag(value: string | boolean | string[] | undefined): st
   return [];
 }
 
+function parseMcpArtifactRefList(value: unknown, field: string): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string" && entry.trim().length > 0)) {
+    throw new Error(`validate_change ${field} must be an array of artifact refs.`);
+  }
+  return value.map((entry) => entry.trim());
+}
+
+function parseChangeModelJudgments(value: unknown): ChangeModelJudgment[] {
+  if (value === undefined) return [];
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`Change proof judgment JSON is invalid: ${messageOf(error)}`);
+    }
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Change proof judgments must be a JSON array.");
+  }
+  return parsed.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`Change proof judgment ${index + 1} must be an object.`);
+    }
+    const candidate = entry as Record<string, unknown>;
+    const obligationId = typeof candidate.obligationId === "string" ? candidate.obligationId.trim() : "";
+    const explanation = typeof candidate.explanation === "string" ? candidate.explanation.trim() : "";
+    if (!obligationId) throw new Error(`Change proof judgment ${index + 1} requires obligationId.`);
+    if (candidate.verdict !== "supported" && candidate.verdict !== "refuted" && candidate.verdict !== "unresolved") {
+      throw new Error(`Change proof judgment ${index + 1} verdict must be supported, refuted, or unresolved.`);
+    }
+    if (!explanation) throw new Error(`Change proof judgment ${index + 1} requires explanation.`);
+    return {
+      obligationId,
+      verdict: candidate.verdict,
+      explanation,
+      verifier: {
+        id: "rekon-managed-agent",
+        version: "1.0.0",
+      },
+    };
+  });
+}
+
 const ISSUE_STATUS_FILTERS = new Set<string>([
   "active",
   "accepted",
@@ -17988,7 +18407,7 @@ function usage(): string {
     "rekon setup [--root <path>] [--json] [--no-banner]  (installs/updates the managed AGENTS.md bootstrap)",
     "rekon init [--root <path>]",
     "rekon agent-instructions sync|check|remove [--root <path>] [--json]",
-    "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--json]",
+    "rekon refresh [--root <path>] [--skip-publish] [--skip-freshness] [--changed-file <path>] [--proof-gate <ProofGateReport:id>] [--json]",
     "rekon paths freshness [--path <path>] [--root <path>] [--json]",
     "rekon config validate [--root <path>] [--json]",
     "rekon contracts bootstrap [--max-flows <n>] [--max-depth <n>] [--root <path>] [--json]",
@@ -18050,8 +18469,8 @@ function usage(): string {
     "    (classifies task risk and intent, chooses the smallest sufficient profile; --json includes agentContext and --model-context emits delivery only)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
-    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--root <path>] [--json]",
-    "    (returns post-edit blockers, semantic obligations, and required checks; writes and executes nothing)",
+    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
+    "    (returns post-edit edge proof and required checks; executes no checks and writes artifacts only with --prepare-verification or --record-proof)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",

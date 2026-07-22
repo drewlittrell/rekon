@@ -15,19 +15,27 @@ const calibrationPath = resolve(
   "tests/evals/model-interface-optional-route/role-aware-calibration.json",
 );
 
-test("optional-route calibration is bound to the fixture and both delivery policies", () => {
+test("optional-route calibration remains reproducible and is historical after interface changes", () => {
   const calibration = readCalibration();
   const full = dryRun("full");
   const roleAware = dryRun("role-aware");
+  const currentInstructionVersion = readFileSync(
+    resolve(repoRoot, "packages/cli/src/agent-instructions.ts"),
+    "utf8",
+  ).match(/AGENT_INSTRUCTIONS_VERSION = "([^"]+)"/u)?.[1];
 
+  assert.equal(calibration.status, "historical");
+  assert.notEqual(calibration.instructionVersion, currentInstructionVersion);
+  assert.match(calibration.revalidationReason, /proof-gated change workflow/iu);
   assert.equal(calibration.fixtureSha256, digest(readFileSync(fixturePath)));
   assert.equal(calibration.selectionSha256.full, digest(JSON.stringify(full.contextSelections)));
   assert.equal(
     calibration.selectionSha256.roleAware,
     digest(JSON.stringify(roleAware.contextSelections)),
   );
-  assert.deepEqual(calibration.deliveryDigests.full, full.contextDeliveryDigests);
-  assert.deepEqual(calibration.deliveryDigests.roleAware, roleAware.contextDeliveryDigests);
+  assert.notDeepEqual(calibration.deliveryDigests.roleAware, roleAware.contextDeliveryDigests);
+  assert.ok(calibration.deliveryDigests.full.every(({ sha256 }) => /^[a-f0-9]{64}$/u.test(sha256)));
+  assert.ok(calibration.deliveryDigests.roleAware.every(({ sha256 }) => /^[a-f0-9]{64}$/u.test(sha256)));
   assert.match(calibration.batchReportSha256.full, /^[a-f0-9]{64}$/u);
   assert.match(calibration.batchReportSha256.roleAware, /^[a-f0-9]{64}$/u);
 });
@@ -35,7 +43,7 @@ test("optional-route calibration is bound to the fixture and both delivery polic
 test("oracle-confirmed optional routes remain a negative role-aware result", () => {
   const calibration = readCalibration();
 
-  assert.equal(calibration.status, "experimental-not-promoted");
+  assert.equal(calibration.status, "historical");
   assert.equal(calibration.productionDefault, "full");
   assert.equal(calibration.task.oracleRequiredPaths, 2);
   assert.equal(calibration.task.oracleOptionalPaths.length, 2);

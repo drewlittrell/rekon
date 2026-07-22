@@ -27,17 +27,22 @@ authority boundaries.
 6. Check source refs, findings, work order, and verification plan before making
    changes.
 7. After editing, call `validate_change` with the original task, every changed
-   path, and the pre-edit Git base ref. Resolve blocking violations. Judge each
-   semantic obligation against its cited source and pact, then run the returned
-   checks before completion. If the failure remains unexplained, request
+   path, and the pre-edit Git base ref. Resolve blocking violations. Judge only
+   obligations that accept `model-judgment`. Materialize the returned checks
+   with the equivalent CLI call plus `--prepare-verification`, execute the
+   returned plan, and derive its `VerificationResult`. If the failure remains unexplained, request
    context again with `escalation: validation-failed`.
 8. If a check fails and names an exact unread path or symbol, use
    `resolve_source_target` with that target and the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green.
-9. After all selected checks pass, run one incremental `rekon refresh`,
-   repeating `--changed-file` for each changed source path. A failed refresh or
-   reported contract drift means the task is not complete.
+9. Call `validate_change` again with explicit verification refs, runtime
+   observations when available, and semantic judgments. Require
+   `proofGate.status: satisfied`.
+10. Record the gate with `rekon context validate-change ... --record-proof
+    --json`, then run `rekon refresh --proof-gate <ProofGateReport:id> --json`.
+    Digest drift, refresh failure, or contract drift means the task is not
+    complete.
 
 Returned pact constraints and required checks are acceptance criteria, not
 optional background. `boundaryPaths` are different: preserve them, but inspect
@@ -84,6 +89,8 @@ rekon scan --root <repo> --json
 rekon context task --root <repo> --task "<task>" --path <path> --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
 rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --json
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --verification-result <ref> --judgment-json '<json>' --record-proof --json
+rekon refresh --root <repo> --proof-gate <ProofGateReport:id> --json
 rekon contracts maintain --root <repo> --json
 rekon resolve preflight --root <repo> --path <path> --goal "<goal>" --json
 rekon artifacts validate --root <repo> --json

@@ -18,12 +18,15 @@ explainable resolution.
 4. Resolve task-specific questions from the current snapshot.
 5. Publish derived guidance without making it canonical truth.
 6. Prepare work and verification artifacts when a task needs execution.
-7. Validate the resulting diff against task scope and repository law.
-8. Record verification and reconciliation outcomes back into artifacts.
+7. Validate the resulting diff and prove each affected contract edge.
+8. Record the satisfied gate and refresh maintained knowledge.
 
-After selected checks pass, one changed-file refresh advances the maintained
-repository model. Existing adopted contracts are reconciled after projection;
-missing contracts remain an explicit bootstrap decision.
+Each gate names its accepted verifier methods. Deterministic checks and runtime
+observations bind directly to the edges they exercise; the acting model judges
+semantic obligations against cited source. Counterevidence blocks completion.
+One digest-bound, proof-gated refresh then advances the maintained repository
+model. Existing adopted contracts are reconciled after projection; missing
+contracts remain an explicit bootstrap decision.
 
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The
@@ -62,9 +65,9 @@ and provenance.
 - Automatic context refresh never writes repository source, executes project
   commands, or calls a model provider.
 - MCP and CLI consume the same context compiler and selection rules.
-- Post-edit validation uses the same TaskPact and graph contracts, reads Git and
-  current source through the CLI host, and neither writes an artifact nor runs
-  project checks.
+- Post-edit validation uses the same TaskPact and graph contracts. The first
+  pass names proof obligations; a final CLI pass can record a satisfied
+  `ProofGateReport`. Validation never runs project checks or writes source.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial
   packet. Absence remains unresolved rather than authorizing broad search.
@@ -83,4 +86,6 @@ The runtime enforces those declarations through the SDK and artifact store.
 Rekon separates recommendations, approvals, proof, and source changes. By
 default it writes artifacts, not source. Any capability that requests
 `write:source`, `execute:commands`, or outbound network access must declare
-that permission and be granted it explicitly.
+that permission and be granted it explicitly. A source-writing actuator may
+not report completion or refresh accepted knowledge until the resulting source
+state has a satisfied proof gate.

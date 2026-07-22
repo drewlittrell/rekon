@@ -24,6 +24,7 @@ import {
   type TaskContextVerificationHint,
   type TaskContextGraphNeighborhoodRef,
   type TaskContextGuidanceFreshness,
+  type TaskContextAdmissionDecision,
 } from "@rekon/kernel-repo-model";
 
 export const TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX = "task-context-report-";
@@ -388,7 +389,7 @@ function selectProactiveSymbolicRoutes(input: {
         [...taskTokens].filter((token) => !routeAnchorTokens.has(token)),
       );
       for (const claim of input.graphClaims) {
-        if (claim.id === selectedClaim.id || claim.source === "llm") continue;
+        if (claim.id === selectedClaim.id || claim.source === "llm" || claim.status === "rejected") continue;
         const relationship = symbolicContractRelationship(claim.predicate);
         if (!relationship) continue;
         const candidateSubject = filePathFromRef(claim.subject);
@@ -708,6 +709,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
   const neighborhoodNodeKeys = new Set<string>();
   const includedClaimIds = new Set<string>();
   const claimIds: string[] = [];
+  const rejectedClaimDecisions = new Map<string, TaskContextAdmissionDecision>();
   let counter = 0;
 
   const nodeExists = (ref: TaskContextGraphRefLike): boolean =>
@@ -918,6 +920,16 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
       const objectRef = objectToRef(claim.object);
       const objectMatch = objectRef?.kind === "file" && objectRef?.id === path;
       if (!subjectMatch && !objectMatch) return [];
+      if (claim.status === "rejected") {
+        rejectedClaimDecisions.set(claim.id, {
+          subjectKind: "graph-claim",
+          subjectId: claim.id,
+          verdict: "refuted",
+          reason: "The graph claim is explicitly rejected and cannot enter task context.",
+          evidenceRefs: [...(claim.evidenceRefs ?? []), claim.id],
+        });
+        return [];
+      }
       const relatedFileRef = subjectMatch && objectRef?.kind === "file"
         ? objectRef
         : objectMatch && claim.subject.kind === "file"
@@ -1106,6 +1118,14 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     graphNeighborhood: { nodes: neighborhoodNodes, claims: claimIds },
     doNotTouch,
     verificationHints,
+    admission: {
+      decisions: [...rejectedClaimDecisions.values()],
+      summary: {
+        supported: 0,
+        refuted: rejectedClaimDecisions.size,
+        unresolved: 0,
+      },
+    },
     summary: {
       contextItems: contextItems.length,
       graphNodes: neighborhoodNodes.length,

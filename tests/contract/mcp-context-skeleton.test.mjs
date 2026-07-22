@@ -371,6 +371,7 @@ test("protocol: initialize + tools/list expose the model context tools with sche
   ]);
   const validation = list.result.tools.find((tool) => tool.name === "validate_change");
   assert.deepEqual(validation.inputSchema.required, ["task", "changedPaths"]);
+  assert.deepEqual(validation.inputSchema.properties.judgments.items.required, ["obligationId", "verdict", "explanation"]);
 });
 
 test("protocol: unknown method fails with -32601, server keeps serving", async () => {
@@ -832,11 +833,14 @@ test("validate_change compares Git and current source without persisting or runn
 
     assert.equal(result.result.isError, false);
     assert.equal(validation.status.value, "needs-judgment");
+    assert.equal(validation.proofGate.status.value, "incomplete");
+    assert.ok(validation.proofGate.obligations.length > 0);
     assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
       /bootstrap\/runtime compatibility/u.test(entry.statement.value)));
     assert.ok(validation.requiredChecks.value.includes("npm run test:bootstrap"));
     assert.deepEqual(Object.keys(validation).sort(), [
       "blockingViolations",
+      "proofGate",
       "requiredChecks",
       "status",
       "unresolvedSemanticObligations",
@@ -862,6 +866,7 @@ test("validate_change compares Git and current source without persisting or runn
     assert.equal(cliValidation.status, "needs-judgment");
     assert.deepEqual(Object.keys(cliValidation).sort(), [
       "blockingViolations",
+      "proofGate",
       "requiredChecks",
       "status",
       "unresolvedSemanticObligations",
@@ -909,6 +914,7 @@ test("CLI validate-change does not initialize Rekon in an unscanned Git reposito
     assert.equal(decision.status, "needs-judgment");
     assert.deepEqual(Object.keys(decision).sort(), [
       "blockingViolations",
+      "proofGate",
       "requiredChecks",
       "status",
       "unresolvedSemanticObligations",
@@ -1097,6 +1103,34 @@ test("response ceilings exist and truncation is explicit", async () => {
       evidenceRefs: [],
       blockingIfViolated: true,
     })),
+    proofGate: {
+      obligations: Array.from({ length: 20 }, (_, index) => ({
+        id: `obligation-${index}`,
+        subject: { kind: "repository-law", id: `law-${index}`, paths: ["src/index.ts"] },
+        assertion: "s".repeat(4_000),
+        requiredEvidence: ["model-judgment"],
+        acceptancePolicy: "all-required",
+        required: true,
+        sourceRefs: [],
+      })),
+      results: [],
+      evaluation: {
+        status: "incomplete",
+        decisions: Array.from({ length: 20 }, (_, index) => ({
+          obligationId: `obligation-${index}`,
+          verdict: "unresolved",
+          resultCount: 0,
+          supportedMethods: [],
+          refutedMethods: [],
+          unresolvedMethods: [],
+          missingMethods: ["model-judgment"],
+          explanation: "Required proof is missing for: model-judgment.",
+        })),
+        orphanResultIds: [],
+        summary: { obligations: 20, required: 20, satisfied: 0, blocked: 0, unresolved: 20, notRequired: 0 },
+      },
+      warnings: [],
+    },
     requiredChecks: Array.from({ length: 20 }, (_, index) => `npm run check:${index} -- ${"c".repeat(2_000)}`),
     baseline: { files: [] },
     boundaries: { wroteArtifact: false, wroteSource: false, executedChecks: false, invokedModel: false },
@@ -1104,6 +1138,7 @@ test("response ceilings exist and truncation is explicit", async () => {
   assert.equal(oversizedValidation.truncated, true);
   assert.deepEqual(Object.keys(oversizedValidation.data.changeValidation).sort(), [
     "blockingViolations",
+    "proofGate",
     "requiredChecks",
     "status",
     "unresolvedSemanticObligations",

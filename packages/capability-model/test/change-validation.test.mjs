@@ -71,6 +71,7 @@ test("a direct, observed change with no semantic clauses passes", () => {
   assert.deepEqual(result.affectedSystems, ["app"]);
   assert.deepEqual(result.blockingViolations, []);
   assert.deepEqual(result.unresolvedSemanticObligations, []);
+  assert.equal(result.proofGate.evaluation.status, "satisfied");
   assert.deepEqual(result.boundaries, {
     wroteArtifact: false,
     wroteSource: false,
@@ -173,7 +174,265 @@ test("flow and baton clauses become agent-owned semantic obligations", () => {
     entry.statement === "Forward configuration unchanged."));
   assert.ok(result.unresolvedSemanticObligations.some((entry) =>
     entry.statement.includes("configuration")));
+  assert.equal(result.proofGate.evaluation.status, "incomplete");
+  assert.ok(result.proofGate.obligations.some((entry) =>
+    entry.subject.kind === "flow-handoff"
+    && entry.subject.id === "bootstrap-flow:entry-runtime"
+    && entry.assertion === "Forward configuration unchanged."));
+  assert.ok(result.proofGate.obligations.some((entry) =>
+    entry.assertion.includes("configuration")
+    && entry.requiredEvidence.includes("model-judgment")));
+  assert.ok(result.proofGate.obligations.some((entry) =>
+    entry.id === "handoff:bootstrap-flow:entry-runtime:edge"
+    && entry.acceptancePolicy === "any-supported"));
+  assert.ok(result.proofGate.obligations.some((entry) =>
+    entry.subject.kind === "verification-gate"
+    && entry.assertion === "Pass selected check: npm test"));
   assert.deepEqual(result.requiredChecks, ["npm test"]);
+});
+
+test("repository purpose and user outcomes gate completion", () => {
+  const taskPact = pact({
+    constraints: [
+      {
+        id: "app.purpose",
+        kind: "purpose",
+        statement: "Preserve system purpose: keep bootstrap configuration explicit.",
+        paths: ["src/**"],
+        contractRef: ref("SystemContract", "app"),
+        authority: "adopted",
+        confidence: 1,
+      },
+      {
+        id: "app.outcome.1",
+        kind: "outcome",
+        statement: "Preserve user outcome: the configured runtime starts.",
+        paths: ["src/**"],
+        contractRef: ref("SystemContract", "app"),
+        authority: "adopted",
+        confidence: 1,
+      },
+    ],
+  });
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact,
+    ownershipMap,
+    files: [{ path: "src/index.ts", status: "modified" }],
+  });
+
+  assert.equal(result.status, "needs-judgment");
+  assert.ok(result.unresolvedSemanticObligations.some((entry) => entry.id === "constraint:app.purpose"));
+  assert.ok(result.unresolvedSemanticObligations.some((entry) => entry.id === "constraint:app.outcome.1"));
+});
+
+test("selected command evidence gates completion independently from semantic judgment", () => {
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    systemContracts: [systemContract("app", ["src/index.ts"], ["npm run test:app"])],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "verification-result-app"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:app", status: "passed" }],
+    }],
+  });
+
+  assert.equal(result.status, "passed");
+  const gate = result.proofGate.obligations.find((entry) => entry.assertion === "Pass selected check: npm run test:app");
+  assert.ok(gate);
+  assert.ok(result.proofGate.results.some((entry) =>
+    entry.obligationId === gate.id && entry.method === "test" && entry.verdict === "supported"));
+});
+
+test("failed selected command evidence refutes its exact verification gate", () => {
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    systemContracts: [systemContract("app", ["src/index.ts"], ["npm run test:app"])],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "verification-result-app"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:app", status: "failed" }],
+    }],
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.ok(result.blockingViolations.some((entry) => entry.code === "proof.obligation-refuted"));
+});
+
+test("a later failed result from the same verifier cannot be hidden by a passed result", () => {
+  const evidence = (id, status) => ({
+    ref: ref("VerificationResult", id),
+    generatedAt: "2026-07-21T01:00:00.000Z",
+    freshness: "fresh",
+    provenance: "runner-derived",
+    verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+    commandResults: [{ command: "npm run test:app", status }],
+  });
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    systemContracts: [systemContract("app", ["src/index.ts"], ["npm run test:app"])],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [evidence("passed", "passed"), evidence("failed", "failed")],
+  });
+
+  assert.equal(result.proofGate.results.length, 2);
+  assert.equal(result.status, "blocked");
+});
+
+test("runtime observation can prove the declared handoff edge without proving its semantic clauses", () => {
+  const flow = {
+    header: header("FlowContract", "bootstrap-flow"),
+    contractId: "bootstrap-flow",
+    authority: "adopted",
+    confidence: 1,
+    source: {},
+    name: "Bootstrap flow",
+    criticality: "high",
+    purpose: "Start the runtime",
+    userOutcomes: ["The runtime starts"],
+    entryConditions: [],
+    completionConditions: ["Runtime ready"],
+    systems: ["app", "runtime"],
+    paths: ["src/**"],
+    invariants: [],
+    stages: [
+      { id: "entry", paths: ["src/index.ts"], evidenceRefs: [] },
+      { id: "runtime", paths: ["src/runtime.ts"], evidenceRefs: [] },
+    ],
+    handoffs: [{
+      id: "entry-runtime",
+      fromStageId: "entry",
+      toStageId: "runtime",
+      guarantees: ["Forward configuration unchanged."],
+      evidenceRefs: [],
+    }],
+    requiredChecks: [],
+  };
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    runtimeEvidence: [{
+      ref: ref("RuntimeGraphObservationReport", "runtime-observation"),
+      freshness: "fresh",
+      producer: { id: "@rekon/capability-model", version: "1.0.0" },
+      edges: [{ kind: "handoff", fromNodeId: "step:entry", toNodeId: "step:runtime", observedCount: 1 }],
+    }],
+  });
+
+  const edgeDecision = result.proofGate.evaluation.decisions.find((entry) =>
+    entry.obligationId === "handoff:bootstrap-flow:entry-runtime:edge");
+  assert.equal(edgeDecision?.verdict, "satisfied");
+  assert.ok(result.unresolvedSemanticObligations.some((entry) =>
+    entry.statement === "Forward configuration unchanged."));
+});
+
+test("supported edge proof clears its compatibility obligation", () => {
+  const flowRef = ref("FlowContract", "bootstrap-flow");
+  const taskPact = pact({
+    contracts: [{
+      contractType: "FlowContract",
+      contractId: "bootstrap-flow",
+      authority: "adopted",
+      confidence: 1,
+      freshness: "fresh",
+      ref: flowRef,
+    }],
+    constraints: [{
+      id: "bootstrap-flow.handoff.guarantee",
+      kind: "handoff",
+      statement: "Forward configuration unchanged.",
+      paths: ["src/**"],
+      contractRef: flowRef,
+      authority: "adopted",
+      confidence: 1,
+    }],
+  });
+  const proof = {
+    obligationId: "constraint:bootstrap-flow.handoff.guarantee",
+    method: "model-judgment",
+    verdict: "supported",
+    evidenceRefs: [ref("TaskPact", "task-pact-fixture")],
+    counterEvidenceRefs: [],
+    explanation: "The changed source forwards the same configuration object.",
+    verifier: { kind: "model", id: "rekon-agent-judge", version: "1.0.0" },
+  };
+
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact,
+    taskPactRef: ref("TaskPact", "task-pact-fixture"),
+    ownershipMap,
+    files: [{ path: "src/index.ts", status: "modified" }],
+    proofResults: [proof],
+  });
+
+  assert.equal(result.status, "passed");
+  assert.equal(result.proofGate.evaluation.status, "satisfied");
+  assert.deepEqual(result.unresolvedSemanticObligations, []);
+});
+
+test("refuted edge proof blocks change completion with counterevidence", () => {
+  const taskPact = pact({
+    constraints: [{
+      id: "flow.handoff.guarantee",
+      kind: "handoff",
+      statement: "Forward request identity unchanged.",
+      paths: ["src/**"],
+      contractRef: ref("FlowContract", "flow"),
+      authority: "adopted",
+      confidence: 1,
+    }],
+  });
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact,
+    ownershipMap,
+    files: [{ path: "src/index.ts", status: "modified" }],
+    proofResults: [{
+      obligationId: "constraint:flow.handoff.guarantee",
+      method: "model-judgment",
+      verdict: "refuted",
+      evidenceRefs: [],
+      counterEvidenceRefs: [ref("TaskPact", "task-pact-fixture")],
+      explanation: "The changed source drops requestId before the consumer call.",
+      verifier: { kind: "model", id: "rekon-agent-judge", version: "1.0.0" },
+    }],
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.proofGate.evaluation.status, "blocked");
+  assert.ok(result.blockingViolations.some((entry) => entry.code === "proof.obligation-refuted"));
 });
 
 test("capability dependency policy blocks a forbidden neighbor", () => {

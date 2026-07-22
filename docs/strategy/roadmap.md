@@ -55,13 +55,16 @@ verification recording, reconciliation planning, and artifact validation.
   post-compaction rehydration and work-order lineage.
 - Post-edit validation compares declared task paths with Git/current source,
   applies TaskPact scope, ownership, capability dependency policy, and complete
-  flow handoffs, and returns changed-scope checks without executing them.
-  Task-declared checks are retained; unavailable scoped contract bodies trigger
-  a conservative TaskPact fallback. Check failures reuse exact source-target
-  resolution rather than adding another model-facing tool.
-- After selected checks pass, managed agents run one changed-file refresh.
-  Existing adopted contracts reconcile against the new projection before the
-  current snapshot; first scans do not create implicit repository law.
+  flow handoffs, and returns typed proof obligations without executing checks.
+  Selected VerificationResults and runtime observations bind to the exact
+  checks and handoff edges they support. The acting model handles only declared
+  semantic judgments; repository purpose and user outcomes are completion
+  gates rather than advisory text.
+- A satisfied `ProofGateReport` binds those results to post-edit source digests.
+  Managed agents use it for one incremental refresh; later source changes make
+  the gate unusable. Existing adopted contracts reconcile against the new
+  projection before the current snapshot, while first scans create no implicit
+  repository law.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.
@@ -75,8 +78,8 @@ verification recording, reconciliation planning, and artifact validation.
   overhead.
 - An opt-in tiered-delivery probe preserved quality in four Sol/xhigh Rekon
   runs but reduced no actual source reads: all 16 conditional routes were still
-  inspected. The full policy remains the default, and the negative result is
-  digest-bound rather than promoted.
+  inspected. The full policy remains the default. The result is retained as
+  historical after the managed instruction interface changed.
 - Task-context routes now carry deterministic roles, necessity classes, and
   concrete reasons. The opt-in `role-aware` policy retained all 30 selected
   routes in its six-case source-free gate while reducing the initial mandatory
@@ -87,13 +90,15 @@ verification recording, reconciliation planning, and artifact validation.
   gate, but Sol read both conditional routes in every role-aware run.
   Exploration was unchanged; reported tokens rose 17.8% and the visible
   estimate rose 7.3%. Those routes are required by this task's oracle, so the
-  result validates conditional access but not optional-route skipping.
+  result validates conditional access but not optional-route skipping. The
+  retained model record is historical after the managed interface changed.
 - A follow-up additive-helper canary made two selected routes explicitly
   optional in the task oracle. Both policies passed 3/3 Sol/xhigh runs, but
   role-aware used all six optional-route opportunities while full left one
   caller unused. Exploration was unchanged; role-aware used 14.1% more reported
   tokens, 3.2% more visible-estimate tokens, and 6.7% more commands. Conditional
-  labels alone are therefore not a context-reduction mechanism.
+  labels alone are therefore not a context-reduction mechanism. The retained
+  model record is historical after the managed interface changed.
 - A pathless-summary follow-up removed both optional paths from delivery and
   replaced them with resolved relationship summaries. Two three-run Sol/xhigh
   variants again passed every quality and adoption gate, but both inspected all

@@ -104,10 +104,20 @@ contract-changing, and critical-flow work points to the existing `rekon intent
 work-order` command before editing. `--profile` requests a minimum budget; it
 does not suppress a required escalation.
 
-After a change passes its selected checks, run one `rekon refresh` with a
-repeatable `--changed-file` for each changed source path. The incremental run
-updates evidence and projections, reconciles any existing contract registry,
-then rebuilds governance, snapshot, and architecture publication artifacts.
+After a change satisfies its proof gate, record the result and pass it to one
+incremental refresh:
+
+```sh
+rekon context validate-change --task "<task>" --changed-path <path> \
+  --base-ref HEAD --verification-result <VerificationResult:id> \
+  --judgment-json '<judgments>' --record-proof --json
+rekon refresh --proof-gate <ProofGateReport:id> --json
+```
+
+The report binds verifier results to the post-edit source digests. Refresh
+refuses a stale or incomplete gate, updates evidence and projections,
+reconciles any existing contract registry, then rebuilds governance, snapshot,
+and architecture publication artifacts.
 
 CLI JSON reports the check as `artifactFreshness.status`: `current`,
 `refreshed`, or `unchecked` when `--no-auto-refresh` is set.
@@ -135,10 +145,17 @@ After editing, run `rekon context validate-change --task "<task>"
 --changed-path <path> --base-ref HEAD --json`. Repeat `--changed-path` for the
 complete task diff. The command reads Git and current source, reuses the
 matching TaskPact when available, and returns blocking violations, unresolved
-semantic obligations, and required checks. The check list preserves explicit
+semantic obligations, required checks, and a typed proof gate. The check list preserves explicit
 task checks and narrows contract checks to systems, flows, and capabilities
 touched by the observed diff; missing contract bodies trigger a conservative
-TaskPact fallback. The command writes no artifact and executes no check.
+TaskPact fallback. Add `--prepare-verification` to write a plan containing those
+exact commands; execute it with `rekon verify run`, then derive its
+`VerificationResult`. Pass repeatable `--verification-result` and
+`--runtime-observation` refs plus `--judgment-json` on the final call. Model
+judgment is accepted only for obligations that declare it. `--record-proof`
+writes a `ProofGateReport` only when every required obligation is satisfied;
+the command never executes a check or writes source. `--prepare-verification`
+and `--record-proof` are intentionally separate phases.
 
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.

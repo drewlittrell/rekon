@@ -1,12 +1,17 @@
-import type { ArtifactRef } from "@rekon/kernel-artifacts";
+import { digestJson, type ArtifactRef } from "@rekon/kernel-artifacts";
 import type {
   CapabilityContract,
   CapabilityEvidenceGraph,
   FlowContract,
   OwnershipMap,
+  ProofGateEvaluation,
+  ProofMethod,
+  ProofObligation,
+  ProofResult,
   SystemContract,
   TaskPact,
 } from "@rekon/kernel-repo-model";
+import { evaluateProofGate } from "@rekon/kernel-repo-model";
 
 export type ChangeFileStatus = "added" | "modified" | "deleted" | "unchanged" | "unavailable";
 
@@ -67,6 +72,48 @@ export type ChangeValidationSelectedCheck = {
   requirements: ChangeValidationCheckRequirement[];
 };
 
+export type ChangeVerificationEvidence = {
+  ref: ArtifactRef;
+  generatedAt: string;
+  freshness: "fresh" | "stale" | "unknown";
+  provenance: "runner-derived" | "recorded";
+  verifier: {
+    id: string;
+    version: string;
+  };
+  commandResults: Array<{
+    command: string;
+    status: "passed" | "failed" | "skipped" | "not-run";
+    completedAt?: string;
+  }>;
+};
+
+export type ChangeRuntimeEvidence = {
+  ref: ArtifactRef;
+  freshness: "fresh" | "stale" | "unknown";
+  producer: {
+    id: string;
+    version: string;
+  };
+  edges: Array<{
+    kind: string;
+    fromNodeId: string;
+    toNodeId: string;
+    observedCount: number;
+  }>;
+};
+
+export type ChangeModelJudgment = {
+  obligationId: string;
+  verdict: "supported" | "refuted" | "unresolved";
+  explanation: string;
+  evidenceRefs?: ArtifactRef[];
+  verifier?: {
+    id: string;
+    version: string;
+  };
+};
+
 export type ChangeValidationResult = {
   schemaVersion: "1.0.0";
   task: string;
@@ -77,6 +124,12 @@ export type ChangeValidationResult = {
   affectedFlows: string[];
   blockingViolations: ChangeValidationViolation[];
   unresolvedSemanticObligations: ChangeValidationObligation[];
+  proofGate: {
+    obligations: ProofObligation[];
+    results: ProofResult[];
+    evaluation: ProofGateEvaluation;
+    warnings: string[];
+  };
   requiredChecks: string[];
   checkSelection: {
     strategy: "changed-scope";
@@ -101,6 +154,7 @@ export type ValidateChangeInput = {
   baseRef: string;
   taskPact?: TaskPact;
   taskPactRef?: ArtifactRef;
+  taskContextRef?: ArtifactRef;
   ownershipMap?: OwnershipMap;
   systemContracts?: SystemContract[];
   flowContracts?: FlowContract[];
@@ -109,6 +163,10 @@ export type ValidateChangeInput = {
   taskChecks?: ChangeValidationTaskCheck[];
   files?: ChangeFileEvidence[];
   dependencyChanges?: ChangeDependencyDelta[];
+  verificationEvidence?: ChangeVerificationEvidence[];
+  runtimeEvidence?: ChangeRuntimeEvidence[];
+  modelJudgments?: ChangeModelJudgment[];
+  proofResults?: ProofResult[];
 };
 
 /**
@@ -281,21 +339,63 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
   const requiredChecks = checkSelection.checks.map((check) => check.command);
   const dedupedViolations = dedupe(violations, (entry) => `${entry.code}\0${entry.paths.join("\0")}\0${entry.message}`);
   const dedupedObligations = dedupe(obligations, (entry) => entry.id);
+  const proofObligations = dedupe([
+    ...dedupedObligations.map((obligation) => toProofObligation(obligation, input)),
+    ...checkSelection.checks.map((check) => toCheckProofObligation(check, input)),
+  ], (obligation) => obligation.id);
+  const boundProof = bindProofEvidence({ input, obligations: proofObligations, checks: checkSelection.checks });
+  const proofResults = dedupe([
+    ...(input.proofResults ?? []),
+    ...boundProof.results,
+  ], proofResultKey);
+  const proofEvaluation = evaluateProofGate(proofObligations, proofResults);
+  const unresolvedIds = new Set(proofEvaluation.decisions
+    .filter((decision) => decision.verdict === "unresolved")
+    .map((decision) => decision.obligationId));
+  const proofViolations = proofEvaluation.decisions
+    .filter((decision) => decision.verdict === "blocked")
+    .map((decision): ChangeValidationViolation => {
+      const obligation = dedupedObligations.find((candidate) => candidate.id === decision.obligationId);
+      return {
+        code: "proof.obligation-refuted",
+        message: `Required proof was refuted: ${obligation?.statement ?? decision.obligationId}`,
+        paths: obligation?.paths ?? [],
+        evidenceRefs: obligation?.evidenceRefs ?? [],
+        details: { obligationId: decision.obligationId, refutedMethods: decision.refutedMethods },
+      };
+    });
+  const unboundProofViolations = proofEvaluation.orphanResultIds.map((obligationId): ChangeValidationViolation => ({
+    code: "proof.result-unbound",
+    message: `Proof result does not match a current change obligation: ${obligationId}`,
+    paths: normalizedPaths,
+    evidenceRefs: [],
+    details: { obligationId },
+  }));
+  const blockingViolations = dedupe(
+    [...dedupedViolations, ...proofViolations, ...unboundProofViolations],
+    (entry) => `${entry.code}\0${entry.paths.join("\0")}\0${entry.message}`,
+  );
 
   return {
     schemaVersion: "1.0.0",
     task: input.task,
     changedPaths: normalizedPaths,
     baseRef: input.baseRef,
-    status: dedupedViolations.length > 0
+    status: blockingViolations.length > 0
       ? "blocked"
-      : dedupedObligations.length > 0
+      : proofEvaluation.status === "incomplete"
         ? "needs-judgment"
         : "passed",
     affectedSystems,
     affectedFlows: affectedFlowContracts.map((flow) => flow.contractId).sort(),
-    blockingViolations: dedupedViolations,
-    unresolvedSemanticObligations: dedupedObligations,
+    blockingViolations,
+    unresolvedSemanticObligations: dedupedObligations.filter((obligation) => unresolvedIds.has(obligation.id)),
+    proofGate: {
+      obligations: proofObligations,
+      results: proofResults,
+      evaluation: proofEvaluation,
+      warnings: boundProof.warnings,
+    },
     requiredChecks,
     checkSelection,
     baseline: {
@@ -309,6 +409,348 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
       invokedModel: false,
     },
   };
+}
+
+function toProofObligation(
+  obligation: ChangeValidationObligation,
+  input: ValidateChangeInput,
+): ProofObligation {
+  const subject = proofSubject(obligation, input);
+  const sourceRefs = proofSourceRefs(obligation, input);
+  const requiredEvidence = proofMethods(obligation);
+  return {
+    id: obligation.id,
+    subject: {
+      kind: obligation.kind === "handoff"
+        ? "flow-handoff"
+        : obligation.kind === "repository-law"
+          ? "repository-law"
+          : "verification-gate",
+      id: subject.id,
+      ...(subject.ref ? { ref: subject.ref } : {}),
+      ...(obligation.paths.length > 0 ? { paths: [...obligation.paths] } : {}),
+    },
+    assertion: obligation.statement,
+    requiredEvidence,
+    acceptancePolicy: /:edge$/u.test(obligation.id) ? "any-supported" : "all-required",
+    required: obligation.blockingIfViolated,
+    sourceRefs,
+  };
+}
+
+function toCheckProofObligation(
+  check: ChangeValidationSelectedCheck,
+  input: ValidateChangeInput,
+): ProofObligation {
+  const paths = unique(check.requirements.flatMap((requirement) => requirement.paths));
+  return {
+    id: checkProofObligationId(check.command),
+    subject: {
+      kind: "verification-gate",
+      id: check.command,
+      ...(paths.length > 0 ? { paths } : {}),
+    },
+    assertion: `Pass selected check: ${check.command}`,
+    requiredEvidence: ["test"],
+    acceptancePolicy: "all-required",
+    required: true,
+    sourceRefs: proofSourceRefsForCheck(check, input),
+  };
+}
+
+function proofSubject(
+  obligation: ChangeValidationObligation,
+  input: ValidateChangeInput,
+): { id: string; ref?: ArtifactRef } {
+  const handoffMatch = /^handoff:([^:]+):([^:]+):/u.exec(obligation.id);
+  if (handoffMatch) {
+    const flow = input.flowContracts?.find((candidate) => candidate.contractId === handoffMatch[1]);
+    return {
+      id: `${handoffMatch[1]}:${handoffMatch[2]}`,
+      ...(flow ? { ref: artifactRef(flow.header) } : {}),
+    };
+  }
+  return {
+    id: obligation.id,
+    ...(input.taskPactRef && obligation.kind === "repository-law" ? { ref: input.taskPactRef } : {}),
+  };
+}
+
+function proofSourceRefs(obligation: ChangeValidationObligation, input: ValidateChangeInput): ArtifactRef[] {
+  const refs: ArtifactRef[] = [];
+  if (input.taskPactRef && (obligation.kind === "repository-law" || obligation.kind === "handoff")) {
+    refs.push(input.taskPactRef);
+  }
+  const handoffMatch = /^handoff:([^:]+):/u.exec(obligation.id);
+  if (handoffMatch) {
+    const flow = input.flowContracts?.find((candidate) => candidate.contractId === handoffMatch[1]);
+    if (flow) refs.push(artifactRef(flow.header));
+  }
+  if (obligation.kind === "ownership" && input.ownershipMap) refs.push(artifactRef(input.ownershipMap.header));
+  if (obligation.kind === "dependency" && input.capabilityContract) refs.push(artifactRef(input.capabilityContract.header));
+  if (obligation.kind === "repository-law") refs.push(...(input.taskPact?.contracts.map((contract) => contract.ref) ?? []));
+  return dedupe(refs, (ref) => `${ref.type}:${ref.id}`)
+    .sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
+}
+
+function proofMethods(obligation: ChangeValidationObligation): ProofMethod[] {
+  if (/:edge$/u.test(obligation.id)) return ["test", "runtime", "model-judgment"];
+  if (obligation.kind === "baseline" || obligation.kind === "ownership") {
+    return ["static"];
+  }
+  return ["model-judgment"];
+}
+
+function checkProofObligationId(command: string): string {
+  return `check:${digestJson(command).slice(0, 16)}`;
+}
+
+function proofSourceRefsForCheck(
+  check: ChangeValidationSelectedCheck,
+  input: ValidateChangeInput,
+): ArtifactRef[] {
+  const known = knownProofRefs(input);
+  const requested = new Set(check.requirements.flatMap((requirement) => requirement.evidenceRefs));
+  for (const requirement of check.requirements) {
+    if (requirement.sourceType === "flow-contract") requested.add(`FlowContract:${requirement.sourceId}`);
+    if (requirement.sourceType === "system-contract") requested.add(`SystemContract:${requirement.sourceId}`);
+    if (requirement.sourceType === "capability-contract" && input.capabilityContract) {
+      requested.add(`CapabilityContract:${input.capabilityContract.header.artifactId}`);
+    }
+    if (requirement.sourceType === "task-context" && input.taskContextRef) {
+      requested.add(`${input.taskContextRef.type}:${input.taskContextRef.id}`);
+    }
+    if (requirement.sourceType === "task-pact-fallback" && input.taskPactRef) {
+      requested.add(`${input.taskPactRef.type}:${input.taskPactRef.id}`);
+    }
+  }
+  return known.filter((ref) => requested.has(`${ref.type}:${ref.id}`));
+}
+
+function knownProofRefs(input: ValidateChangeInput): ArtifactRef[] {
+  const refs = [
+    input.taskPactRef,
+    input.taskContextRef,
+    input.ownershipMap ? artifactRef(input.ownershipMap.header) : undefined,
+    input.capabilityContract ? artifactRef(input.capabilityContract.header) : undefined,
+    input.capabilityGraph ? artifactRef(input.capabilityGraph.header) : undefined,
+    ...(input.systemContracts ?? []).map((contract) => artifactRef(contract.header)),
+    ...(input.flowContracts ?? []).map((contract) => artifactRef(contract.header)),
+  ].filter((ref): ref is ArtifactRef => Boolean(ref));
+  return dedupe(refs, (ref) => `${ref.type}:${ref.id}`);
+}
+
+function bindProofEvidence(input: {
+  input: ValidateChangeInput;
+  obligations: ProofObligation[];
+  checks: ChangeValidationSelectedCheck[];
+}): { results: ProofResult[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const results = [
+    ...bindVerificationEvidence(input, warnings),
+    ...bindRuntimeEvidence(input, warnings),
+    ...bindModelJudgments(input, warnings),
+  ];
+  return {
+    results: dedupe(results, proofResultKey),
+    warnings: unique(warnings).sort(),
+  };
+}
+
+function bindVerificationEvidence(
+  input: {
+    input: ValidateChangeInput;
+    obligations: ProofObligation[];
+    checks: ChangeValidationSelectedCheck[];
+  },
+  warnings: string[],
+): ProofResult[] {
+  const results: ProofResult[] = [];
+  const checksByCommand = new Map(input.checks.map((check) => [normalizeCommand(check.command), check]));
+  const obligationsById = new Map(input.obligations.map((obligation) => [obligation.id, obligation]));
+
+  for (const evidence of input.input.verificationEvidence ?? []) {
+    if (evidence.freshness !== "fresh") {
+      warnings.push(`verification-evidence-${evidence.freshness}: ${evidence.ref.type}:${evidence.ref.id}`);
+    }
+    for (const commandResult of evidence.commandResults) {
+      const check = checksByCommand.get(normalizeCommand(commandResult.command));
+      if (!check) {
+        warnings.push(`verification-command-unselected: ${commandResult.command}`);
+        continue;
+      }
+      const verdict = evidence.freshness === "fresh"
+        ? proofVerdictForCommand(commandResult.status)
+        : "unresolved";
+      const checkObligation = obligationsById.get(checkProofObligationId(check.command));
+      if (checkObligation) {
+        results.push(verificationProofResult(checkObligation.id, verdict, evidence, commandResult.command));
+      }
+
+      const flowIds = unique(check.requirements
+        .filter((requirement) => requirement.sourceType === "flow-contract")
+        .map((requirement) => requirement.sourceId));
+      for (const flowId of flowIds) {
+        for (const obligation of input.obligations.filter((candidate) =>
+          candidate.subject.kind === "flow-handoff"
+          && candidate.id.startsWith(`handoff:${flowId}:`)
+          && candidate.id.endsWith(":edge"))) {
+          results.push(verificationProofResult(obligation.id, verdict, evidence, commandResult.command));
+        }
+      }
+    }
+  }
+  return results;
+}
+
+function verificationProofResult(
+  obligationId: string,
+  verdict: ProofResult["verdict"],
+  evidence: ChangeVerificationEvidence,
+  command: string,
+): ProofResult {
+  const explanation = evidence.freshness === "fresh"
+    ? `${evidence.provenance} verification recorded ${verdict} for ${command}.`
+    : `${evidence.provenance} verification was ${evidence.freshness} for the current source state.`;
+  return {
+    obligationId,
+    method: "test",
+    verdict,
+    evidenceRefs: verdict === "supported" ? [evidence.ref] : [],
+    counterEvidenceRefs: verdict === "refuted" ? [evidence.ref] : [],
+    explanation,
+    verifier: {
+      kind: "test",
+      id: evidence.verifier.id,
+      version: evidence.verifier.version,
+    },
+  };
+}
+
+function bindRuntimeEvidence(
+  input: {
+    input: ValidateChangeInput;
+    obligations: ProofObligation[];
+    checks: ChangeValidationSelectedCheck[];
+  },
+  warnings: string[],
+): ProofResult[] {
+  const results: ProofResult[] = [];
+  for (const evidence of input.input.runtimeEvidence ?? []) {
+    if (evidence.freshness !== "fresh") {
+      warnings.push(`runtime-evidence-${evidence.freshness}: ${evidence.ref.type}:${evidence.ref.id}`);
+    }
+    for (const obligation of input.obligations) {
+      const match = /^handoff:([^:]+):([^:]+):edge$/u.exec(obligation.id);
+      if (!match) continue;
+      const flow = input.input.flowContracts?.find((candidate) => candidate.contractId === match[1]);
+      const handoff = flow?.handoffs.find((candidate) => candidate.id === match[2]);
+      if (!handoff) continue;
+      const observed = evidence.edges.some((edge) =>
+        edge.kind === "handoff"
+        && edge.observedCount > 0
+        && edge.fromNodeId === runtimeStepId(handoff.fromStageId)
+        && edge.toNodeId === runtimeStepId(handoff.toStageId));
+      if (!observed) continue;
+      const verdict: ProofResult["verdict"] = evidence.freshness === "fresh" ? "supported" : "unresolved";
+      results.push({
+        obligationId: obligation.id,
+        method: "runtime",
+        verdict,
+        evidenceRefs: verdict === "supported" ? [evidence.ref] : [],
+        counterEvidenceRefs: [],
+        explanation: verdict === "supported"
+          ? `Runtime evidence observed ${handoff.fromStageId} -> ${handoff.toStageId}.`
+          : "The matching runtime observation is not fresh for the current source state.",
+        verifier: {
+          kind: "runtime",
+          id: evidence.producer.id,
+          version: evidence.producer.version,
+        },
+      });
+    }
+  }
+  return results;
+}
+
+function bindModelJudgments(
+  input: {
+    input: ValidateChangeInput;
+    obligations: ProofObligation[];
+    checks: ChangeValidationSelectedCheck[];
+  },
+  warnings: string[],
+): ProofResult[] {
+  const obligations = new Map(input.obligations.map((obligation) => [obligation.id, obligation]));
+  const results: ProofResult[] = [];
+  for (const judgment of input.input.modelJudgments ?? []) {
+    const obligation = obligations.get(judgment.obligationId);
+    if (!obligation) {
+      warnings.push(`model-judgment-unbound: ${judgment.obligationId}`);
+      results.push({
+        obligationId: judgment.obligationId,
+        method: "model-judgment",
+        verdict: judgment.verdict,
+        evidenceRefs: [],
+        counterEvidenceRefs: [],
+        explanation: judgment.explanation,
+        verifier: { kind: "model", id: judgment.verifier?.id ?? "rekon-managed-agent", version: judgment.verifier?.version ?? "1.0.0" },
+      });
+      continue;
+    }
+    if (!obligation.requiredEvidence.includes("model-judgment")) {
+      warnings.push(`model-judgment-not-accepted: ${judgment.obligationId}`);
+      continue;
+    }
+    const refs = dedupe([...(judgment.evidenceRefs ?? []), ...obligation.sourceRefs], (ref) => `${ref.type}:${ref.id}`);
+    results.push({
+      obligationId: judgment.obligationId,
+      method: "model-judgment",
+      verdict: judgment.verdict,
+      evidenceRefs: judgment.verdict === "supported" ? refs : [],
+      counterEvidenceRefs: judgment.verdict === "refuted" ? refs : [],
+      explanation: judgment.explanation,
+      verifier: {
+        kind: "model",
+        id: judgment.verifier?.id ?? "rekon-managed-agent",
+        version: judgment.verifier?.version ?? "1.0.0",
+      },
+    });
+  }
+  return results;
+}
+
+function proofVerdictForCommand(status: ChangeVerificationEvidence["commandResults"][number]["status"]): ProofResult["verdict"] {
+  if (status === "passed") return "supported";
+  if (status === "failed") return "refuted";
+  return "unresolved";
+}
+
+function normalizeCommand(command: string): string {
+  return command.trim().replace(/\s+/gu, " ");
+}
+
+function runtimeStepId(value: string): string {
+  const slug = value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "x";
+  return `step:${slug}`;
+}
+
+function artifactRef(header: { artifactType: string; artifactId: string; schemaVersion: string }): ArtifactRef {
+  return { type: header.artifactType, id: header.artifactId, schemaVersion: header.schemaVersion };
+}
+
+function proofResultKey(result: ProofResult): string {
+  return [
+    result.obligationId,
+    result.method,
+    result.verifier.kind,
+    result.verifier.id,
+    result.verifier.version,
+    result.verdict,
+    result.evidenceRefs.map((ref) => `${ref.type}:${ref.id}:${ref.schemaVersion}`).sort().join("|"),
+    result.counterEvidenceRefs.map((ref) => `${ref.type}:${ref.id}:${ref.schemaVersion}`).sort().join("|"),
+    result.explanation,
+  ].join("\0");
 }
 
 function selectRequiredChecks(input: {
@@ -434,7 +876,7 @@ function addTaskPactObligations(
       reason: `The changed path intersects a ${constraint.kind} clause in the matched TaskPact.`,
       paths,
       evidenceRefs: [...pactEvidence, `${constraint.contractRef.type}:${constraint.contractRef.id}`],
-      blockingIfViolated: constraint.kind === "prohibition" || constraint.kind === "invariant" || constraint.kind === "handoff",
+      blockingIfViolated: true,
     });
   }
   for (const obligation of pact.impactObligations) {
@@ -469,6 +911,15 @@ function addFlowObligations(
     ];
     const paths = changedPaths.filter((path) => handoffScopes.some((scope) => pathMatchesScope(path, scope)));
     if (paths.length === 0) continue;
+    addObligation(output, {
+      id: `handoff:${flow.contractId}:${handoff.id}:edge`,
+      kind: "handoff",
+      statement: `Preserve the ${handoff.fromStageId} -> ${handoff.toStageId} handoff as a working dependency edge.`,
+      reason: "The edit intersects one or both ends of a declared flow handoff.",
+      paths,
+      evidenceRefs,
+      blockingIfViolated: true,
+    });
     for (const [index, guarantee] of (handoff.guarantees ?? []).entries()) {
       addObligation(output, {
         id: `handoff:${flow.contractId}:${handoff.id}:guarantee:${index + 1}`,

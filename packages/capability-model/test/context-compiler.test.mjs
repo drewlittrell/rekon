@@ -83,9 +83,54 @@ test("operator and deterministic context retain distinct trust classes", () => {
 
   assert.ok(packet.coreContext.some((item) => item.source === "operator_input" && item.trust === "operator"));
   assert.ok(packet.coreContext.some((item) => item.source === "deterministic_graph" && item.trust === "deterministic"));
+  assert.ok(packet.coreContext.every((item) => item.admission === "supported"));
   assert.ok(packet.coreContext.some((item) => item.ref === "src/runtime.ts" && item.path === "src/runtime.ts"));
   assert.ok(packet.contextTrace.some((entry) => entry.ref === "src/runtime.ts" && entry.decision === "included"));
   assert.ok(packet.doNotTouch.every((zone) => zone.trust === "operator" && zone.enforced === false));
+});
+
+test("context admission excludes rejected claims and labels inferred context unresolved", () => {
+  const { packet, report } = compileTaskContext({
+    taskText: "Change src/index.ts.",
+    paths: ["src/index.ts"],
+    graph: {
+      nodes: [
+        { kind: "file", id: "src/index.ts" },
+        { kind: "file", id: "src/rejected.ts" },
+        { kind: "file", id: "src/inferred.ts" },
+      ],
+      claims: [
+        {
+          id: "claim-rejected",
+          subject: { kind: "file", id: "src/index.ts" },
+          predicate: "imports",
+          object: { kind: "file", id: "src/rejected.ts" },
+          source: "ast",
+          status: "rejected",
+          evidenceRefs: ["EvidenceGraph:rejected"],
+        },
+        {
+          id: "claim-inferred",
+          subject: { kind: "file", id: "src/index.ts" },
+          predicate: "may-use",
+          object: { kind: "file", id: "src/inferred.ts" },
+          source: "llm",
+          status: "accepted",
+          evidenceRefs: ["SemanticFileUnderstandingReport:inferred"],
+        },
+      ],
+    },
+    generatedAt: "2026-07-21T00:00:00.000Z",
+  });
+
+  assert.ok(!packet.coreContext.some((item) => item.ref === "src/rejected.ts"));
+  assert.ok(!packet.supportingContext.some((item) => item.ref === "src/rejected.ts"));
+  assert.equal(packet.refutedContext[0]?.subjectId, "claim-rejected");
+  assert.ok(report.admission?.decisions.some((decision) =>
+    decision.subjectId === "claim-rejected" && decision.verdict === "refuted"));
+  assert.ok(packet.supportingContext.some((item) =>
+    item.ref === "src/inferred.ts" && item.admission === "unresolved"));
+  assert.match(projectModelContext(packet).instruction, /unresolved context as a lead/iu);
 });
 
 test("packet selection keeps declared routes ahead of duplicate graph routes", () => {

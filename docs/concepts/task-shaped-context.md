@@ -34,6 +34,12 @@ The packet separates core from supporting context and records trust, freshness,
 estimated tokens, truncation, and a bounded `contextTrace`. The report is
 context, not approval or proof.
 
+Context admission is explicit. Operator and deterministic routes are
+`supported`; semantic and retrieval routes remain `unresolved` leads. Rejected
+graph claims are excluded and retained only in the audit packet's
+`refutedContext`. A model-facing packet must not turn an unresolved route into a
+repository fact.
+
 The audit report may retain several evidence routes to the same file. Packet
 selection collapses those routes by context identity and keeps operator or
 declared-law routing first, so duplicate graph claims cannot consume the budget
@@ -117,25 +123,29 @@ and post-edit `validate_change`. Orientation, placement, and preflight remain op
 workflows because advertising them to every coding run invites context calls
 that duplicate the task packet.
 
-`validate_change` closes the task loop without creating another reporting
-artifact. The CLI host compares each declared changed path with a read-only Git
-baseline, extracts deterministic dependency deltas, and loads the matching
-TaskPact, ownership, capability policy, and flow contracts. Mechanical scope or
-dependency violations block. Prose invariants, prohibited-change clauses, and
-baton guarantees remain explicit semantic obligations for the acting agent to
-judge against cited source. The call returns required checks but never runs
-them. Check selection preserves task-declared commands and uses only the
-system, flow, and capability contracts touched by the observed diff. When
-scoped contract bodies are unavailable, it retains the complete TaskPact check
-set rather than guessing. A failed check may use the existing exact
-source-target resolver for a path or symbol named by the failure; failure alone
-does not authorize broad search.
+`validate_change` closes the task loop. The CLI host compares each changed path
+with a read-only Git baseline and loads the matching TaskPact, ownership,
+capability policy, and flow contracts. Mechanical scope and dependency
+violations block immediately. Repository purpose, user outcomes, invariants,
+prohibitions, and handoff semantics become typed proof obligations for the
+acting model to judge against cited source.
 
-Once those selected checks pass, the managed workflow runs one incremental
-refresh for all changed source paths. That updates lower-layer evidence and
-models, reruns governance, and reconciles an existing repository-contract
-registry before the new snapshot and architecture publication are written.
-Refresh does not create repository law when no registry exists.
+Checks are separate verifier obligations. A declared handoff edge can be
+supported by its selected check, a matching runtime observation, or model
+judgment when that method is allowed. A failed verifier blocks the edge even if
+another verifier supports it. Missing, skipped, stale, and unrelated evidence
+remain unresolved rather than disappearing from the graph.
+
+The first call identifies required proof. The final call supplies explicit
+`VerificationResult` and runtime-observation refs plus model judgments. A
+satisfied result can be recorded as a `ProofGateReport`, bound to the post-edit
+source digests. `rekon refresh --proof-gate <ref>` rejects reused proof after
+another edit, then updates lower-layer evidence and models, reruns governance,
+and reconciles adopted contracts. Refresh does not create repository law when
+no registry exists.
+
+A failed check may use the existing exact source-target resolver for a path or
+symbol named by the failure. Failure alone does not authorize broad search.
 
 The call is also the rehydration boundary. Managed instructions require a fresh
 task-context request after context compaction or restart and whenever the goal

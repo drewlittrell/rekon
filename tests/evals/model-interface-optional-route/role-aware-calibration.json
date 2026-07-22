@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "recordedAt": "2026-07-21T00:03:07Z",
-  "status": "experimental-not-promoted",
+  "status": "historical",
   "runner": {
     "id": "codex-subscription",
     "version": "codex-cli 0.144.1",
@@ -12,6 +12,7 @@
   "comparedPolicies": ["full", "role-aware"],
   "productionDefault": "full",
   "instructionVersion": "1.8.0",
+  "revalidationReason": "Managed instructions 2.0.0 added the proof-gated change workflow, so these retained model outcomes no longer describe the current delivery payload.",
   "fixtureSha256": "aecba962c3498ba6ffae5dbc35a33e4b879533ab266544093e403793717f6e9f",
   "selectionSha256": {
     "full": "bab23c20704cf8e743cf05cf2fd2e3c4024586572e0d92ba3f146470459050fd",

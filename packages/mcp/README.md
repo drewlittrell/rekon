@@ -25,9 +25,10 @@ can update local Rekon artifacts.
   type, or call named by inspected source, using a `dependency`, `dependent`,
   `test`, `contract`, `consumer`, `producer`, or `implementation` relationship.
 - `validate_change`: post-edit comparison against Git, task-scoped repository
-  law, ownership, dependency policy, and flow handoffs. It returns only
-  blocking violations, unresolved semantic obligations, and required checks;
-  it does not execute checks or persist a report.
+  law, ownership, dependency policy, and flow handoffs. It returns blocking
+  violations, required checks, and a proof gate that names the evidence needed
+  for each affected contract edge. It does not execute checks or persist a
+  report.
 
 The server still accepts the earlier `orientation`, `where_does_this_belong`,
 `preflight_change`, and `refine_task_context` names for compatibility. They are
@@ -66,9 +67,10 @@ When the MCP tools are available to an agent:
 5. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
 6. After editing, call `validate_change` with the original task, every changed
-   path, and the pre-edit base ref. Resolve deterministic violations, judge the
-   cited semantic obligations yourself, and run the returned checks before
-   declaring completion.
+   path, and the pre-edit base ref. Resolve deterministic violations, judge only
+   obligations that accept `model-judgment`. Run the equivalent CLI call with
+   `--prepare-verification`, execute its returned plan, and derive the
+   `VerificationResult`.
    If a failure remains unexplained, call `context_for_task` again with
    `escalation: validation-failed`; this raises context depth without changing
    the task's intent classification.
@@ -76,9 +78,14 @@ When the MCP tools are available to an agent:
    that target through `resolve_source_target` with the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green; do not broaden repository search merely because a check failed.
-8. After every selected check passes, run one incremental `rekon refresh`,
-   repeating `--changed-file` for each changed source path. Treat a failed step
-   or reported contract drift as incomplete work.
+8. Record each check as a `VerificationResult`, then call `validate_change`
+   again with those refs, applicable runtime observations, and your semantic
+   judgments. Completion requires `proofGate.status: satisfied`; failed,
+   skipped, stale, or unbound evidence is not proof.
+9. Record the satisfied gate with `rekon context validate-change ...
+   --record-proof --json`, then run `rekon refresh --proof-gate
+   <ProofGateReport:id> --json`. The refresh is refused if source bytes changed
+   after validation. A failed refresh or contract drift remains incomplete.
 
 If MCP is unavailable, use `rekon context task --model-context`, `rekon context
 validate-change`, and `rekon artifacts freshness`. The task command performs the same

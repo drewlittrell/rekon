@@ -33,5 +33,6 @@ Common references:
 - [AssessmentReport](assessment-report.md)
 - [AssessmentJudgmentReport](assessment-judgment-report.md)
 - [ResolverPacket](resolver-packet.md)
+- [ProofGateReport](proof-gate-report.md)
 - [Memory artifacts](memory-artifacts.md)
 - [ReconciliationLog](reconciliation-log.md)

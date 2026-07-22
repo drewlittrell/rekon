@@ -2,6 +2,7 @@ import type {
   TaskContextItem,
   TaskContextReport,
   TaskContextReportBoundaries,
+  TaskContextAdmissionDecision,
   TaskContextRouteNecessity,
   TaskContextRouteRole,
 } from "@rekon/kernel-repo-model";
@@ -43,6 +44,7 @@ export type ContextPacketItem = {
   score?: number;
   scoreBand?: TaskContextItem["scoreBand"];
   evidenceRefs: string[];
+  admission: "supported" | "unresolved";
   routeRole?: TaskContextRouteRole;
   necessity?: TaskContextRouteNecessity;
   necessityReason?: string;
@@ -55,6 +57,7 @@ export type ContextTraceEntry = {
   tier: "core" | "supporting";
   reason: string;
   estimatedTokens: number;
+  admission: "supported" | "refuted" | "unresolved";
 };
 
 export type ContextSourceSpan = {
@@ -103,6 +106,7 @@ export type CompiledContextPacket = {
   repositoryExemplar?: ContextRepositoryExemplar;
   boundaries: TaskContextReportBoundaries;
   contextTrace: ContextTraceEntry[];
+  refutedContext: TaskContextAdmissionDecision[];
   estimatedTokens: number;
   truncated: boolean;
 };
@@ -123,7 +127,7 @@ export type ModelContextProjectionItem = Pick<
   "ref" | "kind" | "trust" | "freshness" | "reason"
 > & Partial<Pick<
   ContextPacketItem,
-  "routeRole" | "necessity" | "necessityReason"
+  "routeRole" | "necessity" | "necessityReason" | "admission"
 >>;
 
 export type ModelContextProjection = {
@@ -259,6 +263,7 @@ function toPacketItem(
   freshness: CompiledContextPacket["coreContext"][number]["freshness"],
   taskText: string,
   taskPaths: ReadonlySet<string>,
+  admission: "supported" | "unresolved",
 ): ContextPacketItem {
   const route = routeForTaskContextItem(item, taskText, taskPaths);
   return {
@@ -274,6 +279,7 @@ function toPacketItem(
     ...(item.score !== undefined ? { score: item.score } : {}),
     ...(item.scoreBand !== undefined ? { scoreBand: item.scoreBand } : {}),
     evidenceRefs: item.evidenceRefs,
+    admission,
     ...route,
   };
 }
@@ -371,6 +377,12 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
   const supportingContext: ContextPacketItem[] = [];
   const rawContextTrace: ContextTraceEntry[] = [];
   const taskPaths = new Set(report.task.paths);
+  const admissionByItemId = new Map((report.admission?.decisions ?? [])
+    .filter((decision) => decision.subjectKind === "context-item")
+    .map((decision) => [decision.subjectId, decision.verdict]));
+  const refutedContext = (report.admission?.decisions ?? [])
+    .filter((decision) => decision.verdict === "refuted")
+    .map((decision) => ({ ...decision, evidenceRefs: [...decision.evidenceRefs] }));
   let selectionTokens = estimateTokens({
     task: report.task,
     operation: input.operation,
@@ -386,7 +398,8 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     maxItems: number,
   ): void => {
     for (const candidate of candidates) {
-      const packetItem = toPacketItem(candidate, freshness, report.task.text, taskPaths);
+      const admission = admissionByItemId.get(candidate.id) === "supported" ? "supported" : "unresolved";
+      const packetItem = toPacketItem(candidate, freshness, report.task.text, taskPaths, admission);
       const itemTokens = estimateTokens(packetItem);
       const withinItemLimit = target.length < maxItems;
       const withinTokenLimit = selectionTokens + itemTokens <= selectionTokenLimit;
@@ -408,6 +421,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
             ? `${tier} item limit reached for the ${profile} budget`
             : `${profile} context-selection budget reached`,
         estimatedTokens: itemTokens,
+        admission,
       });
     }
   };
@@ -470,6 +484,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     ...(repositoryExemplar ? { repositoryExemplar } : {}),
     boundaries: report.boundaries,
     contextTrace,
+    refutedContext,
   });
 
   let estimatedTokens = estimatePacket();
@@ -551,6 +566,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
       ...(repositoryExemplar ? { repositoryExemplar } : {}),
       boundaries: report.boundaries,
       contextTrace,
+      refutedContext,
       estimatedTokens,
       truncated,
     },
@@ -567,6 +583,7 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
     routeRole: item.routeRole,
     necessity: item.necessity,
     necessityReason: item.necessityReason,
+    admission: item.admission,
   });
   const projectedCoreContext = dedupeProjectionItems(packet.coreContext.map(projectItem));
   const selectedRoots = new Set(
@@ -583,7 +600,7 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
     .map((item) => item.ref);
   const base = {
     schemaVersion: "1.0.0" as const,
-    instruction: "Read every readFirst path before planning. Treat constraints as acceptance criteria. A preservation-only constraint names a surface to leave unchanged, not a target to locate. Refine or search only when inspected source exposes a task-required target absent from readFirst and boundaryPaths. Do not search for analogues. Run checks.",
+    instruction: "Read every readFirst path before planning. Treat unresolved context as a lead, not a repository fact. Treat constraints as acceptance criteria. A preservation-only constraint names a surface to leave unchanged, not a target to locate. Refine or search only when inspected source exposes a task-required target absent from readFirst and boundaryPaths. Do not search for analogues. Run checks.",
     ...(packet.operation ? { operation: packet.operation } : {}),
     paths: packet.task.paths,
     readFirst,

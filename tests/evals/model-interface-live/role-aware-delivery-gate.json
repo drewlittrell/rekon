@@ -37,27 +37,27 @@
   "roleAwareDeliveryDigests": [
     {
       "caseId": "implementation-user-deactivation",
-      "sha256": "07da1d62376b1c5a4acb30dd342be182b1cb377978408cfcb7f02a2b017b9d57"
+      "sha256": "41769ecd535c28a4d73aebb493c030b11e92210773cb0f3802afb3b26461d2b9"
     },
     {
       "caseId": "debugging-expired-subscription",
-      "sha256": "4552b9a990d38ebf40e5f730401c4a91fa6655ea80237ff207b5d05b1a106569"
+      "sha256": "4275202183b7ec2c313e0adf2be97b867cdfb8e782ef89384496206e268d3d9a"
     },
     {
       "caseId": "refactor-order-review",
-      "sha256": "252bf1567659c17312c8cce187352eec6975b8df9184dc82f66a5b01e89b9e80"
+      "sha256": "a29940a0cfeac505679fb4dd7a41e4c40ad544aa2b1049efa936ddca6c9b9670"
     },
     {
       "caseId": "placement-payment-review",
-      "sha256": "a77946e1e2fb40d246bed03924b70606073e319d8e5df75b12f455bb2c05dfa8"
+      "sha256": "28eb10a41920a2407baa49497397002271b6bef298820488fecc09cdb002fd01"
     },
     {
       "caseId": "cross-system-account-suspension",
-      "sha256": "12cf3b8f0a2f0f1571aec6e2594bfb7c4beec70adb1b290627e0fe09b2e2f7a5"
+      "sha256": "02ba8ecff4aa957b6a5d669f30e607d6497a22e5f955beb68bc542d96ea52ac5"
     },
     {
       "caseId": "policy-refund-authorization",
-      "sha256": "b0c5de469b0127bd241e319500a8a5f8f9f80112a69790399de090f435afa5a4"
+      "sha256": "052f2f55f7ea86ac48d0b21c9eb8fc97935f0d7bf89d9fad4c340b702b8f536a"
     }
   ],
   "summary": {

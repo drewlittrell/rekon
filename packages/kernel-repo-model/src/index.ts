@@ -9,12 +9,14 @@ import {
   validateArtifactHeader,
   validateArtifactRef,
 } from "@rekon/kernel-artifacts";
+import type { ProofVerdict } from "./proof-gates.js";
 
 export * from "./repository-check-reports.js";
 export * from "./repository-contracts.js";
 export * from "./contract-candidates.js";
 export * from "./repository-contract-drift.js";
 export * from "./task-pact.js";
+export * from "./proof-gates.js";
 
 export type ObservedSystem = {
   id: string;
@@ -4564,6 +4566,23 @@ export type TaskContextRouteRole =
 
 export type TaskContextRouteNecessity = "required" | "conditional" | "supporting";
 
+export type TaskContextAdmissionDecision = {
+  subjectKind: "context-item" | "graph-claim";
+  subjectId: string;
+  verdict: ProofVerdict;
+  reason: string;
+  evidenceRefs: string[];
+};
+
+export type TaskContextAdmission = {
+  decisions: TaskContextAdmissionDecision[];
+  summary: {
+    supported: number;
+    refuted: number;
+    unresolved: number;
+  };
+};
+
 export type TaskContextItem = {
   id: string;
   kind: TaskContextItemKind;
@@ -4656,6 +4675,8 @@ export type TaskContextReport = {
   };
   doNotTouch: TaskContextDoNotTouchZone[];
   verificationHints: TaskContextVerificationHint[];
+  /** Additive admission audit. Absent only on legacy TaskContextReport artifacts. */
+  admission?: TaskContextAdmission;
   summary: TaskContextReportSummary;
   boundaries: TaskContextReportBoundaries;
 };
@@ -4689,6 +4710,8 @@ const TASK_CONTEXT_ROUTE_ROLES = new Set<string>([
 const TASK_CONTEXT_ROUTE_NECESSITIES = new Set<string>(["required", "conditional", "supporting"]);
 const TASK_CONTEXT_GUIDANCE_SOURCES = new Set<string>(["operator_input", "repository_contract"]);
 const TASK_CONTEXT_GUIDANCE_FRESHNESS = new Set<string>(["fresh", "stale", "partial", "unknown"]);
+const TASK_CONTEXT_ADMISSION_SUBJECT_KINDS = new Set<string>(["context-item", "graph-claim"]);
+const TASK_CONTEXT_ADMISSION_VERDICTS = new Set<string>(["supported", "refuted", "unresolved"]);
 const TASK_CONTEXT_REPORT_BOUNDARY_KEYS = [
   "retrievalIsProof",
   "approvedPlans",
@@ -4720,6 +4743,23 @@ export function createTaskContextReport(input: TaskContextReport): TaskContextRe
     ...hint,
     evidenceRefs: [...(hint.evidenceRefs ?? [])],
   }));
+  const derivedAdmissionDecisions: TaskContextAdmissionDecision[] = contextItems.map((item) => ({
+    subjectKind: "context-item",
+    subjectId: item.id,
+    verdict: item.source === "operator_input" || item.source === "deterministic_graph"
+      ? "supported"
+      : "unresolved",
+    reason: item.source === "operator_input"
+      ? "Explicit task input is admitted as operator-declared scope."
+      : item.source === "deterministic_graph"
+        ? "Deterministic graph evidence supports this context item."
+        : "Inferred relevance is admitted as an unresolved lead, not as fact.",
+    evidenceRefs: [...item.evidenceRefs],
+  }));
+  const admissionDecisions = dedupeTaskContextAdmission([
+    ...(input.admission?.decisions ?? []),
+    ...derivedAdmissionDecisions,
+  ]);
   return assertTaskContextReport({
     header: input.header,
     schemaVersion: "0.1.0",
@@ -4733,6 +4773,10 @@ export function createTaskContextReport(input: TaskContextReport): TaskContextRe
     graphNeighborhood: { nodes, claims },
     doNotTouch,
     verificationHints,
+    admission: {
+      decisions: admissionDecisions,
+      summary: taskContextAdmissionSummary(admissionDecisions),
+    },
     summary: {
       contextItems: contextItems.length,
       graphNodes: nodes.length,
@@ -4970,6 +5014,51 @@ export function validateTaskContextReport(value: unknown): ValidationResult<Task
     });
   }
 
+  if (value.admission !== undefined) {
+    if (!isRecord(value.admission) || !Array.isArray(value.admission.decisions)) {
+      issues.push({ path: "$.admission", message: "Expected decisions and a recomputable summary." });
+    } else {
+      const seen = new Set<string>();
+      const decisions: TaskContextAdmissionDecision[] = [];
+      value.admission.decisions.forEach((decision, index) => {
+        const path = `$.admission.decisions[${index}]`;
+        if (!isRecord(decision)) {
+          issues.push({ path, message: "Expected an object." });
+          return;
+        }
+        if (!TASK_CONTEXT_ADMISSION_SUBJECT_KINDS.has(String(decision.subjectKind))) {
+          issues.push({ path: `${path}.subjectKind`, message: "Expected context-item or graph-claim." });
+        }
+        if (typeof decision.subjectId !== "string" || decision.subjectId.trim().length === 0) {
+          issues.push({ path: `${path}.subjectId`, message: "Expected a non-empty string." });
+        }
+        const key = `${String(decision.subjectKind)}:${String(decision.subjectId)}`;
+        if (seen.has(key)) issues.push({ path, message: `Duplicate admission decision ${key}.` });
+        seen.add(key);
+        if (!TASK_CONTEXT_ADMISSION_VERDICTS.has(String(decision.verdict))) {
+          issues.push({ path: `${path}.verdict`, message: "Expected supported, refuted, or unresolved." });
+        }
+        if (typeof decision.reason !== "string" || decision.reason.trim().length === 0) {
+          issues.push({ path: `${path}.reason`, message: "Expected a non-empty string." });
+        }
+        if (!isTaskContextStringArray(decision.evidenceRefs)) {
+          issues.push({ path: `${path}.evidenceRefs`, message: "Expected an array of strings." });
+        }
+        decisions.push(decision as TaskContextAdmissionDecision);
+      });
+      const expected = taskContextAdmissionSummary(decisions);
+      if (!isRecord(value.admission.summary)) {
+        issues.push({ path: "$.admission.summary", message: "Expected an object." });
+      } else {
+        for (const [field, count] of Object.entries(expected)) {
+          if (value.admission.summary[field] !== count) {
+            issues.push({ path: `$.admission.summary.${field}`, message: `Expected ${count} (recomputed).` });
+          }
+        }
+      }
+    }
+  }
+
   if (!isRecord(value.summary)) {
     issues.push({ path: "$.summary", message: "Expected an object." });
   } else {
@@ -5014,6 +5103,25 @@ export const taskContextReportSchema: ArtifactSchema<TaskContextReport> = {
   validate: validateTaskContextReport,
   parse: assertTaskContextReport,
 };
+
+function dedupeTaskContextAdmission(values: TaskContextAdmissionDecision[]): TaskContextAdmissionDecision[] {
+  const decisions = new Map<string, TaskContextAdmissionDecision>();
+  for (const value of values) {
+    const key = `${value.subjectKind}:${value.subjectId}`;
+    if (decisions.has(key)) continue;
+    decisions.set(key, { ...value, evidenceRefs: [...new Set(value.evidenceRefs)].sort() });
+  }
+  return [...decisions.values()].sort((left, right) =>
+    `${left.subjectKind}:${left.subjectId}`.localeCompare(`${right.subjectKind}:${right.subjectId}`));
+}
+
+function taskContextAdmissionSummary(values: TaskContextAdmissionDecision[]): TaskContextAdmission["summary"] {
+  return {
+    supported: values.filter((value) => value.verdict === "supported").length,
+    refuted: values.filter((value) => value.verdict === "refuted").length,
+    unresolved: values.filter((value) => value.verdict === "unresolved").length,
+  };
+}
 
 // ---- IntentAssessmentReport (v1, artifact-backed readiness assessment) ----
 //

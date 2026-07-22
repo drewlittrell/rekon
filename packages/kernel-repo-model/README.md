@@ -25,6 +25,7 @@ This package owns deterministic model artifacts derived from evidence:
 - `ContractAdoptionReport`
 - `ContractDriftReport`
 - `TaskPact`
+- `ProofGateReport`
 - `RuntimeGraphObservationReport`
 - `SemanticDebtJudgmentReport`
 - `SecurityScanReport`
@@ -77,12 +78,20 @@ artifacts never rewrite those sources.
 `TaskPact` is the task-scoped read model over adopted repository law. It carries
 matched contracts, constraints, context paths, checks, freshness, and impact
 obligations without changing the source contracts.
+`ProofObligation`, `ProofResult`, and `ProofGateReport` define post-edit
+completion gates. Tests, runtime observations, static evidence, and model
+judgment count only when the obligation declares that method. Counterevidence
+blocks the gate. Recorded reports bind the accepted result to post-edit source
+digests so later edits cannot reuse it.
 `TaskContextItem` may also carry a `routeRole`, `necessity`, and
 `necessityReason`. These fields distinguish task targets, repository law,
 implementation, handoff, verification, dependency, compatibility, and
 supporting routes without changing the underlying evidence. Legacy items may
 omit all three fields; when any route field is present, validation requires the
 complete route description.
+`TaskContextAdmission` records whether each delivered item is supported or
+unresolved and keeps rejected graph claims out of context while preserving an
+audit decision. Legacy reports may omit this additive field.
 Exact `CapabilityEvidenceRef` source excerpts may carry `sourceSha256`, binding
 their line range and text to the scanned source. Consumers must not serve an
 exact source span unless this digest is present and valid.

@@ -37,12 +37,13 @@ rekon context validate-change --root <repo> \
 ```
 
 Repeat `--changed-path` for every file changed by the task. The result separates
-mechanical blockers from semantic pact and handoff obligations. The acting
-agent resolves both and then runs the returned checks; Rekon does not execute
-them in this command. The returned list keeps explicit task checks and narrows
-contract checks to the observed diff. If a check failure names an unread exact
-path or symbol, use the refinement command below with relationship `test` or
-`dependency` before broader search.
+mechanical blockers from typed pact, handoff, and check obligations. The acting
+agent judges only obligations that accept `model-judgment`, then materializes
+the returned checks with the same command plus `--prepare-verification`.
+Execute the returned plan with `rekon verify run` and derive its
+`VerificationResult`; validation itself does not execute checks. If a
+check failure names an unread exact path or symbol, use the refinement command
+below with relationship `test` or `dependency` before broader search.
 
 If validation fails without an exact source target, request a deeper packet:
 
@@ -51,18 +52,26 @@ rekon context task --root <repo> --task "Describe the change" \
   --path src/example.ts --escalation validation-failed --model-context
 ```
 
-After every selected check is green, update Rekon's maintained knowledge once:
+After every selected check is green, run validation again with explicit proof
+and record the satisfied gate:
 
 ```sh
-rekon refresh --root <repo> \
-  --changed-file src/example.ts \
+rekon context validate-change --root <repo> \
+  --task "Describe the change" \
+  --changed-path src/example.ts \
+  --base-ref HEAD \
+  --verification-result <VerificationResult:id> \
+  --judgment-json '<judgments>' \
+  --record-proof \
   --json
+rekon refresh --root <repo> --proof-gate <ProofGateReport:id> --json
 ```
 
-Repeat `--changed-file` for each changed source path. This refreshes evidence,
-models, findings, snapshot, and architecture publications. If adopted
-repository law exists, it also records current drift and new candidates before
-the snapshot is built.
+Repeat both validation path flags for each changed source path. The report binds
+the supplied evidence to those source digests. Refresh refuses later edits,
+then updates evidence, models, findings, snapshot, and architecture
+publications. If adopted repository law exists, it also records current drift
+and new candidates before the snapshot is built.
 
 When the initial reads expose one named unresolved relationship, request a
 bounded delta instead of switching to broad repository search:
@@ -122,6 +131,8 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
   concrete dependency that must be understood to complete the change.
 - `coreContext` contains operator paths and deterministic graph context.
 - `supportingContext` contains lower-authority retrieval or semantic context.
+- `admission` marks deterministic/operator context supported and inferred
+  context unresolved; rejected graph claims never enter the packet.
 - `contextTrace` records which candidates were included or excluded and why.
 - `budget` and `estimatedTokens` make context size explicit.
 - Evidence refs point back to graph and source artifacts.

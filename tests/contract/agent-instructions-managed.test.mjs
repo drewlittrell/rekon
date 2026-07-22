@@ -36,24 +36,21 @@ test("setup preserves project guidance and installs one managed block", async ()
   assert.match(content, /After context compaction or restart/);
   assert.match(content, /whenever the task goal or path scope changes/);
   assert.match(content, /Do not probe for the CLI first/);
-  assert.match(content, /Read every `readFirst` path before planning or editing/);
-  assert.match(content, /batch those reads when practical/);
-  assert.match(content, /inspected source names a task-required symbol, type, or call/);
+  assert.match(content, /batch-read every `readFirst` path before editing/);
+  assert.match(content, /exact task-required symbol named by inspected source/);
   assert.match(content, /absent from `readFirst` and `boundaryPaths`/);
-  assert.match(content, /Pact text and preservation-only constraints do not create targets/);
-  assert.match(content, /use `resolve_source_target` with that exact target before broad or text search/i);
   assert.match(content, /read every `readNext` path/i);
-  assert.match(content, /Never use this tool for completeness, analogues, or more tests/);
-  assert.match(content, /does not authorize broad search/);
+  assert.match(content, /Never use it for completeness or analogues/);
+  assert.match(content, /unresolved does not permit broad search/);
   assert.match(content, /pact constraints and checks as acceptance criteria/i);
-  assert.match(content, /returned operation requires a work order/i);
-  assert.match(content, /rekon intent work-order --path <path> --goal <goal> --json/u);
+  assert.match(content, /When required, create the returned work order/i);
   assert.match(content, /escalation: validation-failed/u);
   assert.match(content, /After editing, call `validate_change`/);
-  assert.match(content, /contracts touched by the observed diff/);
-  assert.match(content, /If a check fails and names an unread exact path or symbol/);
-  assert.match(content, /After selected checks pass/);
-  assert.match(content, /repeating the flag per changed source path/);
+  assert.match(content, /--prepare-verification/u);
+  assert.match(content, /explicit VerificationResult refs/u);
+  assert.match(content, /`proofGate.status: satisfied`/u);
+  assert.match(content, /--record-proof/u);
+  assert.match(content, /rekon refresh --proof-gate/u);
   assert.ok(Buffer.byteLength(content, "utf8") < 3_600, "managed bootstrap should stay bounded");
 });
 
@@ -90,7 +87,7 @@ test("sync replaces stale managed content but preserves surrounding bytes", asyn
   assert.ok(updated.startsWith("# Before\n\n"));
   assert.ok(updated.endsWith("\n\n# After\n"));
   assert.ok(!updated.includes("stale content"));
-  assert.match(updated, /version="1\.9\.3"/);
+  assert.match(updated, /version="2\.0\.0"/);
   assert.match(updated, /rekon contracts maintain --root \. --json/u);
   assert.match(updated, /complete its judgment step yourself/u);
 });
@@ -194,6 +191,6 @@ test("refresh replaces a stale managed block when on-refresh sync is enabled", a
 
   assert.equal(syncStep.status, "passed");
   assert.equal(syncStep.summary.changed, true);
-  assert.match(updated, /version="1\.9\.3"/);
+  assert.match(updated, /version="2\.0\.0"/);
   assert.ok(!updated.includes("\nstale\n"));
 });

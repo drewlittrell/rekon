@@ -735,6 +735,9 @@ function tagContextItem(item: ModelContextProjection["coreContext"][number]): Re
     kind: tagPacketValue(item.kind, trust),
     trustClass: tagPacketValue(item.trust, "declared"),
     freshness: tagPacketValue(item.freshness, "deterministic"),
+    ...(item.admission !== undefined
+      ? { admission: tagPacketValue(item.admission, "deterministic") }
+      : {}),
     reason: tagPacketValue(item.reason, trust),
     ...(item.routeRole !== undefined
       ? { routeRole: tagPacketValue(item.routeRole, "deterministic") }
@@ -1383,12 +1386,17 @@ export function buildChangeValidationResponse(
   const sourceLimit = Math.min(sources.length, 8);
   let violationLimit = Math.min(result.blockingViolations.length, 6);
   let obligationLimit = Math.min(result.unresolvedSemanticObligations.length, 8);
+  let proofLimit = Math.min(result.proofGate.evaluation.decisions.filter((entry) =>
+    entry.verdict === "blocked" || entry.verdict === "unresolved").length, 10);
   let checkLimit = Math.min(result.requiredChecks.length, 12);
 
   const buildResponse = (): McpToolResponse => {
     const omittedViolations = result.blockingViolations.length - violationLimit;
     const omittedObligations = result.unresolvedSemanticObligations.length - obligationLimit;
     const omittedChecks = result.requiredChecks.length - checkLimit;
+    const incompleteProof = result.proofGate.evaluation.decisions.filter((entry) =>
+      entry.verdict === "blocked" || entry.verdict === "unresolved");
+    const omittedProof = incompleteProof.length - proofLimit;
     const violations = result.blockingViolations.slice(0, violationLimit).map((entry) => ({
       code: boundedChangeText(entry.code, 120),
       message: boundedChangeText(entry.message, 360),
@@ -1405,6 +1413,22 @@ export function buildChangeValidationResponse(
       blockingIfViolated: entry.blockingIfViolated,
     }));
     const checks = result.requiredChecks.slice(0, checkLimit).map((entry) => boundedChangeText(entry, 420));
+    const proofObligations = incompleteProof.slice(0, proofLimit).flatMap((decision) => {
+      const obligation = result.proofGate.obligations.find((entry) => entry.id === decision.obligationId);
+      if (!obligation) return [];
+      return [{
+        id: boundedChangeText(obligation.id, 180),
+        subjectKind: obligation.subject.kind,
+        subjectId: boundedChangeText(obligation.subject.id, 180),
+        assertion: boundedChangeText(obligation.assertion, 420),
+        requiredEvidence: obligation.requiredEvidence,
+        verdict: decision.verdict,
+        missingMethods: decision.missingMethods,
+        refutedMethods: decision.refutedMethods,
+        paths: boundedChangeList(obligation.subject.paths ?? [], 4, 220),
+        sourceRefs: boundedChangeList(obligation.sourceRefs.map((ref) => `${ref.type}:${ref.id}`), 4, 220),
+      }];
+    });
     if (omittedViolations > 0) {
       violations.push({
         code: "validation.output-truncated",
@@ -1425,6 +1449,20 @@ export function buildChangeValidationResponse(
       });
     }
     if (omittedChecks > 0) checks.push(`${omittedChecks} additional required check(s) omitted; use the CLI for the complete list.`);
+    if (omittedProof > 0) {
+      proofObligations.push({
+        id: "proof-output-truncated",
+        subjectKind: "verification-gate",
+        subjectId: "proof-output-truncated",
+        assertion: `${omittedProof} additional incomplete proof obligation(s) omitted; use the CLI for the complete gate.`,
+        requiredEvidence: [],
+        verdict: "unresolved",
+        missingMethods: [],
+        refutedMethods: [],
+        paths: [],
+        sourceRefs: [],
+      });
+    }
 
     return {
       preamble: ORIENTATION_PREAMBLE,
@@ -1447,19 +1485,43 @@ export function buildChangeValidationResponse(
             evidenceRefs: tag(entry.evidenceRefs, "declared"),
             blockingIfViolated: tag(entry.blockingIfViolated, "declared"),
           })),
+          proofGate: {
+            status: tag(result.proofGate.evaluation.status, "deterministic"),
+            summary: {
+              required: tag(result.proofGate.evaluation.summary.required, "deterministic"),
+              satisfied: tag(result.proofGate.evaluation.summary.satisfied, "deterministic"),
+              blocked: tag(result.proofGate.evaluation.summary.blocked, "deterministic"),
+              unresolved: tag(result.proofGate.evaluation.summary.unresolved, "deterministic"),
+            },
+            obligations: proofObligations.map((entry) => ({
+              id: tag(entry.id, "deterministic"),
+              subjectKind: tag(entry.subjectKind, "declared"),
+              subjectId: tag(entry.subjectId, "declared"),
+              assertion: tag(entry.assertion, "declared"),
+              requiredEvidence: tag(entry.requiredEvidence, "declared"),
+              verdict: tag(entry.verdict, "deterministic"),
+              missingMethods: tag(entry.missingMethods, "deterministic"),
+              refutedMethods: tag(entry.refutedMethods, "deterministic"),
+              paths: tag(entry.paths, "deterministic"),
+              sourceRefs: tag(entry.sourceRefs, "declared"),
+            })),
+            warnings: tag(result.proofGate.warnings.map((warning) => boundedChangeText(warning, 320)), "deterministic"),
+          },
           requiredChecks: tag(checks, "declared"),
         },
       },
       truncated: sources.length > sourceLimit
         || omittedViolations > 0
         || omittedObligations > 0
+        || omittedProof > 0
         || omittedChecks > 0,
     };
   };
 
   let response = buildResponse();
   while (Buffer.byteLength(JSON.stringify(response), "utf8") > CHANGE_VALIDATION_RESPONSE_CEILING_BYTES) {
-    if (obligationLimit > 0) obligationLimit -= 1;
+    if (proofLimit > 0) proofLimit -= 1;
+    else if (obligationLimit > 0) obligationLimit -= 1;
     else if (violationLimit > 0) violationLimit -= 1;
     else if (checkLimit > 0) checkLimit -= 1;
     else break;
@@ -1502,7 +1564,7 @@ function boundedChangeList(values: string[], maxItems: number, maxLength: number
 export function buildChangeValidationUnavailable(reason: string): McpToolResponse {
   return failClosed(
     reason,
-    "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --json",
+    "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD [--verification-result <ref>] [--judgment-json '<json>'] --json",
   );
 }
 
@@ -1596,13 +1658,34 @@ const MCP_TOOL_DEFINITIONS = [
   {
     name: "validate_change",
     description:
-      "Validate the actual post-edit paths against the task pact, repository law, ownership, dependency boundaries, and handoff obligations without running checks or writing source.",
+      "Validate the post-edit change and its edge proof against repository law without running checks or writing source.",
     inputSchema: {
       type: "object",
       properties: {
-        task: { type: "string", description: "The same concrete task used to request context." },
-        changedPaths: { type: "array", items: { type: "string" }, description: "Every path changed for this task." },
-        baseRef: { type: "string", description: "Git commit or ref used as the pre-edit baseline. Defaults to HEAD." },
+        task: { type: "string" },
+        changedPaths: { type: "array", items: { type: "string" } },
+        baseRef: { type: "string" },
+        verificationResults: {
+          type: "array",
+          items: { type: "string" },
+        },
+        runtimeObservations: {
+          type: "array",
+          items: { type: "string" },
+        },
+        judgments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              obligationId: { type: "string" },
+              verdict: { type: "string", enum: ["supported", "refuted", "unresolved"] },
+              explanation: { type: "string" },
+            },
+            required: ["obligationId", "verdict", "explanation"],
+            additionalProperties: false,
+          },
+        },
       },
       required: ["task", "changedPaths"],
       additionalProperties: false,
@@ -1631,18 +1714,18 @@ const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_targ
 export const MCP_TOOLS = MCP_TOOL_DEFINITIONS.filter((tool) => MODEL_FACING_MCP_TOOLS.has(tool.name));
 
 export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
-  "Call `context_for_task` with the task and known paths at task start, after compaction or restart, and when the goal or path scope changes. Follow the returned operation. Read every `readFirst` path before planning or editing; batch those reads when practical.",
-  "When inspected source names a task-required symbol, type, or call whose path is absent from `readFirst` and `boundaryPaths`, use `resolve_source_target` with that exact target before broad or text search. Pact text and preservation-only constraints do not create targets. Read every `readNext` path and stop when resolved. Never use this tool for completeness, analogues, or more tests. An unresolved result does not authorize broad search.",
-  "If the returned operation requires a work order, run `rekon intent work-order --path <path> --goal <goal> --json` before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with the original task, every changed path, and the pre-edit Git base ref. Resolve blockers, judge cited semantic obligations, then run required checks. If a failure remains unexplained, request task context with `escalation: validation-failed`.",
-  "Returned checks are selected from the task and contracts touched by the observed diff. If a check fails and names an unread exact path or symbol, use `resolve_source_target` with that target and the matching `test` or `dependency` relationship before broad search; then rerun the failed check and any selected check not yet green.",
-  "After selected checks pass, run `rekon refresh --changed-file <path> --json`, repeating the flag per changed source path. A failed step or contract drift means incomplete.",
+  "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Follow its operation and batch-read every `readFirst` path before editing.",
+  "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
+  "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
+  "After editing, call `validate_change` with the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. Escalate unexplained failures with `escalation: validation-failed`.",
+  "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
+  "Record the satisfied gate with `rekon context validate-change ... --record-proof --json`, then run `rekon refresh --proof-gate <ProofGateReport:id> --json`. Digest drift, gate failure, refresh failure, or contract drift means incomplete.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
   "rekon context task --task \"<task>\" --path <path> --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
-  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --json",
+  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
   "rekon artifacts freshness --json",
 ]);

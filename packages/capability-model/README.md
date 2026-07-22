@@ -65,8 +65,12 @@ source, ownership, and flow evidence.
 task. `selectTaskContractGuidance()` maps that pact, plus matching capability
 rules, into the shared context constraints, required paths, and checks.
 `validateChange()` is the pure post-edit decision helper. Hosts supply Git and
-current-source evidence; it returns deterministic blockers, unresolved pact
-and handoff obligations, and required checks without writing or executing.
+current-source evidence; it returns deterministic blockers, typed proof
+obligations, bound verifier results, and required checks without writing or
+executing. Repository purpose, user outcomes, invariants, prohibitions, and
+handoff semantics require explicit judgment. A handoff edge may be supported by
+its selected check, a matching runtime observation, or model judgment when the
+obligation permits it; a refuted result always blocks completion.
 Checks come from task guidance and the system, flow, and capability contracts
 intersected by the observed diff. If scoped contract bodies are unavailable,
 the helper retains the complete TaskPact check set and marks that fallback in

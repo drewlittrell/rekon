@@ -87,9 +87,11 @@ It advertises `context_for_task`, `resolve_source_target`, and
 `validate_change`. Source-target resolution is a bounded delta for an exact
 identifier found in inspected source, not general search. After editing,
 `validate_change` compares the declared paths with a Git baseline and the
-matched task pact, then returns blocking violations, unresolved semantic
-obligations, and the checks declared by the task and contracts touched by the
-observed diff. It does not run those checks. Older
+matched task pact, then returns blocking violations and a proof gate for the
+repository-law clauses, handoffs, and checks touched by the diff. The acting
+model handles declared semantic judgments; tests and runtime observations bind
+to their exact obligations. A satisfied, source-digest-bound gate authorizes
+the maintained-knowledge refresh. Rekon does not run the checks. Older
 orientation, placement, and preflight tool
 names remain accepted for compatibility but are not advertised to coding
 agents; their CLI commands remain available. Task-context calls check source

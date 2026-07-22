@@ -4,6 +4,28 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added typed proof obligations, verifier results, and `ProofGateReport` to the
+  public repository-model contract. Post-edit validation now binds selected
+  checks and runtime observations to affected handoff edges, accepts model
+  judgment only where declared, retains contradictory evidence, and blocks on
+  refutation.
+- Added task-context admission decisions. Deterministic and operator routes are
+  marked supported, semantic or retrieval routes remain unresolved leads, and
+  rejected graph claims are excluded with an auditable refutation.
+- Repository purpose, user outcomes, invariants, prohibitions, and handoff
+  semantics now gate change completion. `rekon context validate-change` accepts
+  `--prepare-verification` to materialize its exact selected checks through the
+  existing runner, accepts explicit proof refs and judgments, records only
+  satisfied gates, and rejects same-text TaskPact or task-context artifacts
+  from another path scope.
+- Added proof-gated refresh. A recorded gate carries safe repository-relative
+  paths and before/after source digests; `rekon refresh --proof-gate <ref>`
+  refuses incomplete proof, cross-repository proof, unknown proof freshness, or
+  source bytes changed after validation.
+- Updated the managed Rekon agent block to `2.0.0` with the two-pass validation,
+  verification, proof-recording, and refresh protocol while keeping the block
+  within its existing size limit. Sol calibrations bound to the prior managed
+  payload remain historical rather than being relabeled as current evidence.
 - Added `@rekon/capability-python` with source-backed Python file, import,
   symbol, test, ownership, capability, and bounded constructor-dependency
   evidence. Python imports resolve only to unique repository files, and source
@@ -24,16 +46,13 @@ All notable changes to Rekon are documented here.
   validate-change` command. They compare declared changed paths with a
   read-only Git baseline, TaskPact scope, ownership, capability dependency
   policy, and end-to-end handoff contracts; output is limited to blocking
-  violations, unresolved semantic obligations, and required checks. No checks,
-  artifact writes, source writes, or model calls occur.
+  violations, unresolved semantic obligations, and required checks. Validation
+  runs no checks, writes no source, and calls no model; explicit preparation or
+  recording flags may write verification artifacts.
 - Scoped post-edit required checks to the task and repository contracts touched
   by the observed diff, with an explicit conservative TaskPact fallback when
   contract bodies are unavailable. Check-selection provenance remains
   available on the pure `validateChange()` result.
-- Updated managed agent instructions to `1.9.3` so coding agents follow the
-  returned task operation, prepare work orders when required, request deeper
-  context only after an unexplained validation failure, and refresh repository
-  intelligence after selected checks pass.
 - `rekon refresh` now reconciles an existing effective repository-contract
   registry against the newly projected model. Drift and candidate reports join
   the current run before snapshot construction; repositories without adopted

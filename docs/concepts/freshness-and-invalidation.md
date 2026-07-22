@@ -51,7 +51,10 @@ digests and Git changed or untracked paths before compiling context. A stale or
 missing graph triggers a deterministic refresh, scoped to changed files when
 possible. This is an on-demand check, not a watcher.
 
-After verified edits, agents can run the same pipeline with repeatable
-`--changed-file` flags. Existing adopted repository law is reconciled against
-the new projection before snapshot construction. Repositories without an
-effective contract registry do not gain implicit law during refresh.
+After verified edits, agents record a digest-bound `ProofGateReport` and pass it
+to `rekon refresh --proof-gate <ref>`. The report supplies the changed paths;
+refresh rejects it when its repository identity differs, proof freshness is
+unknown, or current source no longer matches. Existing adopted repository law
+is reconciled against the new projection before snapshot construction.
+Repositories without an effective contract registry do not gain implicit law
+during refresh.

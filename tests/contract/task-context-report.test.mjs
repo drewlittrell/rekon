@@ -97,6 +97,14 @@ test("builder creates a TaskContextReport", () => {
   assert.equal(baseReport.schemaVersion, "0.1.0");
   assert.ok(baseReport.header.artifactId.startsWith(TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX));
   assert.match(baseReport.header.supersession.key, /^task:[a-f0-9]{64}$/);
+  assert.ok(baseReport.admission.decisions.length > 0);
+  assert.equal(baseReport.admission.summary.refuted, 0);
+});
+
+test("legacy reports without an admission audit remain valid", () => {
+  const legacy = structuredClone(baseReport);
+  delete legacy.admission;
+  assert.equal(validateTaskContextReport(legacy).ok, true);
 });
 
 // 2
