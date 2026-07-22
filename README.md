@@ -33,7 +33,7 @@ rm -rf /tmp/rekon-demo/.rekon
 
 node packages/cli/dist/index.js setup --root /tmp/rekon-demo --json
 node packages/cli/dist/index.js scan --root /tmp/rekon-demo --json
-node packages/cli/dist/index.js context task --root /tmp/rekon-demo --task "Modify the greeting in src/index.ts" --path src/index.ts --profile compact --provider mock --json
+node packages/cli/dist/index.js context task --root /tmp/rekon-demo --task "Modify the greeting in src/index.ts" --path src/index.ts --provider mock --json
 node packages/cli/dist/index.js resolve preflight --root /tmp/rekon-demo --path src/index.ts --goal "Modify the greeting" --json
 node packages/cli/dist/index.js publish agent-contract --root /tmp/rekon-demo --json
 node packages/cli/dist/index.js artifacts validate --root /tmp/rekon-demo --json
@@ -72,6 +72,12 @@ The local MCP server is the model-facing context interface:
 ```sh
 rekon mcp serve --root .
 ```
+
+Task context includes an `operation` decision. Rekon classifies the work,
+chooses the smallest sufficient context profile, and routes high-risk,
+contract-changing, migration, and critical-flow changes through the existing
+work-order workflow. Callers normally omit `--profile`; an explicit profile is
+a minimum, not a way to suppress an evidence-driven escalation.
 
 It advertises `context_for_task`, `resolve_source_target`, and
 `validate_change`. Source-target resolution is a bounded delta for an exact

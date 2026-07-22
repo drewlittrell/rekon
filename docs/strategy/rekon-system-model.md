@@ -31,6 +31,13 @@ compiler selects current repository law, ownership, graph context, scoped
 memory, governed assessments, and required checks under an explicit context
 budget.
 
+Before delivery, one shared policy classifies the task and its current evidence.
+Complete local work receives compact context and can proceed directly. High-risk,
+contract-changing, migration, and critical-flow work uses the existing work-order
+path. Missing evidence raises the context budget to standard; an unexplained
+validation failure raises it to deep. CLI and MCP expose the same decision as
+`operation` rather than maintaining separate risk policies.
+
 The loop is designed to make context reusable and reviewable. A person should
 be able to inspect an artifact and understand its producer, inputs, freshness,
 and provenance.

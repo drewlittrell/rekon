@@ -357,6 +357,7 @@ test("protocol: initialize + tools/list expose the model context tools with sche
 
   const context = list.result.tools.find((tool) => tool.name === "context_for_task");
   assert.deepEqual(context.inputSchema.required, ["task"]);
+  assert.deepEqual(context.inputSchema.properties.escalation.enum, ["validation-failed"]);
   const refinement = list.result.tools.find((tool) => tool.name === "resolve_source_target");
   assert.deepEqual(refinement.inputSchema.required, ["question", "target", "relationship"]);
   assert.deepEqual(refinement.inputSchema.properties.relationship.enum, [
@@ -481,6 +482,13 @@ test("context_for_task returns compact budgeted graph context without writing", 
   assert.equal(result.result.isError, false);
   assert.ok(payload.data.context.readFirst.value.includes("src/index.ts"));
   assert.equal(payload.data.context.readFirst.trust, "deterministic");
+  assert.equal(payload.data.context.operation.context.profile.value, "compact");
+  assert.equal(payload.data.context.operation.risk.tier.value, "high");
+  assert.equal(payload.data.context.operation.intent.mode.value, "work-order");
+  assert.equal(
+    payload.data.context.operation.intent.command.value,
+    "rekon intent work-order --path <path> --goal <goal> --json",
+  );
   assert.ok(Array.isArray(payload.data.context.constraints));
   assert.ok(Array.isArray(payload.data.context.checks));
   assert.ok(Array.isArray(payload.data.context.sourceSpans));
@@ -673,7 +681,29 @@ test("CLI and MCP compile the same TaskPact guidance", async () => {
   assert.deepEqual(mcpContext.readFirst.value, cliContext.readFirst);
   assert.deepEqual(mcpContext.constraints.map((entry) => entry.value), cliContext.constraints);
   assert.deepEqual(mcpContext.checks.map((entry) => entry.value), cliContext.checks);
+  assert.equal(mcpContext.operation.taskClass.value, cliContext.operation.taskClass);
+  assert.equal(mcpContext.operation.risk.tier.value, cliContext.operation.risk.tier);
+  assert.equal(mcpContext.operation.context.profile.value, cliContext.operation.context.profile);
+  assert.equal(mcpContext.operation.intent.mode.value, cliContext.operation.intent.mode);
   assert.ok((await createLocalArtifactStore(fixtureRoot).list("TaskPact")).length > 0);
+});
+
+test("context_for_task raises the shared context profile after a validation failure", async () => {
+  const result = await server.rpc("tools/call", {
+    name: "context_for_task",
+    arguments: {
+      task: "modify bootstrap",
+      paths: ["src/index.ts"],
+      profile: "compact",
+      escalation: "validation-failed",
+    },
+  });
+  const operation = toolPayload(result).data.context.operation;
+
+  assert.equal(result.result.isError, false);
+  assert.equal(operation.context.requestedProfile.value, "compact");
+  assert.equal(operation.context.profile.value, "deep");
+  assert.equal(operation.context.escalated.value, true);
 });
 
 test("resolve_source_target returns only unread paths for the named relationship", async () => {

@@ -31,14 +31,13 @@ test("setup preserves project guidance and installs one managed block", async ()
   assert.match(content, /`context_for_task`/);
   assert.match(content, /`resolve_source_target`/);
   assert.match(content, /`validate_change`/);
-  assert.match(content, /--profile compact/);
   assert.match(content, /--model-context/);
   assert.match(content, /Before the first repository command/);
   assert.match(content, /After context compaction or restart/);
   assert.match(content, /whenever the task goal or path scope changes/);
   assert.match(content, /Do not probe for the CLI first/);
   assert.match(content, /Read every `readFirst` path before planning or editing/);
-  assert.match(content, /batch those file reads into one command when practical/);
+  assert.match(content, /batch those reads when practical/);
   assert.match(content, /inspected source names a task-required symbol, type, or call/);
   assert.match(content, /absent from `readFirst` and `boundaryPaths`/);
   assert.match(content, /Pact text and preservation-only constraints do not create targets/);
@@ -46,8 +45,11 @@ test("setup preserves project guidance and installs one managed block", async ()
   assert.match(content, /read every `readNext` path/i);
   assert.match(content, /Never use this tool for completeness, analogues, or more tests/);
   assert.match(content, /does not authorize broad search/);
-  assert.match(content, /pact constraints and required checks as acceptance criteria/i);
-  assert.match(content, /After editing and before declaring the task complete/);
+  assert.match(content, /pact constraints and checks as acceptance criteria/i);
+  assert.match(content, /returned operation requires a work order/i);
+  assert.match(content, /rekon intent work-order --path <path> --goal <goal> --json/u);
+  assert.match(content, /escalation: validation-failed/u);
+  assert.match(content, /After editing, call `validate_change`/);
   assert.match(content, /contracts touched by the observed diff/);
   assert.match(content, /If a check fails and names an unread exact path or symbol/);
   assert.match(content, /After selected checks pass/);
@@ -88,7 +90,7 @@ test("sync replaces stale managed content but preserves surrounding bytes", asyn
   assert.ok(updated.startsWith("# Before\n\n"));
   assert.ok(updated.endsWith("\n\n# After\n"));
   assert.ok(!updated.includes("stale content"));
-  assert.match(updated, /version="1\.9\.2"/);
+  assert.match(updated, /version="1\.9\.3"/);
   assert.match(updated, /rekon contracts maintain --root \. --json/u);
   assert.match(updated, /complete its judgment step yourself/u);
 });
@@ -192,6 +194,6 @@ test("refresh replaces a stale managed block when on-refresh sync is enabled", a
 
   assert.equal(syncStep.status, "passed");
   assert.equal(syncStep.summary.changed, true);
-  assert.match(updated, /version="1\.9\.2"/);
+  assert.match(updated, /version="1\.9\.3"/);
   assert.ok(!updated.includes("\nstale\n"));
 });

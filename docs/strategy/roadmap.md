@@ -8,6 +8,11 @@ verification recording, reconciliation planning, and artifact validation.
 ## Current Model Interface
 
 - A shared, budget-aware compiler serves CLI and MCP task context.
+- A shared task-operation policy classifies local, cross-file, cross-system,
+  contract-changing, migration, and critical-flow work. It keeps complete work
+  on the smallest sufficient context profile, routes high-risk work through the
+  existing intent work-order flow, and reserves deep context for an unexplained
+  validation failure.
 - Compact delivery can carry one exact deterministic, source-digest-bound
   `sourceSpans` anchor per delivered path under profile-level count and
   character caps. Extension and placement tasks may also receive one

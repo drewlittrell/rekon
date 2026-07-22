@@ -11,6 +11,7 @@ import {
   type BuildTaskContextReportInput,
   type TaskContextGraphEvidenceLike,
 } from "./task-context-report.js";
+import type { TaskOperationPlan } from "./task-operation.js";
 
 export type ContextProfile = "compact" | "standard" | "deep";
 
@@ -81,6 +82,7 @@ export type CompiledContextPacket = {
   schemaVersion: "1.0.0";
   readBeforeEditing: string;
   task: TaskContextReport["task"];
+  operation?: TaskOperationPlan;
   profile: ContextProfile;
   budget: ContextBudget;
   coreContext: ContextPacketItem[];
@@ -107,6 +109,7 @@ export type CompiledContextPacket = {
 
 export type CompileTaskContextInput = BuildTaskContextReportInput & {
   profile?: ContextProfile;
+  operation?: TaskOperationPlan;
   warnings?: string[];
 };
 
@@ -126,6 +129,7 @@ export type ModelContextProjectionItem = Pick<
 export type ModelContextProjection = {
   schemaVersion: "1.0.0";
   instruction: string;
+  operation?: TaskOperationPlan;
   paths: string[];
   readFirst: string[];
   boundaryPaths: string[];
@@ -158,6 +162,7 @@ export type ModelContextProjection = {
 export type ModelContextDelivery = {
   schemaVersion: "1.0.0";
   instruction: string;
+  operation?: TaskOperationPlan;
   readFirst: string[];
   boundaryPaths?: string[];
   supportingContext?: ModelContextProjectionItem[];
@@ -368,6 +373,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
   const taskPaths = new Set(report.task.paths);
   let selectionTokens = estimateTokens({
     task: report.task,
+    operation: input.operation,
     warnings: input.warnings ?? [],
     boundaries: report.boundaries,
   });
@@ -451,6 +457,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     schemaVersion: "1.0.0",
     readBeforeEditing: TASK_CONTEXT_READ_BEFORE_EDITING,
     task: report.task,
+    operation: input.operation,
     profile,
     budget,
     coreContext,
@@ -531,6 +538,7 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
       schemaVersion: "1.0.0",
       readBeforeEditing: TASK_CONTEXT_READ_BEFORE_EDITING,
       task: report.task,
+      ...(input.operation ? { operation: input.operation } : {}),
       profile,
       budget,
       coreContext,
@@ -576,6 +584,7 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
   const base = {
     schemaVersion: "1.0.0" as const,
     instruction: "Read every readFirst path before planning. Treat constraints as acceptance criteria. A preservation-only constraint names a surface to leave unchanged, not a target to locate. Refine or search only when inspected source exposes a task-required target absent from readFirst and boundaryPaths. Do not search for analogues. Run checks.",
+    ...(packet.operation ? { operation: packet.operation } : {}),
     paths: packet.task.paths,
     readFirst,
     boundaryPaths,
@@ -651,6 +660,7 @@ export function projectModelContextDelivery(
   return {
     schemaVersion: "1.0.0",
     instruction: deliveryInstruction(policy, includeBoundaryPaths),
+    ...(context.operation ? { operation: context.operation } : {}),
     readFirst,
     ...(includeBoundaryPaths ? { boundaryPaths: [...context.boundaryPaths] } : {}),
     ...(supportingContext.length > 0 ? { supportingContext } : {}),
@@ -1175,6 +1185,15 @@ export function renderTaskContextMarkdown(packet: CompiledContextPacket, reportI
 
   if (packet.task.goal) lines.push(`Goal: ${packet.task.goal}`);
   if (packet.task.paths.length > 0) lines.push(`Paths: ${packet.task.paths.join(", ")}`);
+  if (packet.operation) {
+    lines.push(
+      "",
+      "## Operation",
+      `- Class: ${packet.operation.taskClass}; risk: ${packet.operation.risk.tier}; context: ${packet.operation.context.profile}.`,
+      `- Intent: ${packet.operation.intent.mode}. ${packet.operation.intent.reason}`,
+    );
+    if (packet.operation.intent.command) lines.push(`- Before editing: \`${packet.operation.intent.command}\``);
+  }
   lines.push("", "## Core Context");
   lines.push(...(packet.coreContext.length > 0
     ? packet.coreContext.map(renderContextItem)

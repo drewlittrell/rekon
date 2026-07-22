@@ -208,10 +208,14 @@ import modelCapability, {
   type EmbeddingNeighborSearchStats,
   type EvidenceGraphForChunks,
   compileTaskContext,
+  classifyTaskOperation,
   projectModelContext,
   projectModelContextDelivery,
   renderTaskContextMarkdown,
   type ContextProfile,
+  type TaskOperationEscalation,
+  type TaskOperationFlow,
+  type TaskOperationPlan,
   selectLexicalGraphContextPaths,
   selectTaskContextRefinement,
   selectTaskContractGuidance,
@@ -273,7 +277,10 @@ import ontologyCapability, {
   type CapabilityPhraseReport,
   type EffectiveCapabilityOntology,
 } from "@rekon/capability-ontology";
-import resolverCapability from "@rekon/capability-resolver";
+import resolverCapability, {
+  buildPreflightPacket,
+  type PreflightPacket,
+} from "@rekon/capability-resolver";
 import {
   type ArtifactFreshnessEntry,
   type ArtifactFreshnessResult,
@@ -611,7 +618,7 @@ function rekonIntentWorkflow(): string[] {
   return [
     "rekon scan",
     "rekon intent context prepare",
-    "rekon context task --task <text> [--path <path>] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json]",
+    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--escalation validation-failed] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json]",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "rekon intent plan review",
     "rekon intent plan answer",
@@ -2549,7 +2556,8 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   if (command === "context" && subcommand === "task") {
-    // `rekon context task --task "<text>" [--path <p> ...] [--provider voyage|mock]
+    // `rekon context task --task "<text>" [--path <p> ...]
+    //  [--profile compact|standard|deep] [--escalation validation-failed] [--provider voyage|mock]
     //  [--model <m>] [--top-k <n>] [--root <path>] [--json]` — TaskContextReport v1,
     // the first product consumer of embedding retrieval (Task-Shaped Context /
     // Embedding Retrieval Decision, slice 165). Reads the latest
@@ -2737,9 +2745,15 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
 
-    const profileFlag = typeof parsed.flags.profile === "string" ? parsed.flags.profile.trim() : "compact";
-    if (profileFlag !== "compact" && profileFlag !== "standard" && profileFlag !== "deep") {
+    const profileFlag = typeof parsed.flags.profile === "string" ? parsed.flags.profile.trim() : undefined;
+    if (profileFlag !== undefined && profileFlag !== "compact" && profileFlag !== "standard" && profileFlag !== "deep") {
       throw new Error(`rekon context task --profile must be compact, standard, or deep (got "${profileFlag}").`);
+    }
+    const escalationFlag = typeof parsed.flags.escalation === "string"
+      ? parsed.flags.escalation.trim()
+      : undefined;
+    if (escalationFlag !== undefined && escalationFlag !== "validation-failed") {
+      throw new Error(`rekon context task --escalation must be validation-failed (got "${escalationFlag}").`);
     }
 
     // Keep retrieval honesty visible. Two low-signal cases, both surfaced instead
@@ -2804,6 +2818,14 @@ export async function main(argv: string[]): Promise<void> {
     }
     warnings.push(...taskPactSelection.warnings);
     warnings.push(...contractGuidance.warnings);
+    const taskOperation = await buildCurrentTaskOperation(store, {
+      taskText,
+      paths: scopedTaskPaths,
+      taskPact: taskPactSelection.pact,
+      ...(profileFlag ? { requestedProfile: profileFlag as ContextProfile } : {}),
+      ...(escalationFlag ? { escalation: escalationFlag as TaskOperationEscalation } : {}),
+    });
+    warnings.push(...taskOperation.warnings);
 
     const compiled = compileTaskContext({
       taskText,
@@ -2825,7 +2847,8 @@ export async function main(argv: string[]): Promise<void> {
       model,
       topK: effectiveTopK,
       repoId: root,
-      profile: profileFlag as ContextProfile,
+      profile: taskOperation.plan.context.profile,
+      operation: taskOperation.plan,
       warnings,
     });
     const { report } = compiled;
@@ -2855,6 +2878,7 @@ export async function main(argv: string[]): Promise<void> {
           retrieval: retrievalStatus,
           artifact: { type: ref.type, id: ref.id },
           task: report.task,
+          operation: taskOperation.plan,
           selection: report.selection,
           summary: report.summary,
           contextItems: report.contextItems,
@@ -5585,15 +5609,12 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     const runtime = await createDefaultRuntime(root);
-    const existingPreflight = await runtime.artifacts.list("ResolverPacket");
-
-    if (existingPreflight.length === 0) {
-      await ensurePreflight(runtime, path, goal);
-    }
+    const preflightRef = await ensurePreflight(runtime, path, goal);
 
     const refs = await runtime.runAct({
       actuatorId: "@rekon/capability-intent.work-order",
       input: {
+        preflightRef,
         path,
         goal,
       },
@@ -14558,6 +14579,100 @@ type CurrentTaskPact = {
   warnings: string[];
 };
 
+type CurrentTaskOperation = {
+  plan: TaskOperationPlan;
+  warnings: string[];
+};
+
+async function buildCurrentTaskOperation(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  input: {
+    taskText: string;
+    paths: string[];
+    taskPact?: TaskPact;
+    requestedProfile?: ContextProfile;
+    escalation?: TaskOperationEscalation;
+  },
+): Promise<CurrentTaskOperation> {
+  const paths = [...new Set(input.paths.map((path) => path.trim()).filter(Boolean))].sort();
+  const snapshotEntry = await pickLatestArtifactEntry(store, "IntelligenceSnapshot");
+  let preflight: PreflightPacket | undefined;
+  if (snapshotEntry && paths.length > 0) {
+    preflight = await buildPreflightPacket({
+      artifacts: {
+        async read(ref: ArtifactRef): Promise<unknown> {
+          return store.read(ref);
+        },
+        async list(type?: string): Promise<ArtifactRef[]> {
+          return (await store.list(type)).map(artifactIndexRef);
+        },
+      },
+      snapshotRef: artifactIndexRef(snapshotEntry),
+      goal: input.taskText,
+      paths,
+    });
+  }
+
+  const flows: TaskOperationFlow[] = [];
+  for (const contract of input.taskPact?.contracts ?? []) {
+    if (contract.contractType !== "FlowContract") continue;
+    const flow = await store.read(contract.ref) as FlowContract;
+    flows.push({
+      id: flow.contractId,
+      criticality: flow.criticality,
+      systems: flow.systems,
+      evidenceRef: `${contract.ref.type}:${contract.ref.id}`,
+    });
+  }
+
+  const unresolvedPaths = preflight?.matchedScopes
+    .filter((scope) => !scope.owner)
+    .map((scope) => scope.path) ?? [];
+  const evidenceStatus = !preflight
+    ? "missing" as const
+    : unresolvedPaths.length > 0 || preflight.matchedScopes.length < paths.length
+      ? "partial" as const
+      : "complete" as const;
+  const evidenceReasons = evidenceStatus === "missing"
+    ? ["No current IntelligenceSnapshot was available for preflight risk resolution."]
+    : evidenceStatus === "partial"
+      ? [`Ownership is unresolved for: ${[...new Set(unresolvedPaths)].sort().join(", ") || "part of the requested scope"}.`]
+      : [];
+  const plan = classifyTaskOperation({
+    taskText: input.taskText,
+    paths,
+    ownerSystems: preflight?.ownerSystems ?? [],
+    ...(preflight ? {
+      risk: {
+        tier: preflight.risk.tier,
+        reasons: preflight.risk.reasons,
+        evidenceRefs: taskOperationPreflightRefs(preflight),
+      },
+    } : {}),
+    evidence: { status: evidenceStatus, reasons: evidenceReasons },
+    flows,
+    requiredContextPaths: input.taskPact?.requiredContextPaths ?? [],
+    ...(input.requestedProfile ? { requestedProfile: input.requestedProfile } : {}),
+    ...(input.escalation ? { escalation: input.escalation } : {}),
+  });
+
+  return {
+    plan,
+    warnings: evidenceStatus === "complete"
+      ? []
+      : [`task-operation-evidence-${evidenceStatus}: ${evidenceReasons.join(" ")}`],
+  };
+}
+
+function taskOperationPreflightRefs(preflight: PreflightPacket): string[] {
+  return [...new Set([
+    ...preflight.resolutionTrace.flatMap((entry) => entry.sourceRef
+      ? [`${entry.sourceRef.type}:${entry.sourceRef.id}`]
+      : []),
+    ...preflight.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`),
+  ])].sort().slice(0, 12);
+}
+
 type RepositoryChangeValidation = {
   result: ChangeValidationResult;
   sources: SourceRef[];
@@ -15680,7 +15795,7 @@ async function ensurePreflight(
   runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
   path: string,
   goal: string,
-): Promise<void> {
+): Promise<ArtifactRef> {
   if ((await runtime.artifacts.list("EvidenceGraph")).length === 0) {
     await runtime.runObserve({
       changedFiles: [path],
@@ -15715,7 +15830,7 @@ async function ensurePreflight(
       : await runtime.runSnapshot();
   }
 
-  await runtime.runResolve({
+  const refs = await runtime.runResolve({
     resolverId: "resolve.preflight",
     input: {
       snapshotRef,
@@ -15723,6 +15838,11 @@ async function ensurePreflight(
       goal,
     },
   });
+  const preflightRef = refs.find((ref) => ref.type === "ResolverPacket");
+  if (!preflightRef) {
+    throw new Error("rekon intent work-order could not create a current ResolverPacket.");
+  }
+  return preflightRef;
 }
 
 function writePreviewHumanOutput(preview: ReconciliationPreview): void {
@@ -17898,8 +18018,8 @@ function usage(): string {
     "rekon intent bundle write [--intent-id <id>] [--target generic|circe] [--assessment <ref>] [--prepared-plan <ref>] [--intent-status <ref>] [--work-order <ref>] [--verification-plan <ref>] [--path-freshness <ref>] [--runtime-drift <ref>] [--task-context-ref <TaskContextReport ref>] [--root <path>] [--json]",
     "    (--task-context-ref is repeatable; task context is optional bundle context, not proof — it never approves plans, satisfies gates, executes, or writes source)",
     "rekon intent context prepare [--root <path>] [--json]",
-    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json | --model-context]",
-    "    (prints a human brief; --json adds the full audit-oriented `agentContext`; --model-context emits only the compact model-delivery projection)",
+    "rekon context task --task <text> [--path <path>] [--profile compact|standard|deep] [--escalation validation-failed] [--provider voyage|mock] [--model <m>] [--top-k <n>] [--no-auto-refresh] [--root <path>] [--json | --model-context]",
+    "    (classifies task risk and intent, chooses the smallest sufficient profile; --json includes agentContext and --model-context emits delivery only)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
     "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--root <path>] [--json]",

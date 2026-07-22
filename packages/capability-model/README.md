@@ -65,6 +65,11 @@ Checks come from task guidance and the system, flow, and capability contracts
 intersected by the observed diff. If scoped contract bodies are unavailable,
 the helper retains the complete TaskPact check set and marks that fallback in
 `checkSelection`.
+`classifyTaskOperation()` is the shared CLI/MCP policy for task class, risk,
+evidence completeness, context profile, and intent mode. It keeps complete
+local work compact, escalates context only for incomplete evidence or an
+explicit validation failure, and routes high-risk work through the existing
+work-order flow.
 `compileTaskContext()` is the shared, budget-aware context compiler used by the
 CLI and MCP. Its `compact`, `standard`, and `deep` profiles bound selected core
 context, supporting context, constraints, checks, evidence, and selection

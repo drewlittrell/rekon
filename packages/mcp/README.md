@@ -18,8 +18,9 @@ can update local Rekon artifacts.
 
 - `context_for_task`: budgeted core and supporting context for a concrete task,
   with compact read-first routing, bounded deterministic source spans, trust
-  labels, source freshness, constraints, checks, and warnings. Path-matched
-  `CapabilityContract` rules are served as declared guidance.
+  labels, source freshness, constraints, checks, warnings, and a shared
+  risk-adaptive `operation`. Path-matched `CapabilityContract` rules are served
+  as declared guidance.
 - `resolve_source_target`: a bounded unread context delta for one exact symbol,
   type, or call named by inspected source, using a `dependency`, `dependent`,
   `test`, `contract`, `consumer`, `producer`, or `implementation` relationship.
@@ -43,9 +44,9 @@ rekon mcp serve --root .
 
 When the MCP tools are available to an agent:
 
-1. Call `context_for_task` first with the concrete task and known paths. Start
-   with the `compact` profile, then read every returned `readFirst` path before
-   planning or editing.
+1. Call `context_for_task` first with the concrete task and known paths. Let
+   Rekon select the profile, follow the returned `operation`, then read every
+   `readFirst` path before planning or editing.
 2. Read exact repository paths directly. When inspected source names a
    task-required symbol, type, or call whose target path is absent from
    `readFirst` and `boundaryPaths`, call `resolve_source_target` with that exact
@@ -55,8 +56,9 @@ When the MCP tools are available to an agent:
    is unresolved or stale. Resolve again only for a new task-required symbolic
    target. Do not use it for completeness checks or turn an unresolved response
    into broad search.
-3. Treat returned pact constraints and required checks as acceptance criteria.
-   Respect the trust class and freshness attached to returned values.
+3. If `operation.intent.required` is true, run its fixed `rekon intent
+   work-order` command before editing. Treat returned pact constraints and
+   required checks as acceptance criteria. Respect trust and freshness.
 4. When repository law is unavailable or drifted, run `rekon contracts
    maintain --root . --json`, inspect the cited source, and complete the
    judgment step. Apply contract sources only when repository policy permits
@@ -67,6 +69,9 @@ When the MCP tools are available to an agent:
    path, and the pre-edit base ref. Resolve deterministic violations, judge the
    cited semantic obligations yourself, and run the returned checks before
    declaring completion.
+   If a failure remains unexplained, call `context_for_task` again with
+   `escalation: validation-failed`; this raises context depth without changing
+   the task's intent classification.
 7. If a returned check fails and names an exact unread path or symbol, request
    that target through `resolve_source_target` with the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
@@ -85,7 +90,7 @@ the same pure relationship selector, exclude `--already-read` paths, cap new
 paths at eight, and report an explicit unresolved result rather than falling
 back to broad search.
 
-`context_for_task` returns the compact model-delivery projection. The CLI JSON
+`context_for_task` returns the selected model-delivery projection. The CLI JSON
 and stored `TaskContextReport` retain evidence refs, budget internals,
 boundaries, and selection trace for audit and debugging.
 

@@ -413,6 +413,18 @@ export {
 } from "./task-context.js";
 
 export {
+  type ClassifyTaskOperationInput,
+  type TaskOperationClass,
+  type TaskOperationContextProfile,
+  type TaskOperationEscalation,
+  type TaskOperationEvidenceStatus,
+  type TaskOperationFlow,
+  type TaskOperationPlan,
+  type TaskOperationRiskTier,
+  classifyTaskOperation,
+} from "./task-operation.js";
+
+export {
   type ContextProfile,
   type ContextBudget,
   type ContextTrustClass,

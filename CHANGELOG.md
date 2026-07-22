@@ -4,6 +4,13 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a shared CLI/MCP task-operation policy. Task context now reports task
+  class, risk provenance, evidence completeness, selected context profile, and
+  whether the existing intent work-order flow is required. Complete work stays
+  compact; incomplete evidence raises the minimum profile to standard, and an
+  explicit validation-failure retry raises it to deep.
+- `rekon intent work-order` now creates and binds the preflight packet for its
+  current path and goal instead of reusing an unrelated prior resolver packet.
 - Added model-facing `validate_change` and the equivalent `rekon context
   validate-change` command. They compare declared changed paths with a
   read-only Git baseline, TaskPact scope, ownership, capability dependency
@@ -14,10 +21,10 @@ All notable changes to Rekon are documented here.
   by the observed diff, with an explicit conservative TaskPact fallback when
   contract bodies are unavailable. Check-selection provenance remains
   available on the pure `validateChange()` result.
-- Updated managed agent instructions to `1.9.2` so coding agents request
-  post-edit validation before declaring completion and use exact source-target
-  resolution for check-failure context. After selected checks pass, agents run
-  one changed-file refresh to update repository intelligence.
+- Updated managed agent instructions to `1.9.3` so coding agents follow the
+  returned task operation, prepare work orders when required, request deeper
+  context only after an unexplained validation failure, and refresh repository
+  intelligence after selected checks pass.
 - `rekon refresh` now reconciles an existing effective repository-contract
   registry against the newly projected model. Drift and candidate reports join
   the current run before snapshot construction; repositories without adopted

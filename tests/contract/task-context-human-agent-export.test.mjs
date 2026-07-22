@@ -177,6 +177,13 @@ test("JSON carries an agentContext block with the expected keys", () => {
   }
 });
 
+test("agent and model context expose the same risk-adaptive operation", () => {
+  assert.ok(agent.operation);
+  assert.deepEqual(modelContext.operation, agent.operation);
+  assert.ok(["compact", "standard", "deep"].includes(agent.operation.context.profile));
+  assert.ok(["direct", "work-order"].includes(agent.operation.intent.mode));
+});
+
 // 12
 test("agentContext.readBeforeEditing leads with the read-before-editing notice", () => {
   assert.ok(typeof agent.readBeforeEditing === "string");

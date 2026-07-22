@@ -581,6 +581,47 @@ test("existing intent work-order and intent remediation still work alongside ver
   });
 });
 
+test("intent work-order binds the current goal to a new preflight packet", async () => {
+  await withCliFixture(async (root) => {
+    runCli(["init", "--root", root, "--json"]);
+    runCli(["observe", "--root", root, "--json"]);
+    runCli(["project", "--root", root, "--json"]);
+    runCli(["evaluate", "--root", root, "--json"]);
+    runCli([
+      "resolve", "preflight",
+      "--root", root,
+      "--path", "src/index.ts",
+      "--goal", "Unrelated prior task",
+      "--json",
+    ]);
+
+    const result = JSON.parse(runCli([
+      "intent", "work-order",
+      "--root", root,
+      "--path", "src/index.ts",
+      "--goal", "Current task",
+      "--json",
+    ]).stdout);
+    const workOrderRef = result.artifacts.find((ref) => ref.type === "WorkOrder");
+    assert.ok(workOrderRef);
+    const workOrder = JSON.parse(runCli([
+      "artifacts", "show", `WorkOrder:${workOrderRef.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+    const preflightRef = workOrder.header.inputRefs.find((ref) => ref.type === "ResolverPacket");
+    assert.ok(preflightRef);
+    const preflight = JSON.parse(runCli([
+      "artifacts", "show", `ResolverPacket:${preflightRef.id}`,
+      "--root", root,
+      "--json",
+    ]).stdout).artifact;
+
+    assert.equal(preflight.goal, "Current task");
+    assert.deepEqual(preflight.paths, ["src/index.ts"]);
+  });
+});
+
 test("rekon verify record preserves failed status when commands fail", async () => {
   await withCliFixture(async (root) => {
     runCli(["init", "--root", root, "--json"]);

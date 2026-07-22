@@ -22,6 +22,7 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
+  classifyTaskOperation,
   compileTaskContext,
   buildTaskPact,
   projectModelContext,
@@ -35,6 +36,9 @@ import {
   type ModelContextProjection,
   type ModelContextDelivery,
   type ModelContextDeliveryPolicy,
+  type TaskOperationEscalation,
+  type TaskOperationFlow,
+  type TaskOperationPlan,
   type ChangeValidationResult,
   type TaskContextRefinementRelationship,
   type TaskContextGraphLike,
@@ -751,6 +755,7 @@ function tagModelContextDelivery(
   return {
     schemaVersion: tagPacketValue(delivery.schemaVersion, "declared"),
     instruction: tagPacketValue(delivery.instruction, "declared"),
+    ...(delivery.operation ? { operation: tagTaskOperation(delivery.operation) } : {}),
     readFirst: tagPacketValue(delivery.readFirst, "deterministic"),
     ...(delivery.boundaryPaths !== undefined
       ? { boundaryPaths: tagPacketValue(delivery.boundaryPaths, "deterministic") }
@@ -824,11 +829,44 @@ function tagModelContextDelivery(
   };
 }
 
+function tagTaskOperation(operation: TaskOperationPlan): Record<string, unknown> {
+  return {
+    schemaVersion: tagPacketValue(operation.schemaVersion, "declared"),
+    taskClass: tagPacketValue(operation.taskClass, "deterministic"),
+    risk: {
+      tier: tagPacketValue(operation.risk.tier, "deterministic"),
+      reasons: tagPacketValue(operation.risk.reasons, "deterministic"),
+      evidenceRefs: tagPacketValue(operation.risk.evidenceRefs, "deterministic"),
+    },
+    evidence: {
+      status: tagPacketValue(operation.evidence.status, "deterministic"),
+      reasons: tagPacketValue(operation.evidence.reasons, "deterministic"),
+    },
+    context: {
+      profile: tagPacketValue(operation.context.profile, "deterministic"),
+      ...(operation.context.requestedProfile
+        ? { requestedProfile: tagPacketValue(operation.context.requestedProfile, "operator") }
+        : {}),
+      escalated: tagPacketValue(operation.context.escalated, "deterministic"),
+      reasons: tagPacketValue(operation.context.reasons, "deterministic"),
+    },
+    intent: {
+      mode: tagPacketValue(operation.intent.mode, "deterministic"),
+      required: tagPacketValue(operation.intent.required, "deterministic"),
+      reason: tagPacketValue(operation.intent.reason, "deterministic"),
+      ...(operation.intent.command
+        ? { command: tagPacketValue(operation.intent.command, "declared") }
+        : {}),
+    },
+  };
+}
+
 export function buildContextForTask(
   repoRoot: string,
   task: string,
   paths: string[] = [],
   profile: ContextProfile = "compact",
+  operation?: TaskOperationPlan,
 ): McpToolResponse {
   const reader = createArtifactReader(repoRoot);
 
@@ -920,6 +958,7 @@ export function buildContextForTask(
     model: "none",
     repoId: ".",
     profile,
+    ...(operation ? { operation } : {}),
     warnings,
   });
   const modelContext = projectModelContext(packet);
@@ -937,6 +976,138 @@ export function buildContextForTask(
     data: { context: tagModelContextDelivery(delivery, modelContext) },
     truncated: packet.truncated,
   }, TASK_CONTEXT_RESPONSE_CEILING_BYTES);
+}
+
+export async function buildRiskAdaptiveContextForTask(
+  repoRoot: string,
+  task: string,
+  paths: string[] = [],
+  requestedProfile?: ContextProfile,
+  escalation?: TaskOperationEscalation,
+): Promise<McpToolResponse> {
+  const reader = createArtifactReader(repoRoot);
+  if (!reader) return buildContextForTask(repoRoot, task, paths, requestedProfile ?? "compact");
+
+  const latestEvidenceAt = reader.latestGeneratedAt("EvidenceGraph");
+  const graphSource = sourceRef(reader, "CapabilityEvidenceGraph", latestEvidenceAt);
+  if (!graphSource.body) return buildContextForTask(repoRoot, task, paths, requestedProfile ?? "compact");
+
+  const graph = graphSource.body as unknown as TaskContextGraphLike;
+  const normalizedPaths = uniqueStrings(paths);
+  const lexicalContextPaths = normalizedPaths.length === 0
+    ? selectLexicalGraphContextPaths(task, graph)
+    : [];
+  const scopedPaths = uniqueStrings([...normalizedPaths, ...lexicalContextPaths]);
+  const taskPactSelection = buildReadOnlyTaskPact(reader, {
+    repoId: repoRoot,
+    taskText: task,
+    paths: scopedPaths,
+    latestEvidenceAt,
+  });
+  const flows = readTaskOperationFlows(reader, taskPactSelection.pact);
+  const snapshotHit = reader.latest("IntelligenceSnapshot");
+  let preflight: PreflightPacket | undefined;
+  if (snapshotHit && scopedPaths.length > 0) {
+    const snapshotRef = artifactRefFromIndexEntry(snapshotHit.entry);
+    preflight = await buildPreflightPacket({
+      artifacts: resolverArtifactReader(reader),
+      snapshotRef,
+      goal: task,
+      paths: scopedPaths,
+    });
+  }
+  const evidence = taskOperationEvidence(preflight, scopedPaths);
+  const operation = classifyTaskOperation({
+    taskText: task,
+    paths: scopedPaths,
+    ownerSystems: preflight?.ownerSystems ?? [],
+    ...(preflight ? {
+      risk: {
+        tier: preflight.risk.tier,
+        reasons: preflight.risk.reasons,
+        evidenceRefs: taskOperationEvidenceRefs(preflight),
+      },
+    } : {}),
+    evidence,
+    flows,
+    requiredContextPaths: taskPactSelection.pact?.requiredContextPaths ?? [],
+    ...(requestedProfile ? { requestedProfile } : {}),
+    ...(escalation ? { escalation } : {}),
+  });
+
+  return buildContextForTask(repoRoot, task, paths, operation.context.profile, operation);
+}
+
+function resolverArtifactReader(reader: ArtifactReader) {
+  return {
+    async read(ref: ArtifactRef): Promise<unknown> {
+      const body = reader.readRef(ref);
+      if (!body) throw new Error(`MCP could not read validated artifact ${ref.type}:${ref.id}.`);
+      return body;
+    },
+    async list(type?: string): Promise<ArtifactRef[]> {
+      return reader.listRefs(type);
+    },
+  };
+}
+
+function artifactRefFromIndexEntry(entry: IndexEntry): ArtifactRef {
+  return {
+    type: entry.artifactType,
+    id: entry.artifactId,
+    schemaVersion: entry.schemaVersion ?? "0.1.0",
+    path: entry.path,
+    ...(entry.digest ? { digest: entry.digest } : {}),
+  };
+}
+
+function readTaskOperationFlows(reader: ArtifactReader, pact?: TaskPact): TaskOperationFlow[] {
+  const flows: TaskOperationFlow[] = [];
+  for (const contract of pact?.contracts ?? []) {
+    if (contract.contractType !== "FlowContract") continue;
+    const flow = reader.readRef(contract.ref) as FlowContract | null;
+    if (!flow || !["critical", "high", "normal"].includes(flow.criticality)) continue;
+    flows.push({
+      id: flow.contractId,
+      criticality: flow.criticality,
+      systems: flow.systems,
+      evidenceRef: `${contract.ref.type}:${contract.ref.id}`,
+    });
+  }
+  return flows;
+}
+
+function taskOperationEvidence(
+  preflight: PreflightPacket | undefined,
+  paths: string[],
+): { status: "complete" | "partial" | "missing"; reasons: string[] } {
+  if (!preflight) {
+    return {
+      status: "missing",
+      reasons: ["No current IntelligenceSnapshot was available for preflight risk resolution."],
+    };
+  }
+  const unresolved = preflight.matchedScopes.filter((scope) => !scope.owner).map((scope) => scope.path);
+  if (unresolved.length > 0 || preflight.matchedScopes.length < paths.length) {
+    return {
+      status: "partial",
+      reasons: [`Ownership is unresolved for: ${uniqueStrings(unresolved).join(", ") || "part of the requested scope"}.`],
+    };
+  }
+  return { status: "complete", reasons: [] };
+}
+
+function taskOperationEvidenceRefs(preflight: PreflightPacket): string[] {
+  return uniqueStrings([
+    ...preflight.resolutionTrace.flatMap((entry) => entry.sourceRef
+      ? [`${entry.sourceRef.type}:${entry.sourceRef.id}`]
+      : []),
+    ...preflight.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`),
+  ]).slice(0, 12);
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort();
 }
 
 function configuredModelContextDeliveryPolicy(): ModelContextDeliveryPolicy {
@@ -1389,7 +1560,8 @@ const MCP_TOOL_DEFINITIONS = [
       properties: {
         task: { type: "string", description: "Concrete engineering task." },
         paths: { type: "array", items: { type: "string" }, description: "Known repository paths." },
-        profile: { type: "string", enum: ["compact", "standard", "deep"], description: "Budget profile." },
+        profile: { type: "string", enum: ["compact", "standard", "deep"], description: "Requested minimum budget profile. Rekon may raise it when evidence is incomplete." },
+        escalation: { type: "string", enum: ["validation-failed"], description: "Request deeper context after an unresolved validation failure." },
       },
       required: ["task"],
       additionalProperties: false,
@@ -1459,16 +1631,16 @@ const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_targ
 export const MCP_TOOLS = MCP_TOOL_DEFINITIONS.filter((tool) => MODEL_FACING_MCP_TOOLS.has(tool.name));
 
 export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
-  "Call `context_for_task` with the task and known paths using `compact` at task start, after context compaction or restart, and whenever the goal or path scope materially changes. Read every `readFirst` path before planning or editing; batch those file reads into one command when practical.",
+  "Call `context_for_task` with the task and known paths at task start, after compaction or restart, and when the goal or path scope changes. Follow the returned operation. Read every `readFirst` path before planning or editing; batch those reads when practical.",
   "When inspected source names a task-required symbol, type, or call whose path is absent from `readFirst` and `boundaryPaths`, use `resolve_source_target` with that exact target before broad or text search. Pact text and preservation-only constraints do not create targets. Read every `readNext` path and stop when resolved. Never use this tool for completeness, analogues, or more tests. An unresolved result does not authorize broad search.",
-  "Treat pact constraints and required checks as acceptance criteria. Follow freshness and do-not-touch guidance; unresolved ownership is not permission.",
-  "After editing and before declaring the task complete, call `validate_change` with the original task, every changed path, and the pre-edit Git base ref. Resolve every blocking violation, judge every semantic obligation against the cited source and pact, then run the returned required checks.",
+  "If the returned operation requires a work order, run `rekon intent work-order --path <path> --goal <goal> --json` before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
+  "After editing, call `validate_change` with the original task, every changed path, and the pre-edit Git base ref. Resolve blockers, judge cited semantic obligations, then run required checks. If a failure remains unexplained, request task context with `escalation: validation-failed`.",
   "Returned checks are selected from the task and contracts touched by the observed diff. If a check fails and names an unread exact path or symbol, use `resolve_source_target` with that target and the matching `test` or `dependency` relationship before broad search; then rerun the failed check and any selected check not yet green.",
   "After selected checks pass, run `rekon refresh --changed-file <path> --json`, repeating the flag per changed source path. A failed step or contract drift means incomplete.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
-  "rekon context task --task \"<task>\" --path <path> --profile compact --model-context",
+  "rekon context task --task \"<task>\" --path <path> --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
   "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
@@ -1502,8 +1674,11 @@ export function callTool(
     const paths = Array.isArray(args.paths)
       ? args.paths.filter((path): path is string => typeof path === "string")
       : [];
-    const profile = args.profile === "standard" || args.profile === "deep" ? args.profile : "compact";
-    return buildContextForTask(repoRoot, args.task, paths, profile);
+    const profile = args.profile === "compact" || args.profile === "standard" || args.profile === "deep"
+      ? args.profile
+      : undefined;
+    const escalation = args.escalation === "validation-failed" ? args.escalation : undefined;
+    return buildRiskAdaptiveContextForTask(repoRoot, args.task, paths, profile, escalation);
   }
 
   if (name === "validate_change") {

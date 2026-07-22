@@ -82,8 +82,8 @@ refresh updates, or `enabled: false` to opt out. `rekon agent-contract export`
 continues to support standalone files such as `AGENTS.rekon.md`; it will not
 replace protected instruction files.
 
-`rekon context task --profile compact|standard|deep` and MCP
-`context_for_task` share the same budgeted compiler. Both check task-local
+`rekon context task` and MCP `context_for_task` share the same budgeted compiler
+and task-operation policy. Both check task-local
 freshness before compiling context; stale source evidence triggers an
 incremental refresh of Rekon artifacts. The CLI host owns those writes. Neither
 surface writes repository source or executes project commands. Use
@@ -91,6 +91,14 @@ surface writes repository source or executes project commands. Use
 graph binds a requested path to a configured `CapabilityContract`, both
 surfaces include its declared pacts and required checks. Adopted system or flow
 law is selected through the same `TaskPact` rules.
+
+The returned `operation` records task class, risk provenance, evidence status,
+selected profile, and intent mode. Complete local work stays compact. Missing
+ownership or risk evidence raises the profile to `standard`; an explicit
+`--escalation validation-failed` raises it to `deep`. High-risk, migration,
+contract-changing, and critical-flow work points to the existing `rekon intent
+work-order` command before editing. `--profile` requests a minimum budget; it
+does not suppress a required escalation.
 
 After a change passes its selected checks, run one `rekon refresh` with a
 repeatable `--changed-file` for each changed source path. The incremental run

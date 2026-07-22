@@ -5,10 +5,9 @@ authority boundaries.
 
 ## Before Editing
 
-1. Call `context_for_task` with the concrete task and known paths. Start with
-   `compact`; use a larger profile only when its trace shows missing context.
-   Read every returned `readFirst` path before planning or editing, batching
-   those file reads into one command when practical.
+1. Call `context_for_task` with the concrete task and known paths. Let Rekon
+   choose context depth, follow the returned `operation`, and read every
+   `readFirst` path before planning or editing. Batch those reads when practical.
 2. Call `resolve_source_target` only when inspected source exposes a
    task-required symbolic target whose path is absent from `readFirst` and
    `boundaryPaths`. Pact text and preservation-only constraints name surfaces
@@ -17,23 +16,26 @@ authority boundaries.
    and stop when the route is resolved. Do not refine for completeness,
    analogues, or additional tests, and do not turn an unresolved result into
    broad search.
-3. If context reports missing or drifted repository law, run `rekon contracts
+3. If the operation requires a work order, run `rekon intent work-order --path
+   <path> --goal <goal> --json` before editing.
+4. If context reports missing or drifted repository law, run `rekon contracts
    maintain --root . --json`, inspect the cited source, and complete its
    judgment step yourself. Apply source only when the configured policy allows
    it.
-4. Treat a refresh failure or remaining stale warning as missing evidence.
+5. Treat a refresh failure or remaining stale warning as missing evidence.
    Inspect `rekon artifacts freshness --json` before relying on it.
-5. Check source refs, findings, work order, and verification plan before making
+6. Check source refs, findings, work order, and verification plan before making
    changes.
-6. After editing, call `validate_change` with the original task, every changed
+7. After editing, call `validate_change` with the original task, every changed
    path, and the pre-edit Git base ref. Resolve blocking violations. Judge each
    semantic obligation against its cited source and pact, then run the returned
-   checks before completion.
-7. If a check fails and names an exact unread path or symbol, use
+   checks before completion. If the failure remains unexplained, request
+   context again with `escalation: validation-failed`.
+8. If a check fails and names an exact unread path or symbol, use
    `resolve_source_target` with that target and the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green.
-8. After all selected checks pass, run one incremental `rekon refresh`,
+9. After all selected checks pass, run one incremental `rekon refresh`,
    repeating `--changed-file` for each changed source path. A failed refresh or
    reported contract drift means the task is not complete.
 
@@ -79,7 +81,7 @@ control.
 ```sh
 rekon mcp serve --root .
 rekon scan --root <repo> --json
-rekon context task --root <repo> --task "<task>" --path <path> --profile compact --model-context
+rekon context task --root <repo> --task "<task>" --path <path> --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
 rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --json
 rekon contracts maintain --root <repo> --json

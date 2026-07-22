@@ -70,11 +70,17 @@ This writes an `IntelligenceSnapshot`, the central index of Rekon intelligence.
 First compile the context a model should read:
 
 ```sh
-node packages/cli/dist/index.js context task --root examples/simple-js-ts --task "modify bootstrap" --path src/index.ts --profile compact --provider mock --json
+node packages/cli/dist/index.js context task --root examples/simple-js-ts --task "modify bootstrap" --path src/index.ts --provider mock --json
 ```
 
-The `agentContext` block identifies core and supporting context, trust,
-freshness, token budget, and `contextTrace` selection decisions.
+The `operation` block explains task class, risk, selected context profile, and
+whether a work order is required. `agentContext` identifies core and supporting
+context, trust, freshness, token budget, and `contextTrace` decisions.
+
+When `operation.intent.required` is `true`, run the command it names before
+editing. If later validation fails without identifying the missing source, run
+the same context command with `--escalation validation-failed` to request the
+deep profile.
 
 For the smaller model-facing form, replace `--json` with `--model-context`.
 

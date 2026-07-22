@@ -9,9 +9,22 @@ compact delivery projection. Context is not approval or proof.
 ```sh
 rekon scan --root <repo> --json
 rekon capability graph build --root <repo> --json
-rekon context task --root <repo> --task "Describe the change" --path src/example.ts --profile compact --json
-rekon context task --root <repo> --task "Describe the change" --path src/example.ts --profile compact --model-context
+rekon context task --root <repo> --task "Describe the change" --path src/example.ts --json
+rekon context task --root <repo> --task "Describe the change" --path src/example.ts --model-context
 ```
+
+The returned `operation` classifies the task, records risk evidence, selects the
+smallest sufficient context profile, and says whether work can proceed directly.
+High-risk, migration, contract-changing, and critical-flow work instead points
+to the existing intent command:
+
+```sh
+rekon intent work-order --path <path> --goal <goal> --json
+```
+
+Run it before editing when `operation.intent.required` is `true`. `--profile`
+may request a larger minimum budget; Rekon can still raise it when ownership or
+risk evidence is incomplete.
 
 After editing, validate the actual task diff before running checks:
 
@@ -30,6 +43,13 @@ them in this command. The returned list keeps explicit task checks and narrows
 contract checks to the observed diff. If a check failure names an unread exact
 path or symbol, use the refinement command below with relationship `test` or
 `dependency` before broader search.
+
+If validation fails without an exact source target, request a deeper packet:
+
+```sh
+rekon context task --root <repo> --task "Describe the change" \
+  --path src/example.ts --escalation validation-failed --model-context
+```
 
 After every selected check is green, update Rekon's maintained knowledge once:
 
@@ -76,7 +96,9 @@ rekon intent plan review --root <repo> --plan plans/change.md --goal "Describe t
 - Human readers use the Markdown brief.
 - Agents using CLI use `--model-context` for the minimal delivery payload.
 - Operators use `--json` when they need the full `agentContext` audit block.
-- Agents using MCP receive the compact projection by default.
+- Agents using MCP receive the automatically selected projection.
+- `operation` explains task class, risk, evidence completeness, selected
+  profile, and whether the existing work-order flow is required.
 - `sourceSpans`, when present, point to the strongest bounded deterministic
   evidence inside a delivered path and bind it to a source SHA-256. Start
   there, then inspect enough surrounding implementation to make the change

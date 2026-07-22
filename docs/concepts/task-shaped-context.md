@@ -13,9 +13,22 @@ disables it for deliberate artifact-state inspection.
 
 Profiles provide reviewed selection budgets:
 
-- `compact`: normal first request;
-- `standard`: broader cross-file work;
-- `deep`: exceptional tasks that need a larger repository neighborhood.
+- `compact`: complete task evidence;
+- `standard`: incomplete ownership or risk evidence;
+- `deep`: an explicit retry after unresolved validation.
+
+Callers normally omit the profile. The shared `classifyTaskOperation()` policy
+uses the current preflight result and matched flow contracts to classify work as
+local, cross-file, cross-system, contract-changing, migration, or critical-flow.
+It returns an `operation` with risk provenance, evidence completeness, selected
+profile, and intent mode. A caller may request a larger minimum profile, but a
+smaller request cannot override an evidence-driven escalation.
+
+Local and cross-file tasks with complete evidence proceed directly. High-risk,
+migration, contract-changing, and critical-flow tasks reuse `rekon intent
+work-order`; context compilation does not create a parallel planning system.
+Cross-system flow and handoff paths still come from the complete `TaskPact`, not
+from a larger profile chosen merely because the task spans systems.
 
 The packet separates core from supporting context and records trust, freshness,
 estimated tokens, truncation, and a bounded `contextTrace`. The report is
