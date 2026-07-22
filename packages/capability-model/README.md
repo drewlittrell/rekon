@@ -71,11 +71,13 @@ covers both stage endpoints, a current runtime-observed edge, or model judgment
 as the fallback. Historical coverage selects a check; it never proves current
 source. Discovery remains pure: it executes no command, calls no model
 provider, and writes no source.
-CLI discovery follows the deterministic module-scope call path to a successful
-stdout boundary. Test entry points remain verification context and are not
-treated as product-flow starts. Built-in entry, callable, and CLI-output graph
-identities retain their repository paths so exact coverage observations can
-select a handoff check.
+CLI discovery prefers literal product-command branches over a generic module
+entry and follows each branch to its AST-observed stdout boundary. Test,
+benchmark, audit, and maintenance-script entries remain graph evidence but are
+not product-flow starts. If command evidence is unavailable, older or
+unclassified product graph slices retain the module-scope fallback. A command
+edge can nominate isolated coverage only when the test identity also names the
+operation; covering the CLI file alone does not prove every command.
 `buildRepositoryContractDriftReport()` compares adopted contracts with current
 source, ownership, and flow evidence.
 `buildTaskPact()` selects the adopted system and end-to-end flow law for one

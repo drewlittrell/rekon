@@ -81,12 +81,17 @@ source. The accepted judgment must retain an explicit policy for every
 handoff. Reconciliation preserves adopted policies unless a source-cited
 judgment replaces them.
 
-For JavaScript and TypeScript CLIs, discovery can follow the executable entry
-through module scope and resolved calls to AST-observed stdout. Test entry
-points are verification context, not product-flow starts. Entry, callable, and
-stdout stages preserve their repository path so a validated isolated coverage
-observation can match both sides of a handoff. Stderr and output correctness
-remain separate failure and semantic concerns.
+For JavaScript and TypeScript CLIs, discovery prefers literal command-dispatch
+branches and follows each product operation to AST-observed stdout. Package and
+framework metadata classify product entries; repository scripts, benchmarks,
+and tests remain evidence without becoming contract candidates. A generic CLI
+entry is retained only when command evidence is unavailable. File coverage can
+nominate a command verifier only when the isolated test identity also names the
+operation, so one CLI test does not silently prove sibling commands. Stderr and
+output correctness remain separate failure and semantic concerns.
+Discovery still bounds the number of proposed flows. When that cap is reached,
+the report records how many eligible entries remain unevaluated instead of
+presenting the bounded proposal set as complete.
 
 `EffectiveContractRegistry` indexes current system, capability, handoff, and
 flow contracts by authority and scope. It contains refs rather than copying

@@ -47,6 +47,7 @@ they may collide with built-ins.
 | `test` | test file and framework metadata |
 | `call` | syntactically resolved callable relationship |
 | `entry_point` | manifest or convention-backed repository root |
+| `command` | literal parsed-positional CLI dispatch and its branch-local stdout producers |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
 | `output_flow` | AST-observed successful stdout call and its containing callable |

@@ -11,6 +11,7 @@ export const BUILT_IN_NODE_KINDS = {
   capability: "capability",
   buildTarget: "build_target",
   callable: "callable",
+  command: "command",
   entryPoint: "entry_point",
   cliOutput: "cli_output",
   event: "event",

@@ -83,6 +83,7 @@ test("built-in graph vocabulary includes test context without claiming coverage"
   assert.equal(BUILT_IN_EDGE_KINDS.relatedTo, "related_to");
   assert.equal(BUILT_IN_EDGE_KINDS.observed, "observed");
   assert.equal(BUILT_IN_EDGE_KINDS.produces, "produces");
+  assert.equal(BUILT_IN_NODE_KINDS.command, "command");
   assert.equal(BUILT_IN_NODE_KINDS.cliOutput, "cli_output");
   assert.equal("covers" in BUILT_IN_EDGE_KINDS, false);
 });

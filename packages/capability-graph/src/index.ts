@@ -25,6 +25,8 @@ type EvidenceGraphLike = {
   }>;
 };
 
+type EntryClass = "product" | "tooling" | "test" | "unknown";
+
 export const graphProjector: Projector = {
   id: "@rekon/capability-graph.projector",
   produces: ["GraphSlice"],
@@ -640,12 +642,22 @@ function entryPointReachabilityProjection(
   const adjacency = importAdjacency(importLinks);
   let delegatedTestRoots = 0;
   let truncatedRoots = 0;
-  for (const fact of facts) {
-    if (fact.kind !== "entry_point") continue;
+  const groupedEntries = new Map<string, EvidenceGraphLike["facts"]>();
+  for (const fact of facts.filter((candidate) => candidate.kind === "entry_point")) {
     const path = stringField(fact.value, "path");
     const entryKind = stringField(fact.value, "entryKind");
     if (!path || !entryKind) continue;
     const entryId = `entry:${entryKind}:${path}`;
+    const grouped = groupedEntries.get(entryId) ?? [];
+    grouped.push(fact);
+    groupedEntries.set(entryId, grouped);
+  }
+
+  for (const [entryId, entryFacts] of [...groupedEntries.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+    const metadata = mergeEntryPointMetadata(entryFacts);
+    const path = stringField(metadata, "path");
+    const entryKind = stringField(metadata, "entryKind");
+    if (!path || !entryKind) continue;
     const isTestRoot = entryKind === "test";
     const projection = isTestRoot
       ? { records: new Map<string, ReachabilityRecord>(), truncated: (adjacency.get(path)?.length ?? 0) > 0 }
@@ -656,7 +668,7 @@ function entryPointReachabilityProjection(
       id: entryId,
       kind: BUILT_IN_NODE_KINDS.entryPoint,
       metadata: {
-        ...fact.value,
+        ...metadata,
         reachabilityProjection: {
           projectedFiles: projection.records.size,
           limit: isTestRoot ? 0 : MAX_REACHABILITY_DEPENDENCIES,
@@ -670,9 +682,9 @@ function entryPointReachabilityProjection(
       source: entryId,
       target: path,
       kind: BUILT_IN_EDGE_KINDS.enters,
-      weight: fact.confidence,
+      weight: confidenceForFacts(entryFacts),
       metadata: { entryKind },
-      evidence: [edgeEvidence(fact, computedAt)],
+      evidence: entryFacts.map((fact) => edgeEvidence(fact, computedAt)),
     });
     if (entryKind === "cli") {
       const moduleId = callableId(path, "__module__");
@@ -685,9 +697,9 @@ function entryPointReachabilityProjection(
         source: entryId,
         target: moduleId,
         kind: BUILT_IN_EDGE_KINDS.handles,
-        weight: fact.confidence,
+        weight: confidenceForFacts(entryFacts),
         metadata: { entryKind, handler: "__module__", relationship: "module-entry" },
-        evidence: [edgeEvidence(fact, computedAt)],
+        evidence: entryFacts.map((fact) => edgeEvidence(fact, computedAt)),
       });
     }
     for (const [target, record] of projection.records) {
@@ -698,11 +710,11 @@ function entryPointReachabilityProjection(
         kind: BUILT_IN_EDGE_KINDS.reaches,
         weight: confidenceForFacts(record.facts),
         metadata: { entryKind, distance: record.distance, relationship: "resolved-import" },
-        evidence: contextGraphEvidence([fact, ...record.facts], computedAt, importGraphRef),
+        evidence: contextGraphEvidence([...entryFacts, ...record.facts], computedAt, importGraphRef),
       });
     }
-    const handlers = Array.isArray(fact.value?.handlers)
-      ? fact.value.handlers.filter((handler): handler is string => typeof handler === "string" && handler.length > 0)
+    const handlers = Array.isArray(metadata.handlers)
+      ? metadata.handlers.filter((handler): handler is string => typeof handler === "string" && handler.length > 0)
       : [];
     for (const handler of handlers) {
       const handlerId = callableId(path, handler);
@@ -711,13 +723,56 @@ function entryPointReachabilityProjection(
         source: entryId,
         target: handlerId,
         kind: BUILT_IN_EDGE_KINDS.handles,
-        weight: fact.confidence,
+        weight: confidenceForFacts(entryFacts),
         metadata: { entryKind, handler },
-        evidence: [edgeEvidence(fact, computedAt)],
+        evidence: entryFacts.map((fact) => edgeEvidence(fact, computedAt)),
       });
     }
   }
   return { nodes, edges, delegatedTestRoots, truncatedRoots };
+}
+
+function mergeEntryPointMetadata(facts: EvidenceGraphLike["facts"]): Record<string, unknown> {
+  const ordered = [...facts].sort((left, right) => {
+    const sourceRank = entrySourceRank(stringField(left.value, "source")) - entrySourceRank(stringField(right.value, "source"));
+    return sourceRank || left.subject.localeCompare(right.subject);
+  });
+  const metadata = Object.assign({}, ...ordered.map((fact) => fact.value ?? {})) as Record<string, unknown>;
+  const path = stringField(metadata, "path") ?? "";
+  const entryKind = stringField(metadata, "entryKind") ?? "unknown";
+  const entrySources = [...new Set(ordered
+    .map((fact) => stringField(fact.value, "source"))
+    .filter((source): source is string => Boolean(source)))].sort();
+  const handlers = [...new Set(ordered.flatMap((fact) => Array.isArray(fact.value?.handlers)
+    ? fact.value.handlers.filter((handler): handler is string => typeof handler === "string" && handler.length > 0)
+    : []))].sort();
+  return {
+    ...metadata,
+    entryClass: classifyEntryPoint(path, entryKind, entrySources),
+    entrySources,
+    ...(handlers.length > 0 ? { handlers } : {}),
+  };
+}
+
+function entrySourceRank(source: string | undefined): number {
+  if (source === "package-manifest") return 5;
+  if (source === "package-files") return 4;
+  if (source === "framework-convention" || source === "worker-convention" || source === "build-config") return 3;
+  if (source === "package-tool-config") return 2;
+  if (source === "cli-convention") return 1;
+  return 0;
+}
+
+function classifyEntryPoint(path: string, entryKind: string, sources: string[]): EntryClass {
+  if (entryKind === "test" || isTestOrBenchmarkPath(path)) return "test";
+  if (entryKind !== "cli") return "product";
+  if (sources.includes("package-manifest") || /(?:^|\/)(?:bin|cli)(?:\/|$)/u.test(path)) return "product";
+  if (/(?:^|\/)(?:scripts?|tools?|devtools?)(?:\/|$)/u.test(path)) return "tooling";
+  return "unknown";
+}
+
+function isTestOrBenchmarkPath(path: string): boolean {
+  return /(?:^|\/)(?:__tests__|tests?|specs?|bench|benchmark|benchmarks)(?:\/|$)/u.test(path);
 }
 
 function callableId(path: string, symbol: string): string {
@@ -730,13 +785,50 @@ function behaviorGraphProjection(
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
+  const cliEntries = cliEntryMetadataByPath(facts);
   for (const fact of facts) {
     const source = stringField(fact.value, "source");
     const caller = stringField(fact.value, "caller");
     if (!source || !caller) continue;
     const sourceId = callableId(source, caller);
     nodes.push({ id: sourceId, kind: BUILT_IN_NODE_KINDS.callable, metadata: { path: source, symbol: caller } });
-    if (fact.kind === "event_flow") {
+    if (fact.kind === "command") {
+      const operation = stringField(fact.value, "operation");
+      if (!operation) continue;
+      const commandId = `command:${source}#${operation}`;
+      const entryMetadata = cliEntries.get(source);
+      nodes.push({
+        id: commandId,
+        kind: BUILT_IN_NODE_KINDS.command,
+        metadata: {
+          path: source,
+          operation,
+          caller,
+          entryClass: entryMetadata?.entryClass ?? "unknown",
+          entrySources: entryMetadata?.entrySources ?? [],
+          ...(Array.isArray(fact.value?.parts) ? { parts: fact.value.parts } : {}),
+        },
+      });
+      const outputCallers = Array.isArray(fact.value?.outputCallers)
+        ? fact.value.outputCallers.filter((outputCaller): outputCaller is string => typeof outputCaller === "string" && outputCaller.length > 0)
+        : [];
+      for (const outputCaller of outputCallers) {
+        const outputId = `cli-output:${source}#${outputCaller}:stdout`;
+        nodes.push({
+          id: outputId,
+          kind: BUILT_IN_NODE_KINDS.cliOutput,
+          metadata: { path: source, caller: outputCaller, channel: "stdout" },
+        });
+        edges.push({
+          source: commandId,
+          target: outputId,
+          kind: BUILT_IN_EDGE_KINDS.produces,
+          weight: fact.confidence,
+          metadata: { operation, relationship: "command-output" },
+          evidence: [edgeEvidence(fact, computedAt)],
+        });
+      }
+    } else if (fact.kind === "event_flow") {
       const eventName = stringField(fact.value, "eventName");
       const action = stringField(fact.value, "action");
       if (!eventName || (action !== "emit" && action !== "subscribe")) continue;
@@ -810,6 +902,19 @@ function behaviorGraphProjection(
     }
   }
   return { nodes, edges };
+}
+
+function cliEntryMetadataByPath(facts: EvidenceGraphLike["facts"]): Map<string, Record<string, unknown>> {
+  const grouped = new Map<string, EvidenceGraphLike["facts"]>();
+  for (const fact of facts) {
+    if (fact.kind !== "entry_point" || stringField(fact.value, "entryKind") !== "cli") continue;
+    const path = stringField(fact.value, "path");
+    if (!path) continue;
+    const values = grouped.get(path) ?? [];
+    values.push(fact);
+    grouped.set(path, values);
+  }
+  return new Map([...grouped.entries()].map(([path, entryFacts]) => [path, mergeEntryPointMetadata(entryFacts)]));
 }
 
 function stringField(value: Record<string, unknown> | undefined, field: string): string | undefined {

@@ -93,6 +93,11 @@ verification recording, reconciliation planning, and artifact validation.
   to successful stdout, excludes test roots from product-flow starts, and
   preserves source paths across callable stages so isolated coverage can bind
   to exact handoffs.
+- CLI topology now distinguishes package/framework product entries from
+  repository tooling and extracts literal command-dispatch operations. Rekon's
+  self-scan finds code-backed CLI operations instead of audit, evaluation, or
+  benchmark scripts; command verifier nomination also requires a matching test
+  identity rather than file coverage alone.
 - Contract candidate reports now expose evidence inventory separately from
   evidence availability. Discovery checks every indexed runtime-observation
   report, cites valid reports even when they contain no edge coverage, and

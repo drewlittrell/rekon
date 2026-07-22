@@ -43,7 +43,10 @@ truncation explicit, while `header.inputRefs` cites the complete import graph.
 The behavior graph records
 literal events, directly imported state-SDK calls, successful stdout calls, and
 explicit throws. CLI roots connect to module-scope execution; stdout calls
-produce source-scoped `cli_output` nodes. Test roots remain graph context and
+produce source-scoped `cli_output` nodes. Entry metadata distinguishes product,
+tooling, test, and unknown executables. Literal product command branches become
+`command` nodes and connect to stdout only when branch-local calls reach a
+deterministic stdout producer. Tooling and test roots remain graph context and
 are not product-flow starts. These edges explain impact; they do not alter
 severity or prove output correctness by themselves.
 

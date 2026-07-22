@@ -27,6 +27,7 @@ test("graph capability projects structural and application-context slices", asyn
       facts: [
         { kind: "file", subject: "src/index.ts", value: {}, confidence: 1 },
         { kind: "file", subject: "src/cli.ts", value: { path: "src/cli.ts" }, confidence: 1 },
+        { kind: "file", subject: "scripts/audit.mjs", value: { path: "scripts/audit.mjs" }, confidence: 1 },
         { kind: "file", subject: "src/user-service.ts", value: { path: "src/user-service.ts" }, confidence: 1 },
         { kind: "file", subject: "app/api/users/route.ts", value: { path: "app/api/users/route.ts" }, confidence: 1 },
         { kind: "file", subject: "app/users/page.tsx", value: { path: "app/users/page.tsx" }, confidence: 1 },
@@ -47,10 +48,14 @@ test("graph capability projects structural and application-context slices", asyn
         { kind: "call", subject: "src/cli.ts:__module__->src/cli.ts:main", value: { source: "src/cli.ts", caller: "__module__", targetFile: "src/cli.ts", targetSymbol: "main", resolution: "local-binding", callKind: "call" }, confidence: 1 },
         { kind: "entry_point", subject: "route:app/api/users/route.ts", value: { path: "app/api/users/route.ts", entryKind: "route", source: "framework-convention", routePath: "/api/users", handlers: ["GET"] }, confidence: 1 },
         { kind: "entry_point", subject: "cli:src/cli.ts", value: { path: "src/cli.ts", entryKind: "cli", source: "cli-convention" }, confidence: 1 },
+        { kind: "entry_point", subject: "manifest:package.json:cli:fixture", value: { path: "src/cli.ts", entryKind: "cli", source: "package-manifest", manifestPath: "package.json", publicName: "fixture" }, confidence: 1 },
+        { kind: "entry_point", subject: "cli:scripts/audit.mjs", value: { path: "scripts/audit.mjs", entryKind: "cli", source: "cli-convention" }, confidence: 1 },
         { kind: "entry_point", subject: "test:tests/user.test.ts", value: { path: "tests/user.test.ts", entryKind: "test", source: "framework-convention" }, confidence: 1 },
+        { kind: "command", subject: "src/cli.ts#status", value: { path: "src/cli.ts", source: "src/cli.ts", operation: "status", parts: ["status"], caller: "main", outputCallers: ["main"] }, confidence: 1 },
         { kind: "event_flow", subject: "src/user-service.ts:listUsers:emit:user.loaded", value: { source: "src/user-service.ts", caller: "listUsers", action: "emit", eventName: "user.loaded", receiver: "events" }, confidence: 1 },
         { kind: "state_access", subject: "src/user-service.ts:listUsers:@prisma/client:user.findMany", value: { source: "src/user-service.ts", caller: "listUsers", package: "@prisma/client", binding: "prisma", operation: "user.findMany" }, confidence: 1 },
         { kind: "output_flow", subject: "src/cli.ts:main:process.stdout.write", value: { source: "src/cli.ts", caller: "main", channel: "stdout", operation: "process.stdout.write" }, confidence: 1 },
+        { kind: "output_flow", subject: "scripts/audit.mjs:__module__:console.log", value: { source: "scripts/audit.mjs", caller: "__module__", channel: "stdout", operation: "console.log" }, confidence: 1 },
         { kind: "error_flow", subject: "src/user-service.ts:listUsers:rethrow:20:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "rethrow", errorName: "error", errorIdentity: "error", line: 20 }, confidence: 1 },
         { kind: "error_flow", subject: "src/user-service.ts:listUsers:throw:24:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "throw", errorIdentity: "AbortError", line: 24 }, confidence: 1 },
       ],
@@ -133,6 +138,18 @@ test("graph capability projects structural and application-context slices", asyn
       && edge.target === "callable:src/cli.ts#__module__"
       && edge.kind === "handles"
       && edge.metadata.relationship === "module-entry"));
+    assert.deepEqual(
+      reachabilityGraph.nodes.find((node) => node.id === "entry:cli:src/cli.ts").metadata.entrySources,
+      ["cli-convention", "package-manifest"],
+    );
+    assert.equal(
+      reachabilityGraph.nodes.find((node) => node.id === "entry:cli:src/cli.ts").metadata.entryClass,
+      "product",
+    );
+    assert.equal(
+      reachabilityGraph.nodes.find((node) => node.id === "entry:cli:scripts/audit.mjs").metadata.entryClass,
+      "tooling",
+    );
     assert.ok(reachabilityGraph.edges.some((edge) =>
       edge.source === "entry:route:app/api/users/route.ts"
       && edge.target === "src/user-service.ts"
@@ -145,6 +162,15 @@ test("graph capability projects structural and application-context slices", asyn
       edge.source === "callable:src/cli.ts#main"
       && edge.target === "cli-output:src/cli.ts#main:stdout"
       && edge.kind === "produces"));
+    assert.ok(behaviorGraph.edges.some((edge) =>
+      edge.source === "command:src/cli.ts#status"
+      && edge.target === "cli-output:src/cli.ts#main:stdout"
+      && edge.kind === "produces"
+      && edge.metadata.relationship === "command-output"));
+    assert.equal(
+      behaviorGraph.nodes.find((node) => node.id === "command:src/cli.ts#status").metadata.entryClass,
+      "product",
+    );
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "propagates_error" && edge.metadata.action === "rethrow"));
     assert.deepEqual(
       behaviorGraph.nodes

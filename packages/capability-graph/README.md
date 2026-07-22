@@ -42,6 +42,12 @@ state-SDK access, successful stdout calls, and explicit throw/rethrow syntax.
 Stdout becomes a `cli_output` node through a `produces` edge; it is an observed
 boundary, not proof that the response is correct.
 
+Entry nodes retain an `entryClass` of `product`, `tooling`, `test`, or
+`unknown`. Package bins and framework surfaces are product entries; maintenance
+scripts and benchmark roots remain graph evidence without becoming product
+contract starts. Literal CLI dispatch facts become command nodes, with a
+`produces` edge only when the branch reaches an AST-observed stdout producer.
+
 ## Lifecycle Fit
 
 Runs during `Project`. Graph slices enrich resolver and publisher behavior

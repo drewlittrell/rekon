@@ -232,9 +232,12 @@ test("CLI flow discovery connects module execution to stdout and binds exact tes
       sliceType: "behavior-graph",
       nodes: [
         { kind: "entry_point", id: "entry:cli:src/cli.ts" },
+        { kind: "entry_point", id: "entry:cli:scripts/audit.mjs", metadata: { entryClass: "tooling", path: "scripts/audit.mjs" } },
         { kind: "callable", id: "callable:src/cli.ts#__module__" },
         { kind: "callable", id: "callable:src/cli.ts#main" },
+        { kind: "callable", id: "callable:scripts/audit.mjs#__module__" },
         { kind: "cli_output", id: "cli-output:src/cli.ts#main:stdout" },
+        { kind: "cli_output", id: "cli-output:scripts/audit.mjs#__module__:stdout" },
         { kind: "entry_point", id: "entry:test:tests/cli.test.ts" },
         { kind: "callable", id: "callable:tests/cli.test.ts#__module__" },
         { kind: "cli_output", id: "cli-output:tests/cli.test.ts#__module__:stdout" },
@@ -243,6 +246,8 @@ test("CLI flow discovery connects module execution to stdout and binds exact tes
         { source: "entry:cli:src/cli.ts", target: "callable:src/cli.ts#__module__", kind: "handles", evidence: [{ source: "ast", confidence: 0.9 }] },
         { source: "callable:src/cli.ts#__module__", target: "callable:src/cli.ts#main", kind: "calls", evidence: [{ source: "ast", confidence: 0.9 }] },
         { source: "callable:src/cli.ts#main", target: "cli-output:src/cli.ts#main:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "entry:cli:scripts/audit.mjs", target: "callable:scripts/audit.mjs#__module__", kind: "handles", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "callable:scripts/audit.mjs#__module__", target: "cli-output:scripts/audit.mjs#__module__:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
         { source: "entry:test:tests/cli.test.ts", target: "callable:tests/cli.test.ts#__module__", kind: "handles", evidence: [{ source: "ast", confidence: 0.9 }] },
         { source: "callable:tests/cli.test.ts#__module__", target: "cli-output:tests/cli.test.ts#__module__:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
       ],
@@ -272,7 +277,75 @@ test("CLI flow discovery connects module execution to stdout and binds exact tes
     handoff.verification.acceptedMethods[0] === "test"
     && handoff.verification.requiredChecks[0] === "npm test -- cli.test.ts"
   )));
+  assert.equal(report.candidates.some((candidate) => candidate.targetId.includes("scripts-audit.mjs")), false);
   assert.equal(report.unresolved.some((entry) => entry.id.includes("tests-cli.test.ts")), false);
+  assert.equal(report.unresolved.some((entry) => entry.id.includes("scripts-audit.mjs")), false);
+});
+
+test("CLI flow discovery prefers product commands and excludes tooling commands", () => {
+  const graph = buildRepositoryIntelligenceGraph({
+    graphSlices: [{
+      header: header("GraphSlice", "command-flow"),
+      sliceType: "behavior-graph",
+      nodes: [
+        { kind: "entry_point", id: "entry:cli:src/cli.ts", metadata: { entryClass: "product", path: "src/cli.ts" } },
+        { kind: "command", id: "command:src/cli.ts#contracts discover", metadata: { entryClass: "product", path: "src/cli.ts", operation: "contracts discover" } },
+        { kind: "command", id: "command:src/cli.ts#artifacts list", metadata: { entryClass: "product", path: "src/cli.ts", operation: "artifacts list" } },
+        { kind: "cli_output", id: "cli-output:src/cli.ts#writeOutput:stdout" },
+        { kind: "command", id: "command:scripts/audit.mjs#audit", metadata: { entryClass: "tooling", path: "scripts/audit.mjs", operation: "audit" } },
+        { kind: "cli_output", id: "cli-output:scripts/audit.mjs#__module__:stdout" },
+      ],
+      edges: [
+        { source: "entry:cli:src/cli.ts", target: "cli-output:src/cli.ts#writeOutput:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "command:src/cli.ts#contracts discover", target: "cli-output:src/cli.ts#writeOutput:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "command:src/cli.ts#artifacts list", target: "cli-output:src/cli.ts#writeOutput:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "command:scripts/audit.mjs#audit", target: "cli-output:scripts/audit.mjs#__module__:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+      ],
+    }],
+  });
+  const report = discoverRepositoryContractCandidates({
+    repoId: "example",
+    generatedAt: "2026-07-20T22:00:00.000Z",
+    graph,
+    verificationEvidence: [{
+      method: "test",
+      command: "node --test tests/repository-contract-discover-cli.test.mjs",
+      coveredPaths: ["src/cli.ts"],
+      testPath: "tests/repository-contract-discover-cli.test.mjs",
+      evidenceRefs: [{ type: "VerificationRun", id: "contracts-discover", schemaVersion: "1.0.0" }],
+    }],
+  });
+
+  const flows = report.candidates.filter((candidate) => candidate.kind === "flow");
+  assert.equal(flows.length, 2);
+  const contractFlow = flows.find((flow) => flow.targetId.includes("contracts-discover"));
+  const artifactFlow = flows.find((flow) => flow.targetId.includes("artifacts-list"));
+  assert.equal(contractFlow.proposed.stages[0].label, "command:src/cli.ts#contracts discover");
+  assert.deepEqual(contractFlow.proposed.handoffs[0].verification, {
+    acceptedMethods: ["test"],
+    acceptancePolicy: "all-required",
+    requiredChecks: ["node --test tests/repository-contract-discover-cli.test.mjs"],
+  });
+  assert.deepEqual(artifactFlow.proposed.handoffs[0].verification, {
+    acceptedMethods: ["model-judgment"],
+    acceptancePolicy: "all-required",
+  });
+  assert.equal(report.unresolved.some((entry) => entry.id.includes("entry-cli-src-cli.ts")), false);
+  assert.equal(report.unresolved.some((entry) => entry.id.includes("scripts-audit.mjs")), false);
+
+  const bounded = discoverRepositoryContractCandidates({
+    repoId: "example",
+    generatedAt: "2026-07-20T22:00:00.000Z",
+    graph,
+    maxFlows: 1,
+  });
+  assert.equal(bounded.candidates.filter((candidate) => candidate.kind === "flow").length, 1);
+  const limit = bounded.unresolved.find((entry) => entry.id === "unresolved:flow:candidate-limit");
+  assert.ok(limit, JSON.stringify(bounded.unresolved));
+  assert.match(
+    limit.reason,
+    /1 eligible entry not evaluated/,
+  );
 });
 
 test("discovery does not duplicate adopted contracts and reports uncovered entries", () => {

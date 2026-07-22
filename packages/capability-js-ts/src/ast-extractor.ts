@@ -635,6 +635,14 @@ type AstFlowRecord =
   | PendingCallbackCleanupEvidence
   | AsyncEffectContinuationEvidence;
 
+export type CliCommandDispatchEvidence = {
+  operation: string;
+  parts: string[];
+  caller: string;
+  outputCallers: string[];
+  location: AstLocation;
+};
+
 export interface AstExtractionResult {
   language: AstLanguage;
   symbols: AstSymbolRecord[];
@@ -644,6 +652,7 @@ export interface AstExtractionResult {
   reexports: AstReexportRecord[];
   calls: AstCallRecord[];
   flows: AstFlowRecord[];
+  commands: CliCommandDispatchEvidence[];
 }
 
 interface AstExtractionInput {
@@ -684,13 +693,189 @@ export function extractAstRecords(
     reexports: [],
     calls: [],
     flows: [],
+    commands: [],
   };
 
   visit(sourceFile, sourceFile, result);
   result.calls.push(...extractCallRecords(sourceFile));
   result.flows.push(...extractFlowRecords(sourceFile));
+  result.commands.push(...extractCliCommandDispatchRecords(sourceFile, result));
 
   return result;
+}
+
+type CliCommandSlot = "command" | "subcommand" | "positional";
+type CliCommandRoute = Partial<Record<CliCommandSlot, string>>;
+
+function extractCliCommandDispatchRecords(
+  sourceFile: ts.SourceFile,
+  result: AstExtractionResult,
+): CliCommandDispatchEvidence[] {
+  const bindings = cliCommandBindings(sourceFile);
+  if (bindings.size === 0) return [];
+
+  const localFunctions = new Set(result.symbols
+    .filter((symbol) => symbol.symbolKind === "function" || symbol.symbolKind === "method")
+    .map((symbol) => symbol.ownerName ? `${symbol.ownerName}.${symbol.name}` : symbol.name));
+  const callAdjacency = new Map<string, Set<string>>();
+  for (const call of result.calls) {
+    if (call.receiver || !localFunctions.has(call.callee)) continue;
+    const callees = callAdjacency.get(call.caller) ?? new Set<string>();
+    callees.add(call.callee);
+    callAdjacency.set(call.caller, callees);
+  }
+  const directStdoutCallers = new Set(result.flows
+    .filter((flow): flow is Extract<AstFlowRecord, { kind: "member-call" }> => flow.kind === "member-call")
+    .filter((flow) => isStdoutMemberCall(flow.root, flow.members))
+    .map((flow) => flow.caller));
+
+  const records = new Map<string, CliCommandDispatchEvidence>();
+  const visitCommands = (node: ts.Node): void => {
+    if (ts.isIfStatement(node)) {
+      const routes = cliCommandRoutes(node.expression, bindings).filter((route) => route.command);
+      if (routes.length > 0) {
+        const caller = enclosingCaller(node);
+        const branch = branchCallEvidence(node.thenStatement);
+        const outputCallers = new Set<string>();
+        if (branch.writesStdout) outputCallers.add(caller);
+        for (const callee of branch.localCalls) {
+          for (const outputCaller of reachableStdoutCallers(callee, callAdjacency, directStdoutCallers)) {
+            outputCallers.add(outputCaller);
+          }
+        }
+        for (const route of routes) {
+          const parts = [route.command, route.subcommand, route.positional]
+            .filter((part): part is string => Boolean(part));
+          const operation = parts.join(" ");
+          const prior = records.get(operation);
+          records.set(operation, {
+            operation,
+            parts,
+            caller,
+            outputCallers: [...new Set([...(prior?.outputCallers ?? []), ...outputCallers])].sort(),
+            location: prior?.location ?? locationOf(node.expression, sourceFile),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visitCommands);
+  };
+  visitCommands(sourceFile);
+  return [...records.values()].sort((left, right) => left.operation.localeCompare(right.operation));
+}
+
+function cliCommandBindings(sourceFile: ts.SourceFile): Map<string, CliCommandSlot> {
+  const bindings = new Map<string, CliCommandSlot>();
+  const slots: CliCommandSlot[] = ["command", "subcommand", "positional"];
+  const visitBindings = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node)
+      && ts.isArrayBindingPattern(node.name)
+      && node.initializer
+      && isParsedPositionals(node.initializer)) {
+      for (const [index, element] of node.name.elements.entries()) {
+        if (index >= slots.length || ts.isOmittedExpression(element) || !ts.isIdentifier(element.name)) continue;
+        bindings.set(element.name.text, slots[index]!);
+      }
+    }
+    ts.forEachChild(node, visitBindings);
+  };
+  visitBindings(sourceFile);
+  return bindings;
+}
+
+function isParsedPositionals(expression: ts.Expression): boolean {
+  const value = unwrapExpression(expression);
+  return ts.isPropertyAccessExpression(value)
+    && (value.name.text === "positionals" || value.name.text === "_");
+}
+
+function cliCommandRoutes(
+  expression: ts.Expression,
+  bindings: ReadonlyMap<string, CliCommandSlot>,
+): CliCommandRoute[] {
+  const value = unwrapExpression(expression);
+  if (ts.isBinaryExpression(value)) {
+    if (value.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return mergeCliCommandRoutes(
+        cliCommandRoutes(value.left, bindings),
+        cliCommandRoutes(value.right, bindings),
+      );
+    }
+    if (value.operatorToken.kind === ts.SyntaxKind.BarBarToken) {
+      return [...cliCommandRoutes(value.left, bindings), ...cliCommandRoutes(value.right, bindings)];
+    }
+    if (value.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken
+      || value.operatorToken.kind === ts.SyntaxKind.EqualsEqualsToken) {
+      const comparison = cliCommandComparison(value.left, value.right, bindings)
+        ?? cliCommandComparison(value.right, value.left, bindings);
+      return comparison ? [comparison] : [{}];
+    }
+  }
+  return [{}];
+}
+
+function cliCommandComparison(
+  bindingExpression: ts.Expression,
+  literalExpression: ts.Expression,
+  bindings: ReadonlyMap<string, CliCommandSlot>,
+): CliCommandRoute | undefined {
+  const binding = unwrapExpression(bindingExpression);
+  const literal = unwrapExpression(literalExpression);
+  if (!ts.isIdentifier(binding) || !ts.isStringLiteralLike(literal)) return undefined;
+  const slot = bindings.get(binding.text);
+  return slot ? { [slot]: literal.text } : undefined;
+}
+
+function mergeCliCommandRoutes(left: CliCommandRoute[], right: CliCommandRoute[]): CliCommandRoute[] {
+  const merged: CliCommandRoute[] = [];
+  for (const leftRoute of left) {
+    for (const rightRoute of right) {
+      const conflict = (["command", "subcommand", "positional"] as const)
+        .some((slot) => leftRoute[slot] && rightRoute[slot] && leftRoute[slot] !== rightRoute[slot]);
+      if (!conflict) merged.push({ ...leftRoute, ...rightRoute });
+    }
+  }
+  return merged;
+}
+
+function branchCallEvidence(node: ts.Node): { localCalls: Set<string>; writesStdout: boolean } {
+  const localCalls = new Set<string>();
+  let writesStdout = false;
+  const visitBranch = (current: ts.Node): void => {
+    if (current !== node && isFunctionBoundary(current)) return;
+    if (ts.isCallExpression(current)) {
+      if (ts.isIdentifier(current.expression)) localCalls.add(current.expression.text);
+      const path = memberPath(current.expression);
+      if (path && isStdoutMemberCall(path[0]!, path.slice(1))) writesStdout = true;
+    }
+    ts.forEachChild(current, visitBranch);
+  };
+  visitBranch(node);
+  return { localCalls, writesStdout };
+}
+
+function reachableStdoutCallers(
+  start: string,
+  adjacency: ReadonlyMap<string, Set<string>>,
+  directStdoutCallers: ReadonlySet<string>,
+): string[] {
+  const outputs = new Set<string>();
+  const seen = new Set<string>();
+  const queue = [start];
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index]!;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    if (directStdoutCallers.has(current)) outputs.add(current);
+    for (const next of adjacency.get(current) ?? []) queue.push(next);
+  }
+  return [...outputs].sort();
+}
+
+function isStdoutMemberCall(root: string, members: string[]): boolean {
+  const method = members.at(-1);
+  return (root === "console" && Boolean(method) && ["dir", "info", "log", "table"].includes(method!))
+    || (root === "process" && members.length === 2 && members[0] === "stdout" && method === "write");
 }
 
 export function extractErrorControlFlowEvidence(input: AstExtractionInput): ErrorControlFlowEvidence[] {

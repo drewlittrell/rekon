@@ -43,6 +43,11 @@ Cold-start JavaScript and TypeScript CLI discovery connects executable module
 scope to successful stdout and excludes test roots from product-flow starts.
 Source paths survive entry, callable, and output graph identities so exact
 coverage can nominate a handoff verifier before model judgment is required.
+When literal parsed-positional dispatch is present, product command branches
+replace the generic CLI start. Executable maintenance, benchmark, and test
+roots remain observable graph evidence but cannot become product law. A passed
+test must also name the command operation before its file coverage can nominate
+that command edge's verifier.
 Executed checks capture their bounded source state before and after execution;
 only an unchanged post-run digest can satisfy the matching current change.
 Declared checks remain authoritative. When they leave changed source without a

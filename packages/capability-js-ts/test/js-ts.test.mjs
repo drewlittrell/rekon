@@ -2107,6 +2107,38 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
   }
 });
 
+test("JS/TS provider emits literal CLI operations with branch-local stdout reachability", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-cli-commands-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({
+      name: "cli-command-fixture",
+      bin: { fixture: "./dist/cli.js" },
+    }), "utf8");
+    await writeFile(join(root, "src", "cli.ts"), [
+      "#!/usr/bin/env node",
+      "const parsed = { positionals: process.argv.slice(2) };",
+      "const [action, subaction, target] = parsed.positionals;",
+      "function writeOutput(value) { console.log(value); }",
+      "function relay(value) { writeOutput(value); }",
+      "export async function main() {",
+      "  if (action === 'contracts' && subaction === 'discover') { writeOutput('found'); return; }",
+      "  if (action === 'verify' && subaction === 'run' && target === 'now') { relay('verified'); return; }",
+      "  if (target === 'ignored') { writeOutput('not a command'); }",
+      "}",
+      "void main();",
+    ].join("\n"), "utf8");
+
+    const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: false });
+    const commands = facts.filter((fact) => fact.kind === "command");
+    assert.deepEqual(commands.map((fact) => fact.value.operation), ["contracts discover", "verify run now"]);
+    assert.deepEqual(commands.map((fact) => fact.value.outputCallers), [["writeOutput"], ["writeOutput"]]);
+    assert.ok(commands.every((fact) => fact.value.path === "src/cli.ts" && fact.value.caller === "main"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("JS/TS provider resolves declared workspace exports, aliases, and re-export chains", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-js-ts-workspace-exports-"));
   try {

@@ -233,12 +233,28 @@ function discoverFlows(
   }
   for (const values of adjacency.values()) values.sort((left, right) => left.id.localeCompare(right.id));
 
-  const entries = graph.nodes.filter(isContractFlowEntry).sort(refCompare);
+  const commandPaths = new Set(graph.nodes
+    .filter((ref) => ref.kind === "command" && isContractFlowEntry(ref))
+    .map(pathForRef)
+    .filter((path): path is string => Boolean(path)));
+  const entries = graph.nodes
+    .filter(isContractFlowEntry)
+    .filter((ref) => !isSupersededCliEntry(ref, commandPaths))
+    .sort(refCompare);
   const candidates: ContractCandidate[] = [];
   const unresolved: ContractCandidateReport["unresolved"] = [];
   const flowKeys = new Set<string>();
-  for (const entry of entries) {
-    if (candidates.length >= options.maxFlows) break;
+  for (const [entryIndex, entry] of entries.entries()) {
+    if (candidates.length >= options.maxFlows) {
+      const remaining = entries.length - entryIndex;
+      unresolved.push({
+        id: "unresolved:flow:candidate-limit",
+        kind: "flow",
+        reason: `Flow candidate limit ${options.maxFlows} reached with ${remaining} eligible entr${remaining === 1 ? "y" : "ies"} not evaluated. Increase maxFlows to inspect the remainder.`,
+        evidenceRefs: options.inputRefs,
+      });
+      break;
+    }
     const path = shortestOutcomePath(entry, adjacency, options.maxDepth);
     if (!path) {
       unresolved.push({
@@ -276,6 +292,7 @@ function discoverFlows(
         failureSemantics: claim.predicate === "propagates_error" ? "Preserve the observed error propagation behavior." : undefined,
         verification: discoverHandoffVerification({
           claim,
+          entry,
           fromPaths: stages[index]?.paths ?? [],
           toPaths: stages[index + 1]?.paths ?? [],
           existing: existingFlow?.handoffs.find((handoff) =>
@@ -350,7 +367,29 @@ function shortestOutcomePath(
 
 function isContractFlowEntry(ref: RepositoryIntelligenceGraphRef): boolean {
   if (!ENTRY_KINDS.has(ref.kind)) return false;
-  return ref.kind !== "entry_point" || !ref.id.startsWith("entry:test:");
+  if (ref.kind === "command") return hasProductEntryClass(ref, true);
+  if (ref.kind !== "entry_point") return true;
+  if (ref.id.startsWith("entry:test:")) return false;
+  return hasProductEntryClass(ref, false);
+}
+
+function hasProductEntryClass(ref: RepositoryIntelligenceGraphRef, requireExplicit: boolean): boolean {
+  const entryClass = typeof ref.metadata?.entryClass === "string" ? ref.metadata.entryClass : undefined;
+  if (entryClass === "tooling" || entryClass === "test" || entryClass === "unknown") return false;
+  if (entryClass === "product") return true;
+  if (requireExplicit) return false;
+  const path = pathForRef(ref);
+  return !path || !isToolingOrTestPath(path);
+}
+
+function isSupersededCliEntry(ref: RepositoryIntelligenceGraphRef, commandPaths: ReadonlySet<string>): boolean {
+  if (ref.kind !== "entry_point" || !ref.id.startsWith("entry:cli:")) return false;
+  const path = pathForRef(ref);
+  return Boolean(path && commandPaths.has(path));
+}
+
+function isToolingOrTestPath(path: string): boolean {
+  return /(?:^|\/)(?:__tests__|tests?|specs?|bench|benchmark|benchmarks|scripts?|tools?|devtools?)(?:\/|$)/u.test(path);
 }
 
 function isTerminalForEntry(
@@ -359,7 +398,8 @@ function isTerminalForEntry(
 ): boolean {
   if (!TERMINAL_KINDS.has(terminal.kind)) return false;
   if (terminal.kind !== "cli_output") return true;
-  return entry.kind === "entry_point" && entry.id.startsWith("entry:cli:");
+  return entry.kind === "command"
+    || (entry.kind === "entry_point" && entry.id.startsWith("entry:cli:"));
 }
 
 function collectInputRefs(input: DiscoverRepositoryContractCandidatesInput): ArtifactRef[] {
@@ -431,6 +471,7 @@ function buildEvidenceInventory(
 
 function discoverHandoffVerification(input: {
   claim: RepositoryIntelligenceGraphClaim;
+  entry: RepositoryIntelligenceGraphRef;
   fromPaths: string[];
   toPaths: string[];
   existing?: FlowContract["handoffs"][number];
@@ -453,6 +494,7 @@ function discoverHandoffVerification(input: {
       .filter((entry) =>
         entry.method === "test"
         && entry.command.trim().length > 0
+        && verificationNamesEntryOperation(entry, input.entry)
         && input.fromPaths.some((path) => entry.coveredPaths.includes(path))
         && input.toPaths.some((path) => entry.coveredPaths.includes(path)))
       .sort((left, right) =>
@@ -471,6 +513,33 @@ function discoverHandoffVerification(input: {
     return { acceptedMethods: ["runtime"], acceptancePolicy: "all-required" };
   }
   return { acceptedMethods: ["model-judgment"], acceptancePolicy: "all-required" };
+}
+
+function verificationNamesEntryOperation(
+  evidence: RepositoryContractVerificationEvidence,
+  entry: RepositoryIntelligenceGraphRef,
+): boolean {
+  if (entry.kind !== "command") return true;
+  const operation = typeof entry.metadata?.operation === "string"
+    ? entry.metadata.operation
+    : entry.id.startsWith("command:")
+      ? entry.id.slice(entry.id.indexOf("#") + 1)
+      : "";
+  const operationTokens = operationTokensForMatch(operation);
+  if (operationTokens.length === 0 || !evidence.testPath) return false;
+  const evidenceTokens = operationTokensForMatch(evidence.testPath);
+  return operationTokens.every((operationToken) => evidenceTokens.some((evidenceToken) =>
+    operationToken === evidenceToken
+    || (operationToken.length >= 5 && evidenceToken.length >= 5
+      && operationToken.slice(0, 5) === evidenceToken.slice(0, 5))));
+}
+
+function operationTokensForMatch(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .map((token) => token.length > 4 && token.endsWith("s") ? token.slice(0, -1) : token)
+    .filter(Boolean);
 }
 
 function verificationEvidenceCost(
@@ -502,6 +571,7 @@ function pathsForRef(ref: RepositoryIntelligenceGraphRef): string[] {
 }
 
 function pathForRef(ref: RepositoryIntelligenceGraphRef): string | undefined {
+  if (typeof ref.metadata?.path === "string" && ref.metadata.path.length > 0) return ref.metadata.path;
   if (ref.kind === "file") return ref.id;
   if (ref.kind === "symbol") return ref.id.split("#")[0];
   if (ref.kind === "callable" && ref.id.startsWith("callable:")) {
@@ -514,6 +584,9 @@ function pathForRef(ref: RepositoryIntelligenceGraphRef): string | undefined {
     const remainder = ref.id.slice("entry:".length);
     const separator = remainder.indexOf(":");
     return separator >= 0 ? remainder.slice(separator + 1) : undefined;
+  }
+  if (ref.kind === "command" && ref.id.startsWith("command:")) {
+    return ref.id.slice("command:".length).split("#")[0];
   }
   return undefined;
 }

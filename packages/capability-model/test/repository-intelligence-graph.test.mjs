@@ -84,3 +84,36 @@ test("unified graph dedupes equivalent claims and retains stronger authority", (
   assert.equal(claims[0].authority, "adopted");
   assert.equal(claims[0].confidence, 1);
 });
+
+test("unified graph preserves and merges entry metadata from graph slices", () => {
+  const view = buildRepositoryIntelligenceGraph({
+    graphSlices: [
+      {
+        sliceType: "entry-classification",
+        nodes: [{ id: "entry:cli:src/cli.ts", kind: "entry_point", metadata: { entryClass: "product", entrySources: ["package-manifest"] } }],
+        edges: [],
+      },
+      {
+        sliceType: "reachability-graph",
+        nodes: [
+          { id: "entry:cli:src/cli.ts", kind: "entry_point", metadata: { path: "src/cli.ts" } },
+          { id: "src/cli.ts", kind: "file" },
+        ],
+        edges: [{
+          source: "entry:cli:src/cli.ts",
+          target: "src/cli.ts",
+          kind: "enters",
+          evidence: [{ source: "ast", confidence: 1 }],
+        }],
+      },
+    ],
+  });
+
+  const entry = view.nodes.find((node) => node.id === "entry:cli:src/cli.ts");
+  assert.deepEqual(entry.metadata, {
+    entryClass: "product",
+    entrySources: ["package-manifest"],
+    path: "src/cli.ts",
+  });
+  assert.equal(view.claims[0].subject.metadata.entryClass, "product");
+});

@@ -51,6 +51,9 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
+- `command` for literal CLI dispatch branches derived from parsed positional
+  bindings; each fact names branch-local stdout producers reached through
+  visible local calls
 - `event_flow`, `state_access`, `output_flow`, `cache_flow`, `cleanup_flow`, `dependency_flow`, `error_flow`,
   `option_flow`, `resource_flow`, and `scope_model` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,

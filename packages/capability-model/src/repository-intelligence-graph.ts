@@ -4,6 +4,7 @@ import type { ContractAuthority } from "@rekon/kernel-repo-model";
 export type RepositoryIntelligenceGraphRef = {
   kind: string;
   id: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type RepositoryIntelligenceGraphClaim = {
@@ -67,7 +68,7 @@ export type BuildRepositoryIntelligenceGraphInput = {
   graphSlices?: Array<{
     header?: ArtifactHeader;
     sliceType?: string;
-    nodes?: Array<{ id: string; kind: string }>;
+    nodes?: Array<{ id: string; kind: string; metadata?: Record<string, unknown> }>;
     edges?: Array<{
       source: string;
       target: string;
@@ -136,7 +137,13 @@ export function buildRepositoryIntelligenceGraph(
   const warnings: string[] = [];
 
   const addNode = (ref: RepositoryIntelligenceGraphRef): RepositoryIntelligenceGraphRef => {
-    const normalized = { kind: ref.kind.trim() || "unknown", id: ref.id.trim() };
+    const kind = ref.kind.trim() || "unknown";
+    const id = ref.id.trim();
+    const prior = nodes.get(`${kind}:${id}`);
+    const metadata = prior?.metadata || ref.metadata
+      ? { ...(prior?.metadata ?? {}), ...(ref.metadata ?? {}) }
+      : undefined;
+    const normalized = { kind, id, ...(metadata ? { metadata } : {}) };
     if (!normalized.id) return normalized;
     nodes.set(`${normalized.kind}:${normalized.id}`, normalized);
     return normalized;
@@ -310,7 +317,13 @@ export function buildRepositoryIntelligenceGraph(
 
   return {
     nodes: [...nodes.values()].sort(refCompare),
-    claims: [...claims.values()].sort((left, right) => left.id.localeCompare(right.id)),
+    claims: [...claims.values()].map((claim) => ({
+      ...claim,
+      subject: nodes.get(`${claim.subject.kind}:${claim.subject.id}`) ?? claim.subject,
+      object: typeof claim.object === "string"
+        ? claim.object
+        : nodes.get(`${claim.object.kind}:${claim.object.id}`) ?? claim.object,
+    })).sort((left, right) => left.id.localeCompare(right.id)),
     capabilities: [...capabilities.values()].sort((left, right) => left.id.localeCompare(right.id)),
     inputRefs: uniqueRefs(inputRefs),
     warnings: unique(warnings).sort(),

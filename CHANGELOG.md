@@ -4,6 +4,15 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Product-flow discovery now preserves entry classification through graph
+  composition, excludes repository tooling and tests from contract starts, and
+  extracts literal JavaScript/TypeScript CLI command branches as operation-level
+  graph nodes. Generic CLI starts remain a fallback when command evidence is
+  unavailable. Isolated file coverage can nominate a command verifier only when
+  its test identity also names that operation, preventing one CLI test from
+  proving every sibling command. Reaching the flow-candidate cap now produces
+  an explicit unresolved item with the number of eligible entries not yet
+  evaluated.
 - Coverage attribution now retains an explicitly targeted standalone executable
   when it is also the isolated run's test path. Ordinary attributed test files
   remain excluded, while executable smoke flows can provide source-backed

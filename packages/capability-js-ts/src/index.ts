@@ -1211,6 +1211,25 @@ function factsFromAstResult(
     facts.push(fact("reexport", `${path}:${reexport.target}:${reexport.exportedAs}`, value, path));
   }
 
+  // ---- literal CLI command dispatch ----
+  // These facts describe code-backed operations, not help text. A command is
+  // emitted only when an if-branch compares parsed positional bindings with
+  // string literals. Output callers are branch-local deterministic stdout
+  // producers reached through local calls.
+  for (const command of result.commands) {
+    facts.push(fact("command", `${path}#${command.operation}`, {
+      path,
+      source: path,
+      operation: command.operation,
+      parts: command.parts,
+      caller: command.caller,
+      outputCallers: command.outputCallers,
+      extractionMethod: "ast" as const,
+      language: result.language,
+      confidence: "high" as AstConfidence,
+    }, path, command.location.line));
+  }
+
   // ---- direct calls ----
   // Calls become graph evidence only when syntax and import bindings identify
   // a concrete repository file and callable. Receiver type inference is out of
