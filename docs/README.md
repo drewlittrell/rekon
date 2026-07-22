@@ -28,6 +28,7 @@ docs, not generated freshness reports or internal planning logs.
 
 - [Artifact contract](artifacts/artifact-contract.md)
 - [EvidenceGraph](artifacts/evidence-graph.md)
+- [CapabilityEvidenceGraph](artifacts/capability-evidence-graph.md)
 - [ObservedRepo](artifacts/observed-repo.md)
 - [IntelligenceSnapshot](artifacts/intelligence-snapshot.md)
 - [GraphSlice](artifacts/graph-slice.md)

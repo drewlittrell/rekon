@@ -42,10 +42,37 @@ export type SemanticReportForGraph = {
   ref?: ArtifactRef;
 };
 
+export type CapabilityGraphEvidenceFactLike = {
+  id: string;
+  kind: string;
+  subject: string;
+  value: Record<string, unknown>;
+  confidence: number;
+  provenance: {
+    source: string;
+    pack: string;
+    file?: string;
+    line?: number;
+    extractorVersion: string;
+  };
+};
+
+export type EvidenceGraphForCapabilityGraph = {
+  ref?: ArtifactRef;
+  facts: CapabilityGraphEvidenceFactLike[];
+};
+
 export type BuildCapabilityEvidenceGraphInput = {
   root?: string;
   files: CapabilityEvidenceGraphInputFile[];
   generatedAt?: string;
+  /**
+   * Optional provider evidence from the current EvidenceGraph. Resolved
+   * repository relationships and language-owned symbols are projected into
+   * the capability graph while source text remains the digest authority.
+   * Omitting this field preserves the source-only builder behavior.
+   */
+  evidenceGraph?: EvidenceGraphForCapabilityGraph;
   /**
    * Optional SemanticFileUnderstandingReport(s) to fold in as `llm_extraction`
    * evidence and `llm` / `inference` claims. Deterministic facts always win;
@@ -344,7 +371,10 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
     subject: { repoId: input.root ?? "." },
     producer: { id: "@rekon/capability-model.capability-evidence-graph", version: "0.1.0-beta.0" },
     inputRefs: uniqueArtifactRefs(
-      (input.semanticFileUnderstandingReports ?? []).flatMap((entry) => entry.ref ? [entry.ref] : []),
+      [
+        ...(input.evidenceGraph?.ref ? [input.evidenceGraph.ref] : []),
+        ...(input.semanticFileUnderstandingReports ?? []).flatMap((entry) => entry.ref ? [entry.ref] : []),
+      ],
     ),
     freshness: { status: "fresh" },
     provenance: { confidence: 1 },
@@ -475,6 +505,127 @@ export function buildCapabilityEvidenceGraph(input: BuildCapabilityEvidenceGraph
         evidenceRefs: [exposeEvId],
         status: "accepted",
       });
+    }
+  }
+
+  // Provider-evidence bridge. Language capabilities own syntax and repository
+  // resolution; this model package only projects already-declared facts whose
+  // source file and resolved target are present in the current source set.
+  // Exact current source bytes remain the evidence digest authority.
+  for (const fact of input.evidenceGraph?.facts ?? []) {
+    if (!fact || typeof fact.kind !== "string" || !fact.value || typeof fact.value !== "object") continue;
+    const rawPath = typeof fact.value.path === "string"
+      ? fact.value.path
+      : typeof fact.provenance?.file === "string"
+        ? fact.provenance.file
+        : "";
+    const filePath = normalizePath(rawPath);
+    if (!filePath || !sourceTextByFile.has(filePath)) continue;
+    const fileRef: CapabilityGraphRef = { kind: "file", id: filePath };
+    addNode(fileRef);
+
+    const addProviderEvidence = (): string => {
+      const evidenceId = `provider-ev:${createHash("sha256").update(fact.id).digest("hex").slice(0, 20)}`;
+      if (!evidence.some((entry) => entry.id === evidenceId)) {
+        const line = Number.isInteger(fact.provenance?.line) && Number(fact.provenance.line) > 0
+          ? Number(fact.provenance.line)
+          : undefined;
+        const sourceText = sourceTextByFile.get(filePath) ?? "";
+        const excerpt = line ? sourceText.split(/\r?\n/u)[line - 1]?.trim().slice(0, 240) : undefined;
+        evidence.push({
+          id: evidenceId,
+          source: "deterministic_scan",
+          ...(input.evidenceGraph?.ref ? { artifactRef: input.evidenceGraph.ref } : {}),
+          path: filePath,
+          sourceSha256: sourceSha256ByFile.get(filePath),
+          ...(line ? { lineStart: line, lineEnd: line } : {}),
+          ...(excerpt ? { excerpt } : {}),
+        });
+      }
+      return evidenceId;
+    };
+
+    if (fact.kind === "symbol") {
+      const symbolName = typeof fact.value.qualifiedName === "string" && fact.value.qualifiedName.trim()
+        ? fact.value.qualifiedName.trim()
+        : typeof fact.value.name === "string"
+          ? fact.value.name.trim()
+          : "";
+      if (!symbolName) continue;
+      const symbolRef: CapabilityGraphRef = { kind: "symbol", id: `${filePath}#${symbolName}` };
+      addNode(symbolRef);
+      const claimId = `claim:provider-exposes:${filePath}#${symbolName}`;
+      const alreadyExposed = claims.some((claim) => (
+        claim.predicate === "exposes"
+        && claim.subject.kind === "file"
+        && claim.subject.id === filePath
+        && typeof claim.object !== "string"
+        && claim.object.kind === "symbol"
+        && claim.object.id === symbolRef.id
+      ));
+      if (!alreadyExposed && !claims.some((claim) => claim.id === claimId)) {
+        const evidenceId = addProviderEvidence();
+        claims.push({
+          id: claimId,
+          subject: fileRef,
+          predicate: "exposes",
+          object: symbolRef,
+          claimType: "fact",
+          source: "deterministic",
+          confidence: clampConfidence(fact.confidence),
+          evidenceRefs: [evidenceId],
+          status: "accepted",
+        });
+      }
+      const exports = deterministicExportsByFile.get(filePath) ?? new Set<string>();
+      exports.add(symbolName);
+      deterministicExportsByFile.set(filePath, exports);
+      continue;
+    }
+
+    if (fact.kind !== "import" && fact.kind !== "python:injected_dependency") continue;
+    const resolvedTarget = typeof fact.value.resolvedTarget === "string"
+      ? normalizePath(fact.value.resolvedTarget)
+      : "";
+    if (!resolvedTarget || !sourceTextByFile.has(resolvedTarget) || resolvedTarget === filePath) continue;
+    const targetRef: CapabilityGraphRef = { kind: "file", id: resolvedTarget };
+    addNode(targetRef);
+    const isTestImport = fact.kind === "import" && isTestSourcePath(filePath);
+    const predicate = fact.kind === "python:injected_dependency"
+      ? "injected_dependency_candidate"
+      : isTestImport
+        ? "verifies"
+        : "imports";
+    const claimId = `claim:provider:${predicate}:${createHash("sha256")
+      .update(`${filePath}\0${resolvedTarget}\0${fact.id}`)
+      .digest("hex")
+      .slice(0, 20)}`;
+    const duplicate = claims.some((claim) => (
+      claim.predicate === predicate
+      && claim.subject.kind === "file"
+      && claim.subject.id === filePath
+      && typeof claim.object !== "string"
+      && claim.object.kind === "file"
+      && claim.object.id === resolvedTarget
+    ));
+    if (!duplicate && !claims.some((claim) => claim.id === claimId)) {
+      const evidenceId = addProviderEvidence();
+      claims.push({
+        id: claimId,
+        subject: fileRef,
+        predicate,
+        object: targetRef,
+        claimType: "fact",
+        source: "deterministic",
+        confidence: clampConfidence(fact.confidence),
+        evidenceRefs: [evidenceId],
+        status: "accepted",
+      });
+    }
+    if (fact.kind === "import") {
+      const imports = deterministicImportsByFile.get(filePath) ?? new Set<string>();
+      imports.add(resolvedTarget);
+      deterministicImportsByFile.set(filePath, imports);
     }
   }
 
@@ -881,4 +1032,18 @@ function uniqueArtifactRefs(refs: ArtifactRef[]): ArtifactRef[] {
   const byKey = new Map<string, ArtifactRef>();
   for (const ref of refs) byKey.set(`${ref.type}:${ref.id}:${ref.schemaVersion}`, ref);
   return [...byKey.values()].sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
+}
+
+function clampConfidence(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(1, Math.max(0, value))
+    : 0;
+}
+
+function isTestSourcePath(path: string): boolean {
+  const name = path.split("/").at(-1) ?? path;
+  return /(?:^|\/)tests?(?:\/|$)/u.test(path)
+    || /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(name)
+    || /^test_.+\.pyi?$/u.test(name)
+    || /_test\.pyi?$/u.test(name);
 }

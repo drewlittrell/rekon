@@ -25,6 +25,7 @@
     "@rekon/capability-graph": "1.0.0",
     "@rekon/capability-intent": "1.0.0",
     "@rekon/capability-js-ts": "1.0.0",
+    "@rekon/capability-python": "1.0.0",
     "@rekon/capability-memory": "1.0.0",
     "@rekon/capability-ontology": "1.0.0",
     "@rekon/capability-model": "1.0.0",

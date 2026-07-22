@@ -5,7 +5,8 @@ It contains facts extracted from source files and configuration.
 
 ## Produced By
 
-- evidence-provider capabilities such as `@rekon/capability-js-ts`
+- evidence-provider capabilities such as `@rekon/capability-js-ts` and
+  `@rekon/capability-python`
 - `rekon observe`
 - `rekon scan`
 
@@ -57,6 +58,7 @@ they may collide with built-ins.
 | `scope_model` | source-transform scope classifiers and binding resolution, including unmodeled lexical boundaries, name-only reference ownership, or parent-evaluated children omitted by scope-skipping visitors |
 | `typescript:diagnostic` | compiler-reproduced source diagnostic |
 | `typescript:source-quality` | AST-backed type-safety, error-handling, placeholder, validation, listener-lifecycle, async-control-flow, or test-hygiene risk signal |
+| `python:injected_dependency` | a bounded constructor-member dependency candidate with a unique same-package class-name match |
 
 All facts should preserve provenance back to the extractor and source location
 where possible.
@@ -66,3 +68,9 @@ imports, tsconfig path aliases, workspace package names, package export
 subpaths, dynamic imports, and re-exports only when the destination is present
 in the scanned file set. An exports map blocks guesses for undeclared package
 subpaths.
+
+Python absolute and relative imports resolve only when they identify one
+repository file. Constructor dependency candidates require at least two stored
+and called constructor members plus one same-package class-name match per
+member. They retain confidence and source provenance and do not prove runtime
+wiring.

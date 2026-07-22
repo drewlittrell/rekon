@@ -151,6 +151,98 @@ test("deterministic fact claims carry confidence 1.0", () => {
   );
 });
 
+test("builder projects provider-resolved Python relationships with source-bound evidence", () => {
+  const servicePath = "services/notifications/delivery_service.py";
+  const policyPath = "services/notifications/delivery_policy.py";
+  const testPath = "services/notifications/tests/test_delivery_service.py";
+  const serviceSource = [
+    "class DeliveryService:",
+    "    def __init__(self, policy):",
+    "        self.policy = policy",
+  ].join("\n");
+  const testSource = "from notifications.delivery_service import DeliveryService\n";
+  const evidenceRef = {
+    type: "EvidenceGraph",
+    id: "python-evidence",
+    schemaVersion: "0.1.0",
+  };
+  const graph = buildCapabilityEvidenceGraph({
+    root: "fixture-root",
+    generatedAt: "2026-01-02T03:04:05.000Z",
+    files: [
+      { path: servicePath, text: serviceSource },
+      { path: policyPath, text: "class DeliveryPolicy:\n    pass\n" },
+      { path: testPath, text: testSource },
+    ],
+    evidenceGraph: {
+      ref: evidenceRef,
+      facts: [
+        {
+          id: "python-symbol-service",
+          kind: "symbol",
+          subject: `${servicePath}#DeliveryService`,
+          value: { path: servicePath, name: "DeliveryService", qualifiedName: "DeliveryService" },
+          confidence: 0.9,
+          provenance: {
+            source: "repo",
+            pack: "@rekon/capability-python",
+            file: servicePath,
+            line: 1,
+            extractorVersion: "0.1.0",
+          },
+        },
+        {
+          id: "python-injected-policy",
+          kind: "python:injected_dependency",
+          subject: `${servicePath}:policy`,
+          value: { path: servicePath, resolvedTarget: policyPath },
+          confidence: 0.8,
+          provenance: {
+            source: "repo",
+            pack: "@rekon/capability-python",
+            file: servicePath,
+            line: 3,
+            extractorVersion: "0.1.0",
+          },
+        },
+        {
+          id: "python-test-import",
+          kind: "import",
+          subject: `${testPath}:notifications.delivery_service`,
+          value: { path: testPath, resolvedTarget: servicePath },
+          confidence: 0.9,
+          provenance: {
+            source: "repo",
+            pack: "@rekon/capability-python",
+            file: testPath,
+            line: 1,
+            extractorVersion: "0.1.0",
+          },
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(graph.header.inputRefs, [evidenceRef]);
+  assert.ok(graph.nodes.some((node) => node.kind === "symbol" && node.id === `${servicePath}#DeliveryService`));
+  assert.ok(graph.claims.some((claim) => (
+    claim.predicate === "injected_dependency_candidate"
+    && claim.subject.id === servicePath
+    && claim.object.id === policyPath
+    && claim.confidence === 0.8
+  )));
+  assert.ok(graph.claims.some((claim) => (
+    claim.predicate === "verifies"
+    && claim.subject.id === testPath
+    && claim.object.id === servicePath
+  )));
+  const providerEvidence = graph.evidence.find((entry) => entry.path === testPath);
+  assert.equal(providerEvidence.artifactRef.id, evidenceRef.id);
+  assert.equal(providerEvidence.sourceSha256, createHash("sha256").update(testSource).digest("hex"));
+  assert.equal(providerEvidence.excerpt, testSource.trim());
+  assert.doesNotThrow(() => assertCapabilityEvidenceGraph(graph));
+});
+
 // ---------- 7: heuristic capability claims are inferences ----------
 
 test("heuristic capability claims are inference claims with confidence <= 0.5", () => {

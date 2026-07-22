@@ -942,7 +942,11 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
           && claim.claimType !== "recommendation",
       }];
     }).sort((left, right) =>
-      Number(right.deterministic) - Number(left.deterministic)
+      // File-to-file claims expand the source neighborhood. Rank them before
+      // same-file symbol metadata so `exposes` remains available when capacity
+      // remains without displacing a collaborator or focused test.
+      Number(Boolean(right.relatedFileRef)) - Number(Boolean(left.relatedFileRef))
+      || Number(right.deterministic) - Number(left.deterministic)
       || right.pathMatches - left.pathMatches
       || Number(right.testRelationship) - Number(left.testRelationship)
       || Number(right.subjectMatch) - Number(left.subjectMatch)

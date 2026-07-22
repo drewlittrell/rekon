@@ -22,6 +22,7 @@ Common references:
 - [Artifact header](artifact-header.md)
 - [Repository contracts](repository-contracts.md)
 - [EvidenceGraph](evidence-graph.md)
+- [CapabilityEvidenceGraph](capability-evidence-graph.md)
 - [ObservedRepo](observed-repo.md)
 - [IntelligenceSnapshot](intelligence-snapshot.md)
 - [RuntimeGraphObservationReport](runtime-graph-observation-report.md)

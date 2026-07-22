@@ -61,6 +61,10 @@ and digests.
   into a task-specific `TaskPact` instead of loading every rule at startup.
 - **Publications.** Generated docs and guidance derived from artifacts.
 
+Built-in evidence providers cover JavaScript, TypeScript, and Python. Language
+providers own syntax and local module resolution; the shared model layer turns
+their resolved facts into task-navigation relationships.
+
 ## Model Interface
 
 Rekon keeps a short, versioned bootstrap in a managed repository's `AGENTS.md`.

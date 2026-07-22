@@ -18,9 +18,9 @@ Consumes `EvidenceGraph`, optional `CapabilityEvidenceGraph`, and optional
 - `OwnershipMap`
 - `CapabilityMap`
 
-The built-in JS/TS ownership projection is explicitly marked `inferred`: its
-system labels come from observed path prefixes. It is useful for navigation and
-resolver fallback, but it is not an operator declaration.
+Built-in language ownership projections are explicitly marked `inferred`: their
+system labels come from observed path prefixes. They are useful for navigation
+and resolver fallback, but they are not operator declarations.
 
 High-confidence semantic capabilities enter `CapabilityMap` only when a
 `CapabilityEvidenceGraph` traces them to a
@@ -32,6 +32,12 @@ source text and derives canonical line coordinates from the verified match.
 Model-provided line coordinates are advisory. A matching report digest with an
 absent or invalid excerpt remains review context rather than accepted
 capability evidence.
+
+`buildCapabilityEvidenceGraph()` also accepts an optional current
+`EvidenceGraph`. It projects language-provider symbols and resolved
+repository-file relationships while binding every emitted graph evidence row
+to current source bytes. Same-file `exposes` claims describe a selected file but
+do not consume its bounded related-file context budget.
 
 Semantic findings may declare the built-in problem classes
 `dependency-resolution`, `cache-integrity`, `cleanup-completeness`,

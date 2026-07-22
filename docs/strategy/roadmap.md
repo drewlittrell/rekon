@@ -7,6 +7,10 @@ verification recording, reconciliation planning, and artifact validation.
 
 ## Current Model Interface
 
+- Production scan and refresh index JavaScript, TypeScript, and Python source.
+  Resolved provider evidence feeds the shared capability graph, and a measured
+  Python service task now receives its three constructor collaborators and
+  focused test under the compact context budget.
 - A shared, budget-aware compiler serves CLI and MCP task context.
 - A shared task-operation policy classifies local, cross-file, cross-system,
   contract-changing, migration, and critical-flow work. It keeps complete work

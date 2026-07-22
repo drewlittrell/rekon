@@ -38,6 +38,9 @@
       "path": "./packages/capability-js-ts"
     },
     {
+      "path": "./packages/capability-python"
+    },
+    {
       "path": "./packages/capability-model"
     },
     {

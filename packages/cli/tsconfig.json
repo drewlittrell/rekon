@@ -23,6 +23,9 @@
       "path": "../capability-js-ts"
     },
     {
+      "path": "../capability-python"
+    },
+    {
       "path": "../capability-memory"
     },
     {

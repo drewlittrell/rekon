@@ -1,0 +1,25 @@
+{
+  "name": "@rekon/capability-python",
+  "version": "1.0.0",
+  "description": "Built-in Rekon Python evidence capability.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@rekon/kernel-artifacts": "1.0.0",
+    "@rekon/kernel-evidence": "1.0.0",
+    "@rekon/sdk": "1.0.0"
+  }
+}

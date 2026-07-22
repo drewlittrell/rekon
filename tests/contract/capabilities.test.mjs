@@ -8,6 +8,7 @@ import docsCapability from "../../packages/capability-docs/dist/index.js";
 import graphCapability from "../../packages/capability-graph/dist/index.js";
 import intentCapability from "../../packages/capability-intent/dist/index.js";
 import jsTsCapability from "../../packages/capability-js-ts/dist/index.js";
+import pythonCapability from "../../packages/capability-python/dist/index.js";
 import memoryCapability from "../../packages/capability-memory/dist/index.js";
 import modelCapability from "../../packages/capability-model/dist/index.js";
 import policyCapability from "../../packages/capability-policy/dist/index.js";
@@ -21,6 +22,7 @@ const builtIns = [
   graphCapability,
   intentCapability,
   jsTsCapability,
+  pythonCapability,
   memoryCapability,
   modelCapability,
   policyCapability,

@@ -21,6 +21,7 @@ test("CLI init, observe, snapshot, and artifact list work on a simple TS project
       JSON.parse(await readFile(join(root, ".rekon", "config.json"), "utf8")).capabilities,
       [
         { package: "@rekon/capability-js-ts" },
+        { package: "@rekon/capability-python" },
         { package: "@rekon/capability-model" },
         { package: "@rekon/capability-graph" },
         { package: "@rekon/capability-policy" },

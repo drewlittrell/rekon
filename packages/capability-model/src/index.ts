@@ -354,6 +354,8 @@ export {
 
 export {
   type CapabilityEvidenceGraphInputFile,
+  type CapabilityGraphEvidenceFactLike,
+  type EvidenceGraphForCapabilityGraph,
   type BuildCapabilityEvidenceGraphInput,
   type SemanticReportForGraph,
   type SemanticReportGraphSelection,

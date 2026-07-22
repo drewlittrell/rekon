@@ -65,6 +65,7 @@ import jsTsCapability, {
   extractScopeResolutionEvidence,
   loadAgentScratchSegments,
 } from "@rekon/capability-js-ts";
+import pythonCapability from "@rekon/capability-python";
 import memoryCapability from "@rekon/capability-memory";
 import modelCapability, {
   buildBridgeFindingLifecycleIntegrationReport,
@@ -207,6 +208,7 @@ import modelCapability, {
   type EmbeddingSimilarityForGraph,
   type EmbeddingNeighborSearchStats,
   type EvidenceGraphForChunks,
+  type EvidenceGraphForCapabilityGraph,
   compileTaskContext,
   classifyTaskOperation,
   projectModelContext,
@@ -1886,10 +1888,12 @@ export async function main(argv: string[]): Promise<void> {
     }
 
     const generatedAt = new Date().toISOString();
+    const evidenceGraph = await readLatestEvidenceGraphForCapabilityGraph(store);
     const graph = buildCapabilityEvidenceGraph({
       root,
       files,
       generatedAt,
+      ...(evidenceGraph ? { evidenceGraph } : {}),
       ...(wantSemantic ? { semanticFileUnderstandingReports: semanticReports } : {}),
       ...(wantEmbeddingSimilarity ? { embeddingSimilarities } : {}),
     });
@@ -10929,12 +10933,12 @@ async function collectSemanticScanCandidates(root: string): Promise<string[]> {
   return out;
 }
 
-const CAPABILITY_GRAPH_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+const CAPABILITY_GRAPH_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi"]);
 
 /**
  * Conservative recursive *source-only* file selection for the
  * CapabilityEvidenceGraph builder (`rekon capability graph build`). Includes only
- * code extensions (.ts/.tsx/.js/.jsx/.mjs/.cjs); excludes the same generated/vendor
+ * supported code extensions; excludes the same generated/vendor
  * directories, lockfiles, and oversized files as the semantic scan layer.
  * Declaration files (`.d.ts`) are excluded — they expose no runnable symbols.
  * `startDir` lets `--path <dir>` narrow the walk while node ids stay relative to
@@ -11048,10 +11052,12 @@ async function buildRefreshCapabilityEvidenceGraph(
       })
     : undefined;
   const embeddingSimilarities = embeddingSearch?.similarities ?? [];
+  const evidenceGraph = await readLatestEvidenceGraphForCapabilityGraph(store);
   const graph = buildCapabilityEvidenceGraph({
     root,
     files,
     generatedAt: new Date().toISOString(),
+    ...(evidenceGraph ? { evidenceGraph } : {}),
     ...(semanticReports.length > 0 ? { semanticFileUnderstandingReports: semanticReports } : {}),
     ...(embeddingSimilarities.length > 0 ? { embeddingSimilarities } : {}),
   });
@@ -11067,6 +11073,26 @@ async function buildRefreshCapabilityEvidenceGraph(
         0,
       ),
     },
+  };
+}
+
+async function readLatestEvidenceGraphForCapabilityGraph(
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<EvidenceGraphForCapabilityGraph | undefined> {
+  const entries = await store.list("EvidenceGraph");
+  const entry = entries.at(-1);
+  if (!entry) return undefined;
+  const artifact = await store.read(entry) as { facts?: EvidenceGraphForCapabilityGraph["facts"] };
+  if (!Array.isArray(artifact.facts)) return undefined;
+  return {
+    ref: {
+      type: entry.type,
+      id: entry.id,
+      path: entry.path,
+      digest: entry.digest,
+      schemaVersion: entry.schemaVersion ?? "0.1.0",
+    },
+    facts: artifact.facts,
   };
 }
 
@@ -12973,6 +12999,7 @@ const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
   "@rekon/capability-graph": graphCapability,
   "@rekon/capability-intent": intentCapability,
   "@rekon/capability-js-ts": jsTsCapability,
+  "@rekon/capability-python": pythonCapability,
   "@rekon/capability-memory": memoryCapability,
   "@rekon/capability-model": modelCapability,
   "@rekon/capability-ontology": ontologyCapability,
@@ -12983,6 +13010,7 @@ const BUILT_IN_CAPABILITIES: Record<string, CapabilityDefinition> = {
 
 const DEFAULT_CAPABILITIES = [
   "@rekon/capability-js-ts",
+  "@rekon/capability-python",
   "@rekon/capability-model",
   "@rekon/capability-graph",
   "@rekon/capability-policy",

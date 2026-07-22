@@ -4,6 +4,15 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added `@rekon/capability-python` with source-backed Python file, import,
+  symbol, test, ownership, capability, and bounded constructor-dependency
+  evidence. Python imports resolve only to unique repository files, and source
+  selection rejects symlinks and outside-root incremental paths.
+- Capability graph builds now consume the current `EvidenceGraph` as an
+  explicit input, project provider-resolved file relationships with current
+  source digests, and index Python source during scan and refresh. Same-file
+  symbol claims no longer displace related files from the bounded task-context
+  neighborhood.
 - Added a shared CLI/MCP task-operation policy. Task context now reports task
   class, risk provenance, evidence completeness, selected context profile, and
   whether the existing intent work-order flow is required. Complete work stays

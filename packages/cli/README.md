@@ -46,6 +46,10 @@ The CLI is the user surface for the local lifecycle:
 
 The CLI delegates lifecycle work to `@rekon/runtime`.
 
+The default observe set includes the built-in JavaScript/TypeScript and Python
+evidence capabilities. Scan and refresh pass their resolved source facts into
+the shared capability graph before compiling task context.
+
 `rekon contracts maintain` is the resumable agent workflow. Its first call
 prepares current system and flow candidates. The coding agent inspects cited
 source and reruns it with `--input`; `--apply` adopts eligible contracts only
