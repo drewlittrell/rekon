@@ -61,10 +61,13 @@ verification recording, reconciliation planning, and artifact validation.
   semantic judgments; repository purpose and user outcomes are completion
   gates rather than advisory text.
 - A satisfied `ProofGateReport` binds those results to post-edit source digests.
-  Managed agents use it for one incremental refresh; later source changes make
-  the gate unusable. Existing adopted contracts reconcile against the new
-  projection before the current snapshot, while first scans create no implicit
-  repository law.
+  Executed verification captures the plan's bounded source before and after
+  commands, refuses proof when those bytes changed, and carries the stable
+  digest through `VerificationResult` into the final gate. `validate_change`
+  compares exact digests rather than timestamps. Managed agents use the report
+  for one incremental refresh; later source changes make the gate unusable.
+  Existing adopted contracts reconcile against the new projection before the
+  current snapshot, while first scans create no implicit repository law.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.

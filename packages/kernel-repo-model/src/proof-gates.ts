@@ -2,10 +2,15 @@ import {
   type ArtifactHeader,
   type ArtifactRef,
   type ArtifactSchema,
+  createSourceStateBinding,
+  type SourceState,
+  type SourceStateBinding,
   type ValidationIssue,
   type ValidationResult,
   validateArtifactHeader,
   validateArtifactRef,
+  validateSourceState as validateSourceStateContract,
+  validateSourceStateBinding,
 } from "@rekon/kernel-artifacts";
 
 export type ProofMethod = "static" | "test" | "runtime" | "model-judgment";
@@ -84,15 +89,7 @@ export type ProofGateReport = {
     text: string;
     paths: string[];
   };
-  sourceState?: {
-    baseRef: string;
-    files: Array<{
-      path: string;
-      status: "added" | "modified" | "deleted";
-      beforeSha256?: string;
-      afterSha256?: string;
-    }>;
-  };
+  sourceState?: SourceState | SourceStateBinding;
   obligations: ProofObligation[];
   results: ProofResult[];
   evaluation: ProofGateEvaluation;
@@ -157,12 +154,12 @@ export function createProofGateReport(
     header: input.header,
     task: { text: input.task.text, paths: unique(input.task.paths) },
     ...(input.sourceState ? {
-      sourceState: {
+      sourceState: createSourceStateBinding({
         baseRef: input.sourceState.baseRef,
         files: dedupe(input.sourceState.files, (file) => file.path)
           .map((file) => ({ ...file }))
           .sort((left, right) => left.path.localeCompare(right.path)),
-      },
+      }),
     } : {}),
     obligations,
     results,
@@ -196,7 +193,12 @@ export function validateProofGateReport(value: unknown): ValidationResult<ProofG
     requiredString(issues, value.task.text, "$.task.text");
     stringArray(issues, value.task.paths, "$.task.paths");
   }
-  if (value.sourceState !== undefined) validateSourceState(value.sourceState, "$.sourceState", issues);
+  if (value.sourceState !== undefined) {
+    const sourceStateResult = isRecord(value.sourceState) && value.sourceState.digest !== undefined
+      ? validateSourceStateBinding(value.sourceState)
+      : validateSourceStateContract(value.sourceState);
+    append(issues, sourceStateResult.issues, "$.sourceState");
+  }
 
   const obligations: ProofObligation[] = [];
   const obligationIds = new Set<string>();
@@ -338,61 +340,6 @@ function validateObligation(value: unknown, path: string, issues: ValidationIssu
   }
   if (typeof value.required !== "boolean") issues.push({ path: `${path}.required`, message: "Expected a boolean." });
   refArray(issues, value.sourceRefs, `${path}.sourceRefs`);
-}
-
-function validateSourceState(value: unknown, path: string, issues: ValidationIssue[]): void {
-  if (!isRecord(value)) return void issues.push({ path, message: "Expected an object." });
-  requiredString(issues, value.baseRef, `${path}.baseRef`);
-  if (!Array.isArray(value.files)) {
-    issues.push({ path: `${path}.files`, message: "Expected an array." });
-    return;
-  }
-  const seen = new Set<string>();
-  value.files.forEach((file, index) => {
-    const filePath = `${path}.files[${index}]`;
-    if (!isRecord(file)) return void issues.push({ path: filePath, message: "Expected an object." });
-    requiredString(issues, file.path, `${filePath}.path`);
-    if (typeof file.path === "string") {
-      if (!isSafeSourcePath(file.path)) {
-        issues.push({ path: `${filePath}.path`, message: "Expected a safe repository-relative source path." });
-      }
-      if (seen.has(file.path)) issues.push({ path: `${filePath}.path`, message: `Duplicate path ${file.path}.` });
-      seen.add(file.path);
-    }
-    if (file.status !== "added" && file.status !== "modified" && file.status !== "deleted") {
-      issues.push({ path: `${filePath}.status`, message: "Expected added, modified, or deleted." });
-    }
-    for (const field of ["beforeSha256", "afterSha256"] as const) {
-      if (file[field] !== undefined && (typeof file[field] !== "string" || !/^[a-f0-9]{64}$/u.test(file[field]))) {
-        issues.push({ path: `${filePath}.${field}`, message: "Expected a lowercase SHA-256 digest." });
-      }
-    }
-    if (file.status === "added" && file.afterSha256 === undefined) {
-      issues.push({ path: `${filePath}.afterSha256`, message: "Added files require an after digest." });
-    }
-    if (file.status === "modified" && (file.beforeSha256 === undefined || file.afterSha256 === undefined)) {
-      issues.push({ path: filePath, message: "Modified files require before and after digests." });
-    }
-    if (file.status === "deleted" && file.beforeSha256 === undefined) {
-      issues.push({ path: `${filePath}.beforeSha256`, message: "Deleted files require a before digest." });
-    }
-    if (file.status === "added" && file.beforeSha256 !== undefined) {
-      issues.push({ path: `${filePath}.beforeSha256`, message: "Added files cannot have a before digest." });
-    }
-    if (file.status === "deleted" && file.afterSha256 !== undefined) {
-      issues.push({ path: `${filePath}.afterSha256`, message: "Deleted files cannot have an after digest." });
-    }
-  });
-}
-
-function isSafeSourcePath(value: string): boolean {
-  return value.length > 0
-    && !value.startsWith("/")
-    && !value.startsWith("./")
-    && !value.includes("\\")
-    && !value.split("/").includes("..")
-    && value !== ".rekon"
-    && !value.startsWith(".rekon/");
 }
 
 function validateResult(value: unknown, path: string, issues: ValidationIssue[]): void {

@@ -24,6 +24,8 @@ explainable resolution.
 Each gate names its accepted verifier methods. Deterministic checks and runtime
 observations bind directly to the edges they exercise; the acting model judges
 semantic obligations against cited source. Counterevidence blocks completion.
+Executed checks capture their bounded source state before and after execution;
+only an unchanged post-run digest can satisfy the matching current change.
 One digest-bound, proof-gated refresh then advances the maintained repository
 model. Existing adopted contracts are reconciled after projection; missing
 contracts remain an explicit bootstrap decision.
@@ -67,7 +69,9 @@ and provenance.
 - MCP and CLI consume the same context compiler and selection rules.
 - Post-edit validation uses the same TaskPact and graph contracts. The first
   pass names proof obligations; a final CLI pass can record a satisfied
-  `ProofGateReport`. Validation never runs project checks or writes source.
+  `ProofGateReport`. Verification evidence is admitted by exact source-state
+  digest equality, not timestamp order. Validation never runs project checks
+  or writes source.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial
   packet. Absence remains unresolved rather than authorizing broad search.

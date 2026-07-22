@@ -320,6 +320,60 @@ test("CLI: verify run --execute writes VerificationRun with executed:true", asyn
   });
 });
 
+test("CLI: a check that edits its bounded source state writes non-proof and exits non-zero", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-verify-source-mutation-"));
+  try {
+    await cp(exampleRoot, root, {
+      recursive: true,
+      filter(source) {
+        return !relative(exampleRoot, source).split(/[\\/]/).includes(".rekon");
+      },
+    });
+    for (const args of [
+      ["init", "-b", "main"],
+      ["config", "user.email", "rekon@example.invalid"],
+      ["config", "user.name", "Rekon Test"],
+      ["add", "."],
+      ["commit", "-m", "fixture"],
+    ]) {
+      const git = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+      assert.equal(git.status, 0, git.stderr || git.stdout);
+    }
+    runCliJson(["refresh", "--root", root, "--json"]);
+    const planRefData = await preparePlanWithCommands(root, [
+      `node -e "require('node:fs').writeFileSync('src/index.ts', 'export const changedByCheck = true;')"`,
+    ]);
+
+    const executed = spawnSync(process.execPath, [
+      cliPath,
+      "verify", "run",
+      "--plan", planRefData.id,
+      "--execute",
+      "--root", root,
+      "--json",
+    ], { cwd: repoRoot, encoding: "utf8" });
+    assert.notEqual(executed.status, 0, executed.stderr || executed.stdout);
+    const parsed = JSON.parse(executed.stdout);
+    assert.equal(parsed.verificationRun.status, "passed");
+    assert.equal(parsed.verificationRun.sourceState.status, "changed");
+    assert.notEqual(
+      parsed.verificationRun.sourceState.beforeDigest,
+      parsed.verificationRun.sourceState.afterDigest,
+    );
+    assert.match(parsed.message, /source changed during the run/iu);
+
+    const derivation = runCliExpectFailure([
+      "verify", "result", "from-run",
+      "--run", parsed.artifact.id,
+      "--root", root,
+      "--json",
+    ]);
+    assert.match(derivation.stderr, /source state changed while commands executed/iu);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("CLI: verify run --execute writes the artifact even when status is failed and exits non-zero", async () => {
   await withFixture(async (root) => {
     const planRefData = await preparePlanWithCommands(root, [

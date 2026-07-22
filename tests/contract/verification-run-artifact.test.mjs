@@ -66,6 +66,40 @@ test("validateVerificationRun accepts canonical shape", () => {
   assert.equal(result.ok, true, `expected ok:true; got ${JSON.stringify(result)}`);
 });
 
+test("createVerificationRun rejects a malformed source-state binding", () => {
+  assert.throws(() => createVerificationRun({
+    header: artifactHeader("VerificationRun", "verify-run-bad-source-state"),
+    status: "passed",
+    verificationPlanRef: { type: "VerificationPlan", id: "plan-source", schemaVersion: "0.1.0" },
+    commands: [command({ id: "c", command: "echo ok", argv: ["echo", "ok"], status: "passed", exitCode: 0 })],
+    runner: { id: "@rekon/capability-verify.runner" },
+    sourceState: {
+      status: "stable",
+      before: {
+        baseRef: "0123456789012345678901234567890123456789",
+        files: [{
+          path: "src/index.ts",
+          status: "unchanged",
+          beforeSha256: "a".repeat(64),
+          afterSha256: "a".repeat(64),
+        }],
+        digest: "b".repeat(64),
+      },
+      after: {
+        baseRef: "0123456789012345678901234567890123456789",
+        files: [{
+          path: "src/index.ts",
+          status: "unchanged",
+          beforeSha256: "a".repeat(64),
+          afterSha256: "a".repeat(64),
+        }],
+        digest: "b".repeat(64),
+      },
+      issues: [],
+    },
+  }), /Invalid VerificationRun source state/iu);
+});
+
 // ---------- 3: validateVerificationRun rejects missing verificationPlanRef ----------
 
 test("validateVerificationRun rejects missing verificationPlanRef", () => {

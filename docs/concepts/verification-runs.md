@@ -16,10 +16,21 @@ only proof surface a resolver or publication has to consume.
 Runs may include command status, duration, exit code, signal, bounded output
 excerpts, and stdout/stderr digests.
 
+For an executed CLI run, Rekon also captures the `VerificationPlan` source paths
+before and after execution against one resolved Git commit. Stable bindings
+prove that the recorded commands observed the same bounded bytes later carried
+by the result. If a command changes those paths, the run records both states,
+returns a nonzero CLI outcome, and cannot be converted into proof. Rekon detects
+the mutation; it does not perform or revert it.
+
 ## Safety Boundary
 
 Execution must be explicit and scoped to a named plan. Verification artifacts do
 not auto-resolve findings, apply reconciliation, or write source files.
+
+Non-Git or legacy runs can remain unbound and inspectable, but an unavailable
+binding cannot prove current source state. Dry runs never capture source-state
+proof.
 
 An executed run may support isolated coverage attribution when its passed or
 failed command explicitly names the test file. The resulting

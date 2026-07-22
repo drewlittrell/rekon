@@ -162,6 +162,7 @@ test("proof gate report normalizes content and rejects a stale evaluation", () =
   assert.equal(report.evaluation.status, "satisfied");
   assert.deepEqual(report.task.paths, ["src/handler.ts", "src/request.ts"]);
   assert.deepEqual(report.sourceState.files.map((file) => file.path), ["src/request.ts"]);
+  assert.match(report.sourceState.digest, /^[a-f0-9]{64}$/u);
   assert.equal(validateProofGateReport(report).ok, true);
   assert.equal(validateProofGateReport({
     ...report,

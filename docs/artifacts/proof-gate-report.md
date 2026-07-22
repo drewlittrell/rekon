@@ -19,7 +19,8 @@ Future source-writing actuators may use the same completion gate.
 The artifact contains:
 
 - `task`: the task text and changed paths;
-- `sourceState`: the base ref and before/after SHA-256 for each changed file;
+- `sourceState`: an immutable base ref, before/after SHA-256 for each changed
+  file, and a deterministic digest of that bounded state;
 - `obligations`: assertions attached to repository law, flow handoffs, context
   claims, or selected checks;
 - `results`: explicit static, test, runtime, or model-judgment evidence;
@@ -46,13 +47,14 @@ or explicit semantic judgment. Any accepted refutation blocks the gate.
     "provenance": { "confidence": 1 }
   },
   "sourceState": {
-    "baseRef": "HEAD",
+    "baseRef": "b479d1f07899b3aa9b527ec210fcbb40799e9f31",
     "files": [{
       "path": "src/index.ts",
       "status": "modified",
       "beforeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "afterSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    }]
+    }],
+    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
   },
   "evaluation": { "status": "satisfied" }
 }
@@ -66,4 +68,6 @@ refutation wins over support.
 
 The report is fresh only for the exact recorded source bytes. A later edit,
 restored deletion, path mismatch, malformed digest, or non-satisfied evaluation
-causes proof-gated refresh to fail.
+causes proof-gated refresh to fail. Verification evidence is admitted only when
+its own source-state digest equals this change state; a newer timestamp cannot
+substitute for digest equality.

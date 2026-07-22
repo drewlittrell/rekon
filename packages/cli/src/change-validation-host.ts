@@ -10,6 +10,11 @@ import type {
   ChangeDependencyDelta,
   ChangeFileEvidence,
 } from "@rekon/capability-model";
+import {
+  createSourceStateBinding,
+  type SourceStateBinding,
+  type SourceStateFile,
+} from "@rekon/kernel-artifacts";
 
 const execFileAsync = promisify(execFile);
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
@@ -21,6 +26,53 @@ export type RepositoryChangeEvidence = {
   dependencyChanges: ChangeDependencyDelta[];
   warnings: string[];
 };
+
+export type RepositorySourceStateCapture = {
+  binding?: SourceStateBinding;
+  issues: string[];
+};
+
+/** Capture an exact Git-relative source state for a bounded path set. */
+export async function captureRepositorySourceState(input: {
+  repoRoot: string;
+  baseRef: string;
+  paths: string[];
+}): Promise<RepositorySourceStateCapture> {
+  const paths = unique(input.paths.map(normalizePath).filter(Boolean));
+  if (paths.length === 0) {
+    return { issues: ["VerificationPlan does not declare source paths to bind."] };
+  }
+  const evidence = await collectRepositoryChangeEvidence({
+    repoRoot: input.repoRoot,
+    baseRef: input.baseRef,
+    changedPaths: paths,
+  });
+  const issues = [...evidence.warnings];
+  if (!evidence.resolvedBaseCommit) {
+    return { issues: unique([...issues, `Could not resolve source-state base ref ${input.baseRef}.`]) };
+  }
+
+  const files: SourceStateFile[] = [];
+  for (const file of evidence.files) {
+    if (file.status === "unavailable") {
+      issues.push(`${file.path}: ${file.message ?? "source state is unavailable"}`);
+      continue;
+    }
+    files.push({
+      path: file.path,
+      status: file.status,
+      ...(file.beforeSha256 ? { beforeSha256: file.beforeSha256 } : {}),
+      ...(file.afterSha256 ? { afterSha256: file.afterSha256 } : {}),
+    });
+  }
+  if (issues.length > 0 || files.length !== paths.length) {
+    return { issues: unique(issues.length > 0 ? issues : ["Source-state capture was incomplete."]) };
+  }
+  return {
+    binding: createSourceStateBinding({ baseRef: evidence.resolvedBaseCommit, files }),
+    issues: [],
+  };
+}
 
 /** Read-only host adapter for Git baseline and current-source evidence. */
 export async function collectRepositoryChangeEvidence(input: {

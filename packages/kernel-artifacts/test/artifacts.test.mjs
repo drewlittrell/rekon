@@ -6,13 +6,17 @@ import {
   artifactRefSchema,
   assertArtifactHeader,
   assertArtifactRef,
+  assertSourceStateBinding,
   canonicalJson,
   createJsonArtifact,
+  createSourceStateBinding,
   digestJson,
   jsonArtifactSchema,
+  sourceStateBindingsMatch,
   toArtifactRef,
   validateArtifactHeader,
   validateArtifactRef,
+  validateSourceStateBinding,
 } from "../dist/index.js";
 
 const validRef = {
@@ -218,4 +222,66 @@ test("toArtifactRef derives a ref from a validated header", () => {
       schemaVersion: "0.1.0",
     },
   );
+});
+
+test("source-state bindings are deterministic across file ordering", () => {
+  const first = createSourceStateBinding({
+    baseRef: "a".repeat(40),
+    files: [
+      { path: "src/new.ts", status: "added", afterSha256: "c".repeat(64) },
+      {
+        path: "src/index.ts",
+        status: "modified",
+        beforeSha256: "a".repeat(64),
+        afterSha256: "b".repeat(64),
+      },
+    ],
+  });
+  const second = createSourceStateBinding({
+    baseRef: "a".repeat(40),
+    files: [...first.files].reverse(),
+  });
+
+  assert.equal(first.digest.length, 64);
+  assert.equal(first.digest, second.digest);
+  assert.equal(sourceStateBindingsMatch(first, second), true);
+  assert.equal(validateSourceStateBinding(first).ok, true);
+  assert.deepEqual(assertSourceStateBinding(first), first);
+
+  const unsortedFiles = [...first.files].reverse();
+  const unsorted = validateSourceStateBinding({
+    baseRef: first.baseRef,
+    files: unsortedFiles,
+    digest: digestJson({ baseRef: first.baseRef, files: unsortedFiles }),
+  });
+  assert.equal(unsorted.ok, false);
+  assert.ok(unsorted.issues.some((issue) => issue.path === "$.files"));
+});
+
+test("source-state bindings reject unsafe paths, contradictory status, and forged digests", () => {
+  assert.throws(() => createSourceStateBinding({
+    baseRef: "HEAD",
+    files: [{ path: "../outside.ts", status: "added", afterSha256: "a".repeat(64) }],
+  }), /safe repository-relative source path/u);
+
+  assert.throws(() => createSourceStateBinding({
+    baseRef: "HEAD",
+    files: [{
+      path: "src/index.ts",
+      status: "modified",
+      beforeSha256: "a".repeat(64),
+      afterSha256: "a".repeat(64),
+    }],
+  }), /different before and after digests/u);
+
+  const valid = createSourceStateBinding({
+    baseRef: "HEAD",
+    files: [{
+      path: "src/index.ts",
+      status: "unchanged",
+      beforeSha256: "a".repeat(64),
+      afterSha256: "a".repeat(64),
+    }],
+  });
+  assert.equal(validateSourceStateBinding({ ...valid, digest: "f".repeat(64) }).ok, false);
 });

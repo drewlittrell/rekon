@@ -76,6 +76,8 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       "--json",
     ]);
     assert.equal(run.verificationRun.status, "passed");
+    assert.equal(run.verificationRun.sourceState.status, "stable");
+    assert.equal(run.verificationRun.sourceState.beforeDigest, run.verificationRun.sourceState.afterDigest);
 
     const verification = runCliJson([
       "verify", "result", "from-run",
@@ -84,6 +86,15 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       "--json",
     ]);
     assert.equal(verification.verificationResult.status, "passed");
+    assert.equal(verification.verificationResult.sourceStateDigest, run.verificationRun.sourceState.afterDigest);
+    const futureVerification = structuredClone(await store.read(verification.artifact));
+    futureVerification.header.artifactId = "verification-result-future-bound-old-source";
+    futureVerification.header.generatedAt = "2099-01-01T00:00:00.000Z";
+    futureVerification.recordedAt = "2099-01-01T00:00:00.000Z";
+    for (const command of futureVerification.commandResults) {
+      command.completedAt = "2099-01-01T00:00:00.000Z";
+    }
+    const futureVerificationRef = await store.write(futureVerification, { category: "actions" });
 
     const judgments = initial.proofGate.obligations
       .filter((entry) => entry.required)
@@ -96,12 +107,29 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       }));
     assert.ok(judgments.length > 0);
 
+    const verifiedSource = await readFile(join(root, "src/index.ts"), "utf8");
+    await writeFile(join(root, "src/index.ts"), `${verifiedSource}export const unverified = true;\n`, "utf8");
+    const staleVerification = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--base-ref", "HEAD",
+      "--verification-result", `${futureVerificationRef.type}:${futureVerificationRef.id}`,
+      "--judgment-json", JSON.stringify(judgments),
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(staleVerification.status, "needs-judgment");
+    assert.ok(staleVerification.proofGate.warnings.some((warning) =>
+      warning.includes("verification-evidence-stale")));
+    await writeFile(join(root, "src/index.ts"), verifiedSource, "utf8");
+
     const completed = runCliJson([
       "context", "validate-change",
       "--task", taskText,
       "--changed-path", "src/index.ts",
       "--base-ref", "HEAD",
-      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--verification-result", `${futureVerificationRef.type}:${futureVerificationRef.id}`,
       "--judgment-json", JSON.stringify(judgments),
       "--record-proof",
       "--root", root,
@@ -125,8 +153,9 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(report.evaluation.status, "satisfied");
     assert.equal(report.sourceState.files[0].path, "src/index.ts");
     assert.ok(report.sourceState.files[0].afterSha256);
+    assert.equal(report.sourceState.digest, verification.verificationResult.sourceStateDigest);
     assert.ok(report.header.inputRefs.some((entry) =>
-      entry.type === "VerificationResult" && entry.id === verification.artifact.id));
+      entry.type === "VerificationResult" && entry.id === futureVerificationRef.id));
 
     const foreignReport = structuredClone(report);
     foreignReport.header.artifactId = "proof-gate-foreign-repository";

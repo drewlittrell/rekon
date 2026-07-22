@@ -28,6 +28,24 @@ export type ArtifactSupersessionIdentity = {
   key: string;
 };
 
+export type SourceStateFileStatus = "added" | "modified" | "deleted" | "unchanged";
+
+export type SourceStateFile = {
+  path: string;
+  status: SourceStateFileStatus;
+  beforeSha256?: string;
+  afterSha256?: string;
+};
+
+export type SourceState = {
+  baseRef: string;
+  files: SourceStateFile[];
+};
+
+export type SourceStateBinding = SourceState & {
+  digest: string;
+};
+
 export type ArtifactHeader = {
   artifactType: string;
   artifactId: string;
@@ -85,6 +103,13 @@ export type ArtifactSchema<T> = {
 };
 
 const FRESHNESS_STATUSES = new Set(["fresh", "stale", "partial", "unknown"]);
+const SOURCE_STATE_FILE_STATUSES = new Set<SourceStateFileStatus>([
+  "added",
+  "modified",
+  "deleted",
+  "unchanged",
+]);
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -429,6 +454,63 @@ export function createArtifactHeader(input: ArtifactHeader): ArtifactHeader {
   }));
 }
 
+export function createSourceStateBinding(input: SourceState): SourceStateBinding {
+  const sourceState: SourceState = {
+    baseRef: input.baseRef,
+    files: input.files
+      .map((file) => ({ ...file }))
+      .sort((left, right) => left.path.localeCompare(right.path)),
+  };
+  const validated = assertValid(validateSourceState(sourceState), "SourceState");
+  return {
+    ...validated,
+    digest: digestJson(validated),
+  };
+}
+
+export function validateSourceState(value: unknown): ValidationResult<SourceState> {
+  const issues: ValidationIssue[] = [];
+  validateSourceStateValue(value, issues);
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: value as SourceState, issues: [] };
+}
+
+export function validateSourceStateBinding(value: unknown): ValidationResult<SourceStateBinding> {
+  const issues: ValidationIssue[] = [];
+  validateSourceStateValue(value, issues);
+  if (!isRecord(value)) return { ok: false, issues };
+  if (typeof value.digest !== "string" || !SHA256_PATTERN.test(value.digest)) {
+    issues.push({ path: "$.digest", message: "Expected a lowercase SHA-256 digest." });
+  } else if (issues.length === 0) {
+    const files = (value.files as SourceStateFile[]).map((file) => ({ ...file }));
+    const normalizedFiles = [...files].sort((left, right) => left.path.localeCompare(right.path));
+    if (files.some((file, index) => file.path !== normalizedFiles[index]?.path)) {
+      issues.push({ path: "$.files", message: "Expected source files sorted by repository-relative path." });
+    }
+    const expected = digestJson({ baseRef: value.baseRef, files: normalizedFiles });
+    if (value.digest !== expected) {
+      issues.push({ path: "$.digest", message: "Expected the digest of the normalized source state." });
+    }
+  }
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: value as SourceStateBinding, issues: [] };
+}
+
+export function assertSourceState(value: unknown): SourceState {
+  return assertValid(validateSourceState(value), "SourceState");
+}
+
+export function assertSourceStateBinding(value: unknown): SourceStateBinding {
+  return assertValid(validateSourceStateBinding(value), "SourceStateBinding");
+}
+
+export function sourceStateBindingsMatch(
+  left: SourceStateBinding,
+  right: SourceStateBinding,
+): boolean {
+  return left.digest === right.digest;
+}
+
 export function createJsonArtifact<TData>(input: JsonArtifact<TData>): JsonArtifact<TData> {
   return assertJsonArtifact<TData>({
     header: createArtifactHeader(input.header),
@@ -498,6 +580,87 @@ function normalizeForDigest(value: unknown): unknown {
   }
 
   throw new TypeError(`Cannot create a JSON digest for value of type ${typeof value}.`);
+}
+
+function validateSourceStateValue(value: unknown, issues: ValidationIssue[]): void {
+  if (!isRecord(value)) {
+    issues.push({ path: "$", message: "Expected an object." });
+    return;
+  }
+  pushRequiredStringIssue(issues, value.baseRef, "$.baseRef");
+  if (!Array.isArray(value.files) || value.files.length === 0) {
+    issues.push({ path: "$.files", message: "Expected a non-empty array." });
+    return;
+  }
+
+  const seen = new Set<string>();
+  value.files.forEach((candidate, index) => {
+    const path = `$.files[${index}]`;
+    if (!isRecord(candidate)) {
+      issues.push({ path, message: "Expected an object." });
+      return;
+    }
+    pushRequiredStringIssue(issues, candidate.path, `${path}.path`);
+    if (typeof candidate.path === "string") {
+      if (!isSafeSourcePath(candidate.path)) {
+        issues.push({ path: `${path}.path`, message: "Expected a safe repository-relative source path." });
+      }
+      if (seen.has(candidate.path)) {
+        issues.push({ path: `${path}.path`, message: `Duplicate source path ${candidate.path}.` });
+      }
+      seen.add(candidate.path);
+    }
+    if (!SOURCE_STATE_FILE_STATUSES.has(candidate.status as SourceStateFileStatus)) {
+      issues.push({ path: `${path}.status`, message: "Expected added, modified, deleted, or unchanged." });
+    }
+    validateOptionalSha256(candidate.beforeSha256, `${path}.beforeSha256`, issues);
+    validateOptionalSha256(candidate.afterSha256, `${path}.afterSha256`, issues);
+
+    if (candidate.status === "added") {
+      if (candidate.beforeSha256 !== undefined) {
+        issues.push({ path: `${path}.beforeSha256`, message: "Added files cannot have a before digest." });
+      }
+      if (candidate.afterSha256 === undefined) {
+        issues.push({ path: `${path}.afterSha256`, message: "Added files require an after digest." });
+      }
+    } else if (candidate.status === "deleted") {
+      if (candidate.beforeSha256 === undefined) {
+        issues.push({ path: `${path}.beforeSha256`, message: "Deleted files require a before digest." });
+      }
+      if (candidate.afterSha256 !== undefined) {
+        issues.push({ path: `${path}.afterSha256`, message: "Deleted files cannot have an after digest." });
+      }
+    } else if (candidate.status === "modified") {
+      if (candidate.beforeSha256 === undefined || candidate.afterSha256 === undefined) {
+        issues.push({ path, message: "Modified files require before and after digests." });
+      } else if (candidate.beforeSha256 === candidate.afterSha256) {
+        issues.push({ path, message: "Modified files require different before and after digests." });
+      }
+    } else if (candidate.status === "unchanged") {
+      if (candidate.beforeSha256 === undefined || candidate.afterSha256 === undefined) {
+        issues.push({ path, message: "Unchanged files require before and after digests." });
+      } else if (candidate.beforeSha256 !== candidate.afterSha256) {
+        issues.push({ path, message: "Unchanged files require matching before and after digests." });
+      }
+    }
+  });
+}
+
+function validateOptionalSha256(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (value !== undefined && (typeof value !== "string" || !SHA256_PATTERN.test(value))) {
+    issues.push({ path, message: "Expected a lowercase SHA-256 digest." });
+  }
+}
+
+function isSafeSourcePath(value: string): boolean {
+  return value.length > 0
+    && !value.startsWith("/")
+    && !value.startsWith("./")
+    && !/^[A-Za-z]:\//u.test(value)
+    && !value.includes("\\")
+    && !value.split("/").includes("..")
+    && value !== ".rekon"
+    && !value.startsWith(".rekon/");
 }
 
 function stripUndefinedObjectValues<T>(value: T): T {

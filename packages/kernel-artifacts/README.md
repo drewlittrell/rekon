@@ -20,6 +20,7 @@ and consumer:
 - `ArtifactHeader`
 - `ArtifactInvalidationBaseline`
 - `ArtifactSupersessionIdentity`
+- `SourceState` and `SourceStateBinding`
 - `JsonArtifact`
 - validation and parsing helpers
 - deterministic JSON digest helpers
@@ -41,6 +42,11 @@ Every generated Rekon artifact must include:
 - producer id and version
 - input artifact refs
 - optional freshness, invalidation, supersession, and provenance metadata
+
+`SourceStateBinding` identifies the exact bytes for a bounded set of
+repository-relative paths against an immutable base ref. Its deterministic
+digest lets verification and proof-gate consumers compare source state without
+using timestamps as evidence.
 
 ## Import Boundary
 

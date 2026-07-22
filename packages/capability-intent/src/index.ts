@@ -1,4 +1,9 @@
-import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  type ArtifactHeader,
+  type ArtifactRef,
+  type SourceStateBinding,
+  validateSourceStateBinding,
+} from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
   type CoherencyRemediationPriority,
@@ -107,6 +112,7 @@ export type VerificationResult = {
   evidenceNotes: string[];
   recordedBy?: string;
   recordedAt: string;
+  sourceState?: SourceStateBinding;
 };
 
 // Additive: an Intent VerificationPlan handoff records the source PreparedIntentPlan
@@ -159,6 +165,8 @@ export type VerificationPlanLike = {
   workOrderRef?: ArtifactRef;
   commands?: string[];
   successCriteria?: string[];
+  /** Immutable Git base used to bind verification to exact source content. */
+  baseRef?: string;
   // `"resolver"` | `"coherency-delta"` | `"intent-handoff"` (open string).
   source?: string;
   intentHandoff?: VerificationPlanIntentHandoff;
@@ -174,6 +182,7 @@ export type CreateVerificationResultInput = {
   recordedBy?: string;
   extraInputRefs?: ArtifactRef[];
   generatedAt?: string;
+  sourceState?: SourceStateBinding;
 };
 
 export type VerificationEvidenceStatus =
@@ -326,6 +335,15 @@ export type VerificationRunRunnerInfo = {
   capabilityId?: string;
 };
 
+export type VerificationRunSourceStateStatus = "stable" | "changed" | "unavailable";
+
+export type VerificationRunSourceState = {
+  status: VerificationRunSourceStateStatus;
+  before?: SourceStateBinding;
+  after?: SourceStateBinding;
+  issues: string[];
+};
+
 export type VerificationRun = {
   header: ArtifactHeader;
   status: VerificationRunStatus;
@@ -340,6 +358,7 @@ export type VerificationRun = {
   startedAt?: string;
   endedAt?: string;
   durationMs?: number;
+  sourceState?: VerificationRunSourceState;
 };
 
 export type CreateVerificationRunInput = {
@@ -356,6 +375,7 @@ export type CreateVerificationRunInput = {
   endedAt?: string;
   durationMs?: number;
   summary?: VerificationRunSummary;
+  sourceState?: VerificationRunSourceState;
 };
 
 export type VerificationRunValidationIssue = {
@@ -776,6 +796,14 @@ function classifyVerificationProofFreshness(
 }
 
 export function createVerificationResult(input: CreateVerificationResultInput): VerificationResult {
+  if (input.sourceState) {
+    const validation = validateSourceStateBinding(input.sourceState);
+    if (!validation.ok) {
+      throw new TypeError(`Invalid VerificationResult source state: ${validation.issues
+        .map((issue) => `${issue.path}: ${issue.message}`)
+        .join("; ")}`);
+    }
+  }
   const planCommands = Array.isArray(input.verificationPlan.commands)
     ? input.verificationPlan.commands
     : [];
@@ -863,6 +891,7 @@ export function createVerificationResult(input: CreateVerificationResultInput): 
     evidenceNotes: input.evidenceNotes ?? [],
     recordedBy: input.recordedBy,
     recordedAt: generatedAt,
+    sourceState: input.sourceState ? copySourceStateBinding(input.sourceState) : undefined,
   };
 }
 
@@ -1014,6 +1043,15 @@ export function createVerificationRun(input: CreateVerificationRunInput): Verifi
       `createVerificationRun input.status must be one of ${[...VERIFICATION_RUN_STATUSES].join(", ")}.`,
     );
   }
+  if (input.sourceState) {
+    const issues: VerificationRunValidationIssue[] = [];
+    validateVerificationRunSourceState(input.sourceState, "$.sourceState", issues);
+    if (issues.length > 0) {
+      throw new TypeError(`Invalid VerificationRun source state: ${issues
+        .map((issue) => `${issue.path}: ${issue.message}`)
+        .join("; ")}`);
+    }
+  }
 
   const summary = input.summary ?? summarizeVerificationRunCommands(input.commands);
 
@@ -1036,6 +1074,29 @@ export function createVerificationRun(input: CreateVerificationRunInput): Verifi
     startedAt: input.startedAt,
     endedAt: input.endedAt,
     durationMs: input.durationMs,
+    sourceState: input.sourceState ? copyVerificationRunSourceState(input.sourceState) : undefined,
+  };
+}
+
+export function createVerificationRunSourceState(input: {
+  before?: SourceStateBinding;
+  after?: SourceStateBinding;
+  issues?: string[];
+}): VerificationRunSourceState {
+  const issues = [...new Set((input.issues ?? []).map((issue) => issue.trim()).filter(Boolean))].sort();
+  if (!input.before || !input.after) {
+    return {
+      status: "unavailable",
+      ...(input.before ? { before: copySourceStateBinding(input.before) } : {}),
+      ...(input.after ? { after: copySourceStateBinding(input.after) } : {}),
+      issues: issues.length > 0 ? issues : ["Exact source state was unavailable."],
+    };
+  }
+  return {
+    status: input.before.digest === input.after.digest ? "stable" : "changed",
+    before: copySourceStateBinding(input.before),
+    after: copySourceStateBinding(input.after),
+    issues,
   };
 }
 
@@ -1165,11 +1226,78 @@ export function validateVerificationRun(value: unknown): VerificationRunValidati
     || (candidate.runner as { id?: string }).id?.length === 0) {
     issues.push({ path: "$.runner.id", message: "Expected a non-empty string." });
   }
+  validateVerificationRunSourceState(candidate.sourceState, "$.sourceState", issues);
 
   if (issues.length > 0) {
     return { ok: false, issues };
   }
   return { ok: true, value: candidate as VerificationRun, issues: [] };
+}
+
+function validateVerificationRunSourceState(
+  sourceState: VerificationRunSourceState | undefined,
+  path: string,
+  issues: VerificationRunValidationIssue[],
+): void {
+  if (sourceState === undefined) return;
+  if (!sourceState || typeof sourceState !== "object") {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (sourceState.status !== "stable"
+    && sourceState.status !== "changed"
+    && sourceState.status !== "unavailable") {
+    issues.push({ path: `${path}.status`, message: "Expected stable, changed, or unavailable." });
+  }
+  if (!Array.isArray(sourceState.issues) || !sourceState.issues.every((issue) => typeof issue === "string")) {
+    issues.push({ path: `${path}.issues`, message: "Expected an array of strings." });
+  }
+  for (const [field, binding] of [["before", sourceState.before], ["after", sourceState.after]] as const) {
+    if (binding === undefined) continue;
+    const validation = validateSourceStateBinding(binding);
+    if (!validation.ok) {
+      for (const issue of validation.issues) {
+        issues.push({
+          path: issue.path.replace("$", `${path}.${field}`),
+          message: issue.message,
+        });
+      }
+    }
+  }
+  if (sourceState.status === "stable") {
+    if (!sourceState.before || !sourceState.after) {
+      issues.push({ path, message: "Stable source state requires before and after bindings." });
+    } else if (sourceState.before.digest !== sourceState.after.digest) {
+      issues.push({ path, message: "Stable source state requires matching before and after digests." });
+    }
+  }
+  if (sourceState.status === "changed") {
+    if (!sourceState.before || !sourceState.after) {
+      issues.push({ path, message: "Changed source state requires before and after bindings." });
+    } else if (sourceState.before.digest === sourceState.after.digest) {
+      issues.push({ path, message: "Changed source state requires different before and after digests." });
+    }
+  }
+  if (sourceState.status === "unavailable" && sourceState.issues.length === 0) {
+    issues.push({ path: `${path}.issues`, message: "Unavailable source state requires an issue." });
+  }
+}
+
+function copySourceStateBinding(binding: SourceStateBinding): SourceStateBinding {
+  return {
+    baseRef: binding.baseRef,
+    files: binding.files.map((file) => ({ ...file })),
+    digest: binding.digest,
+  };
+}
+
+function copyVerificationRunSourceState(sourceState: VerificationRunSourceState): VerificationRunSourceState {
+  return {
+    status: sourceState.status,
+    ...(sourceState.before ? { before: copySourceStateBinding(sourceState.before) } : {}),
+    ...(sourceState.after ? { after: copySourceStateBinding(sourceState.after) } : {}),
+    issues: [...sourceState.issues],
+  };
 }
 
 function validateVerificationRunStreamExcerpt(

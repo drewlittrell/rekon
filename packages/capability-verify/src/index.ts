@@ -14,12 +14,15 @@ import {
   type VerificationRunEnvironment,
   type VerificationRunRedaction,
   type VerificationRunRunnerInfo,
+  type VerificationRunSourceState,
+  type VerificationRunSourceStateStatus,
   type VerificationRunStatus,
   type VerificationRunStreamExcerpt,
   type VerificationRunSummary,
   assertVerificationRun,
   createVerificationResult,
   createVerificationRun,
+  createVerificationRunSourceState,
   summarizeVerificationRunCommands,
   validateVerificationRun,
 } from "@rekon/capability-intent";
@@ -91,10 +94,13 @@ export {
   type VerificationRunEnvironment,
   type VerificationRunRedaction,
   type VerificationRunRunnerInfo,
+  type VerificationRunSourceState,
+  type VerificationRunSourceStateStatus,
   type VerificationRunSummary,
   assertVerificationRun,
   createVerificationResult,
   createVerificationRun,
+  createVerificationRunSourceState,
   summarizeVerificationRunCommands,
   validateVerificationRun,
 };
@@ -1665,6 +1671,12 @@ export function deriveVerificationResultFromRun(
 
   const warnings: string[] = [];
 
+  if (run.sourceState?.status === "changed") {
+    throw new Error(
+      "VerificationRun source state changed while commands executed; rerun verification against the final source state.",
+    );
+  }
+
   // Build per-command results. Map the run's six-value status
   // enum to the result's four-value enum.
   const commandResults: VerificationCommandResult[] = run.commands.map((command) => {
@@ -1732,6 +1744,15 @@ export function deriveVerificationResultFromRun(
       "Source VerificationRun is not-run; derivation proceeded under allowNotRun.",
     );
   }
+  if (!run.sourceState) {
+    warnings.push(
+      "Source VerificationRun has no exact source-state binding; the derived result cannot prove freshness for change validation.",
+    );
+  } else if (run.sourceState.status === "unavailable") {
+    warnings.push(
+      `Source VerificationRun could not bind exact source state: ${run.sourceState.issues.join(" ")}`,
+    );
+  }
 
   // `createVerificationResult` aligns commandResults against the
   // plan's command list and derives the overall status. We add
@@ -1745,6 +1766,9 @@ export function deriveVerificationResultFromRun(
     recordedBy,
     extraInputRefs: [input.verificationRunRef],
     generatedAt: options.generatedAt,
+    ...(run.sourceState?.status === "stable" && run.sourceState.after
+      ? { sourceState: run.sourceState.after }
+      : {}),
   });
 
   // `createVerificationResult` provenance note is geared at
@@ -1754,6 +1778,9 @@ export function deriveVerificationResultFromRun(
     confidence: 0.92,
     notes: [
       "Derived from a runner-produced VerificationRun.",
+      ...(verificationResult.sourceState
+        ? [`Verified source state sha256: ${verificationResult.sourceState.digest}.`]
+        : ["No exact source-state binding was available; this result is not current-state proof."]),
       "Runner did not auto-resolve findings or apply reconciliation.",
     ],
   };
@@ -1761,6 +1788,12 @@ export function deriveVerificationResultFromRun(
     verificationResult.header.producer = {
       id: VERIFY_CAPABILITY_ID,
       version: VERIFY_CAPABILITY_VERSION,
+    };
+  }
+  if (!verificationResult.sourceState) {
+    verificationResult.header.freshness = {
+      status: "unknown",
+      invalidatedBy: ["source-state-unbound"],
     };
   }
 

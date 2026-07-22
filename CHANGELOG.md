@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a shared, deterministic `SourceStateBinding` contract for a resolved
+  repository base and bounded path set. Executed verification now records the
+  source state before and after its commands, rejects runs that changed the
+  declared source, and carries the exact post-run binding into derived results.
+- Post-edit validation now admits verification proof by exact source-state
+  digest equality rather than generation time. Unbound historical or manual
+  results remain readable but have unknown current-state freshness, and a
+  future-dated result for earlier bytes cannot satisfy a proof gate.
 - Added the MCP package's complete TypeScript workspace references so clean
   clones typecheck without relying on previously generated declarations.
 - Added typed proof obligations, verifier results, and `ProofGateReport` to the

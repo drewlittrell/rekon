@@ -16,10 +16,14 @@ import test from "node:test";
 
 import {
   createVerificationRun,
+  createVerificationRunSourceState,
   deriveVerificationResultFromRun,
   VERIFY_CAPABILITY_ID,
 } from "../../packages/capability-verify/dist/index.js";
-import { digestJson } from "../../packages/kernel-artifacts/dist/index.js";
+import {
+  createSourceStateBinding,
+  digestJson,
+} from "../../packages/kernel-artifacts/dist/index.js";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliPath = join(repoRoot, "packages/cli/dist/index.js");
@@ -87,6 +91,19 @@ function makeRun(overrides) {
       version: "0.1.0",
       capabilityId: VERIFY_CAPABILITY_ID,
     },
+    sourceState: overrides.sourceState,
+  });
+}
+
+function sourceBinding(afterSha256 = "b".repeat(64)) {
+  return createSourceStateBinding({
+    baseRef: "a".repeat(40),
+    files: [{
+      path: "src/index.ts",
+      status: "modified",
+      beforeSha256: "a".repeat(64),
+      afterSha256,
+    }],
   });
 }
 
@@ -296,6 +313,44 @@ test("derive: recordedBy uses the runner id + version", () => {
   });
 
   assert.equal(verificationResult.recordedBy, "rekon.local.exec@0.1.0");
+});
+
+test("derive: stable run preserves the exact verified source-state digest", () => {
+  const binding = sourceBinding();
+  const run = makeRun({
+    status: "passed",
+    commands: [
+      { id: "cmd-1", command: "npm run test", argv: ["npm", "run", "test"], status: "passed", exitCode: 0 },
+    ],
+    sourceState: createVerificationRunSourceState({ before: binding, after: binding }),
+  });
+  const { verificationResult, warnings } = deriveVerificationResultFromRun({
+    verificationRun: run,
+    verificationRunRef: runRef(),
+    verificationPlanRef: planRef(),
+  });
+
+  assert.equal(verificationResult.sourceState.digest, binding.digest);
+  assert.equal(verificationResult.header.freshness.status, "fresh");
+  assert.deepEqual(warnings, []);
+});
+
+test("derive: refuses a run whose checks changed the bounded source state", () => {
+  const before = sourceBinding("b".repeat(64));
+  const after = sourceBinding("c".repeat(64));
+  const run = makeRun({
+    status: "passed",
+    commands: [
+      { id: "cmd-1", command: "npm run test", argv: ["npm", "run", "test"], status: "passed", exitCode: 0 },
+    ],
+    sourceState: createVerificationRunSourceState({ before, after }),
+  });
+
+  assert.throws(() => deriveVerificationResultFromRun({
+    verificationRun: run,
+    verificationRunRef: runRef(),
+    verificationPlanRef: planRef(),
+  }), /source state changed while commands executed/iu);
 });
 
 // ---------- CLI tests ----------

@@ -34,6 +34,8 @@ import intentCapability, {
   comparePathFreshness,
   createPathFreshnessReport,
   createVerificationResult,
+  createVerificationRun,
+  createVerificationRunSourceState,
   lookupVerificationEvidence,
   type PathFreshnessReport,
   type SourceStateFingerprint,
@@ -306,7 +308,15 @@ import {
   loadRepositoryContractSources,
   writeRepositoryContractSource,
 } from "@rekon/runtime";
-import { digestJson, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  createSourceStateBinding,
+  digestJson,
+  type ArtifactHeader,
+  type ArtifactRef,
+  type SourceStateBinding,
+  type SourceStateFile,
+  validateSourceStateBinding,
+} from "@rekon/kernel-artifacts";
 import {
   createRulebook,
   validateRulebook,
@@ -444,7 +454,10 @@ import {
   assessTaskContextFreshness,
   type TaskContextFreshnessAssessment,
 } from "./task-context-freshness.js";
-import { collectRepositoryChangeEvidence } from "./change-validation-host.js";
+import {
+  captureRepositorySourceState,
+  collectRepositoryChangeEvidence,
+} from "./change-validation-host.js";
 
 // Protected agent-instruction filenames. Declared at the top of the module so
 // they are initialized before `main()` runs synchronously during module
@@ -10106,6 +10119,17 @@ export async function main(argv: string[]): Promise<void> {
           ],
         },
       };
+      const sourcePaths = planArtifact.header?.subject?.paths ?? [];
+      const requestedSourceBaseRef = typeof planArtifact.baseRef === "string" && planArtifact.baseRef.trim().length > 0
+        ? planArtifact.baseRef.trim()
+        : typeof planArtifact.header?.subject?.commit === "string" && planArtifact.header.subject.commit.trim().length > 0
+          ? planArtifact.header.subject.commit.trim()
+          : "HEAD";
+      const sourceStateBefore = await captureRepositorySourceState({
+        repoRoot: execRoot,
+        baseRef: requestedSourceBaseRef,
+        paths: sourcePaths,
+      });
       const executionResult = await executeVerificationRun(
         {
           verificationPlan: planArtifact,
@@ -10142,9 +10166,48 @@ export async function main(argv: string[]): Promise<void> {
         );
       }
 
+      const sourceStateAfter = sourceStateBefore.binding
+        ? await captureRepositorySourceState({
+            repoRoot: execRoot,
+            baseRef: sourceStateBefore.binding.baseRef,
+            paths: sourcePaths,
+          })
+        : { issues: [] };
+      const runSourceState = createVerificationRunSourceState({
+        before: sourceStateBefore.binding,
+        after: sourceStateAfter.binding,
+        issues: [...sourceStateBefore.issues, ...sourceStateAfter.issues],
+      });
+      const rawVerificationRun = executionResult.verificationRun;
+      const boundVerificationRun = createVerificationRun({
+        ...rawVerificationRun,
+        header: {
+          ...rawVerificationRun.header,
+          freshness: {
+            status: runSourceState.status === "stable"
+              ? "fresh"
+              : runSourceState.status === "changed"
+                ? "stale"
+                : "unknown",
+            ...(runSourceState.status === "stable"
+              ? {}
+              : { invalidatedBy: [`source-state-${runSourceState.status}`] }),
+          },
+          provenance: {
+            ...rawVerificationRun.header.provenance,
+            notes: [
+              ...(rawVerificationRun.header.provenance?.notes ?? []),
+              ...(runSourceState.status === "stable" && runSourceState.after
+                ? [`Verification commands ran against source state sha256 ${runSourceState.after.digest}.`]
+                : [`Verification source state is ${runSourceState.status}; this run cannot prove current source.`]),
+            ],
+          },
+        },
+        sourceState: runSourceState,
+      });
       const verificationRun = planFile
-        ? { ...executionResult.verificationRun, planFile }
-        : executionResult.verificationRun;
+        ? { ...boundVerificationRun, planFile }
+        : boundVerificationRun;
       const ref = await store.write(verificationRun, { category: "actions" });
       let runtimeObservation: {
         artifact: ArtifactRef;
@@ -10209,7 +10272,8 @@ export async function main(argv: string[]): Promise<void> {
       }
       const failureExit = verificationRun.status === "failed"
         || verificationRun.status === "timeout"
-        || verificationRun.status === "killed";
+        || verificationRun.status === "killed"
+        || runSourceState.status === "changed";
       const output = {
         dryRun: false,
         executed: true,
@@ -10221,6 +10285,12 @@ export async function main(argv: string[]): Promise<void> {
           startedAt: verificationRun.startedAt,
           endedAt: verificationRun.endedAt,
           durationMs: verificationRun.durationMs,
+          sourceState: {
+            status: runSourceState.status,
+            beforeDigest: runSourceState.before?.digest,
+            afterDigest: runSourceState.after?.digest,
+            issues: runSourceState.issues,
+          },
           commands: verificationRun.commands.map((command) => ({
             id: command.id,
             command: command.command,
@@ -10248,13 +10318,19 @@ export async function main(argv: string[]): Promise<void> {
         warnings: [
           ...resolveWarnings,
           ...executionResult.safety.warnings,
+          ...runSourceState.issues,
+          ...(runSourceState.status === "changed"
+            ? ["Source state changed while verification commands executed; rerun against the final source state."]
+            : []),
           ...(runtimeObservationError ? [`Runtime observation failed: ${runtimeObservationError}`] : []),
         ],
         ...(runtimeObservation ? { runtimeObservation } : {}),
         ...(runtimeObservationError ? { runtimeObservationError } : {}),
-        message: failureExit
-          ? "Verification commands executed; one or more failed/timed out/killed. No findings were auto-resolved."
-          : "Verification commands executed. No findings were auto-resolved.",
+        message: runSourceState.status === "changed"
+          ? "Verification commands executed, but source changed during the run. Rerun verification against the final source state."
+          : failureExit
+            ? "Verification commands executed; one or more failed/timed out/killed. No findings were auto-resolved."
+            : "Verification commands executed. No findings were auto-resolved.",
       };
 
       if (json) {
@@ -10452,6 +10528,7 @@ export async function main(argv: string[]): Promise<void> {
         status: derived.verificationResult.status,
         summary: derived.verificationResult.summary,
         recordedBy: derived.verificationResult.recordedBy,
+        sourceStateDigest: derived.verificationResult.sourceState?.digest,
         commandResults: derived.verificationResult.commandResults,
       },
       runRef,
@@ -14893,6 +14970,7 @@ async function validateRepositoryChange(
   });
   warnings.push(...evidence.warnings);
 
+  const currentSourceState = currentChangeSourceState(evidence);
   const latestSourceMtime = await latestChangedSourceMtime(root, evidence.files);
   const verificationEvidence: ChangeVerificationEvidence[] = [];
   for (const requested of input.verificationResultRefs ?? []) {
@@ -14906,7 +14984,7 @@ async function validateRepositoryChange(
     verificationEvidence.push(toChangeVerificationEvidence(
       artifact,
       artifactIndexRef(entry),
-      latestSourceMtime,
+      currentSourceState,
     ));
   }
 
@@ -14938,7 +15016,7 @@ async function validateRepositoryChange(
   const result = validateChange({
     task: input.task,
     changedPaths: input.changedPaths,
-    baseRef: input.baseRef,
+    baseRef: evidence.resolvedBaseCommit ?? input.baseRef,
     ...(taskPact ? { taskPact } : {}),
     ...(taskPactRef ? { taskPactRef } : {}),
     ...(taskContextRef ? { taskContextRef } : {}),
@@ -15007,7 +15085,7 @@ async function latestChangedSourceMtime(
 function toChangeVerificationEvidence(
   artifact: VerificationResult,
   ref: ArtifactRef,
-  latestSourceMtime: number | undefined,
+  currentSourceState: SourceStateBinding | undefined,
 ): ChangeVerificationEvidence {
   const completionTimes = artifact.commandResults
     .map((result) => result.completedAt ? Date.parse(result.completedAt) : Number.NaN)
@@ -15020,11 +15098,17 @@ function toChangeVerificationEvidence(
     : artifact.header.generatedAt;
   const runnerDerived = artifact.header.inputRefs.some((inputRef) => inputRef.type === "VerificationRun")
     || artifact.header.producer.id === "@rekon/capability-verify";
+  const validBoundState = artifact.sourceState && validateSourceStateBinding(artifact.sourceState).ok
+    ? artifact.sourceState
+    : undefined;
   return {
     ref,
     generatedAt,
-    freshness: proofTimeFreshness(proofTime, latestSourceMtime),
+    freshness: validBoundState && currentSourceState
+      ? validBoundState.digest === currentSourceState.digest ? "fresh" : "stale"
+      : "unknown",
     provenance: runnerDerived ? "runner-derived" : "recorded",
+    ...(validBoundState ? { sourceStateDigest: validBoundState.digest } : {}),
     verifier: {
       id: artifact.recordedBy ?? artifact.header.producer.id,
       version: artifact.header.producer.version,
@@ -15035,6 +15119,23 @@ function toChangeVerificationEvidence(
       ...(result.completedAt ? { completedAt: result.completedAt } : {}),
     })),
   };
+}
+
+function currentChangeSourceState(
+  evidence: Awaited<ReturnType<typeof collectRepositoryChangeEvidence>>,
+): SourceStateBinding | undefined {
+  if (!evidence.resolvedBaseCommit || evidence.files.length === 0) return undefined;
+  const files: SourceStateFile[] = [];
+  for (const file of evidence.files) {
+    if (file.status === "unavailable") return undefined;
+    files.push({
+      path: file.path,
+      status: file.status,
+      ...(file.beforeSha256 ? { beforeSha256: file.beforeSha256 } : {}),
+      ...(file.afterSha256 ? { afterSha256: file.afterSha256 } : {}),
+    });
+  }
+  return createSourceStateBinding({ baseRef: evidence.resolvedBaseCommit, files });
 }
 
 function proofArtifactFreshness(

@@ -58,3 +58,10 @@ unknown, or current source no longer matches. Existing adopted repository law
 is reconciled against the new projection before snapshot construction.
 Repositories without an effective contract registry do not gain implicit law
 during refresh.
+
+Verification proof uses the same byte-level rule before the gate is recorded.
+An executed `VerificationRun` captures its bounded source state before and
+after commands; a derived `VerificationResult` inherits the stable post-run
+digest. `validate_change` compares that digest with the current change state.
+Artifact timestamps remain provenance and display metadata and do not make
+proof fresh.

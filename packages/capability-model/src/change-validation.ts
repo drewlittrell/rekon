@@ -77,6 +77,7 @@ export type ChangeVerificationEvidence = {
   generatedAt: string;
   freshness: "fresh" | "stale" | "unknown";
   provenance: "runner-derived" | "recorded";
+  sourceStateDigest?: string;
   verifier: {
     id: string;
     version: string;
