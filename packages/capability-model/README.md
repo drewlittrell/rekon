@@ -69,8 +69,10 @@ current-source evidence; it returns deterministic blockers, typed proof
 obligations, bound verifier results, and required checks without writing or
 executing. Repository purpose, user outcomes, invariants, prohibitions, and
 handoff semantics require explicit judgment. A handoff edge may be supported by
-its selected check, a matching runtime observation, or model judgment when the
-obligation permits it; a refuted result always blocks completion.
+the exact checks and methods declared by its flow contract; undeclared methods
+do not count, sibling edges do not share exact checks, and a refuted accepted
+result always blocks completion. Contracts without an explicit verifier policy
+retain the compatible test/runtime/model fallback.
 Checks come from task guidance and the system, flow, and capability contracts
 intersected by the observed diff. If scoped contract bodies are unavailable,
 the helper retains the complete TaskPact check set and marks that fallback in

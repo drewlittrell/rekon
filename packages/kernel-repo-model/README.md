@@ -83,6 +83,9 @@ completion gates. Tests, runtime observations, static evidence, and model
 judgment count only when the obligation declares that method. Counterevidence
 blocks the gate. Recorded reports bind the accepted result to post-edit source
 digests so later edits cannot reuse it.
+`FlowContract` handoffs may declare accepted proof methods, an acceptance
+policy, and exact checks for their dependency edge. These declarations do not
+collapse payload, guarantee, ordering, or failure semantics into edge proof.
 `TaskContextItem` may also carry a `routeRole`, `necessity`, and
 `necessityReason`. These fields distinguish task targets, repository law,
 implementation, handoff, verification, dependency, compatibility, and

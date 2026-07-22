@@ -57,6 +57,32 @@ function systemContract(id, paths, requiredChecks) {
   };
 }
 
+function flowContract(handoffs, requiredChecks = []) {
+  return {
+    header: header("FlowContract", "bootstrap-flow"),
+    contractId: "bootstrap-flow",
+    authority: "adopted",
+    confidence: 1,
+    source: {},
+    name: "Bootstrap flow",
+    criticality: "high",
+    purpose: "Start the runtime",
+    userOutcomes: ["The runtime starts"],
+    entryConditions: [],
+    completionConditions: ["Runtime ready"],
+    systems: ["app", "runtime"],
+    paths: ["src/**"],
+    invariants: [],
+    stages: [
+      { id: "entry", paths: ["src/index.ts"], evidenceRefs: [] },
+      { id: "runtime", paths: ["src/runtime.ts"], evidenceRefs: [] },
+      { id: "audit", paths: ["src/audit.ts"], evidenceRefs: [] },
+    ],
+    handoffs,
+    requiredChecks,
+  };
+}
+
 test("a direct, observed change with no semantic clauses passes", () => {
   const result = validateChange({
     task: "change bootstrap",
@@ -353,6 +379,177 @@ test("runtime observation can prove the declared handoff edge without proving it
   assert.equal(edgeDecision?.verdict, "satisfied");
   assert.ok(result.unresolvedSemanticObligations.some((entry) =>
     entry.statement === "Forward configuration unchanged."));
+});
+
+test("a test-only handoff rejects matching runtime evidence", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: {
+      acceptedMethods: ["test"],
+      requiredChecks: ["npm run test:edge"],
+    },
+    evidenceRefs: [],
+  }]);
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    runtimeEvidence: [{
+      ref: ref("RuntimeGraphObservationReport", "runtime-observation"),
+      freshness: "fresh",
+      producer: { id: "@rekon/capability-model", version: "1.0.0" },
+      edges: [{ kind: "handoff", fromNodeId: "step:entry", toNodeId: "step:runtime", observedCount: 1 }],
+    }],
+  });
+
+  const edgeId = "handoff:bootstrap-flow:entry-runtime:edge";
+  const obligation = result.proofGate.obligations.find((entry) => entry.id === edgeId);
+  const decision = result.proofGate.evaluation.decisions.find((entry) => entry.obligationId === edgeId);
+  assert.deepEqual(obligation?.requiredEvidence, ["test"]);
+  assert.deepEqual(decision?.missingMethods, ["test"]);
+  assert.ok(!result.proofGate.results.some((entry) =>
+    entry.obligationId === edgeId && entry.method === "runtime"));
+});
+
+test("a runtime-only handoff is not satisfied by a flow-level test", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: { acceptedMethods: ["runtime"] },
+    evidenceRefs: [],
+  }], ["npm run test:flow"]);
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "flow-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:flow", status: "passed" }],
+    }],
+  });
+
+  const edgeId = "handoff:bootstrap-flow:entry-runtime:edge";
+  const decision = result.proofGate.evaluation.decisions.find((entry) => entry.obligationId === edgeId);
+  assert.equal(decision?.verdict, "unresolved");
+  assert.deepEqual(decision?.missingMethods, ["runtime"]);
+  assert.ok(!result.proofGate.results.some((entry) =>
+    entry.obligationId === edgeId && entry.method === "test"));
+});
+
+test("all-required handoff verification requires both test and runtime proof", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: {
+      acceptedMethods: ["test", "runtime"],
+      acceptancePolicy: "all-required",
+      requiredChecks: ["npm run test:edge"],
+    },
+    evidenceRefs: [],
+  }]);
+  const verificationEvidence = [{
+    ref: ref("VerificationResult", "edge-test"),
+    generatedAt: "2026-07-21T01:00:00.000Z",
+    freshness: "fresh",
+    provenance: "runner-derived",
+    verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+    commandResults: [{ command: "npm run test:edge", status: "passed" }],
+  }];
+  const baseline = {
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence,
+  };
+  const testOnly = validateChange(baseline);
+  const edgeId = "handoff:bootstrap-flow:entry-runtime:edge";
+  assert.deepEqual(
+    testOnly.proofGate.evaluation.decisions.find((entry) => entry.obligationId === edgeId)?.missingMethods,
+    ["runtime"],
+  );
+
+  const complete = validateChange({
+    ...baseline,
+    runtimeEvidence: [{
+      ref: ref("RuntimeGraphObservationReport", "runtime-observation"),
+      freshness: "fresh",
+      producer: { id: "@rekon/capability-model", version: "1.0.0" },
+      edges: [{ kind: "handoff", fromNodeId: "step:entry", toNodeId: "step:runtime", observedCount: 1 }],
+    }],
+  });
+  assert.equal(complete.status, "passed");
+  assert.equal(
+    complete.proofGate.evaluation.decisions.find((entry) => entry.obligationId === edgeId)?.verdict,
+    "satisfied",
+  );
+});
+
+test("an exact handoff check cannot prove a sibling edge", () => {
+  const flow = flowContract([
+    {
+      id: "entry-runtime",
+      fromStageId: "entry",
+      toStageId: "runtime",
+      verification: { acceptedMethods: ["test"], requiredChecks: ["npm run test:runtime-edge"] },
+      evidenceRefs: [],
+    },
+    {
+      id: "entry-audit",
+      fromStageId: "entry",
+      toStageId: "audit",
+      verification: { acceptedMethods: ["test"], requiredChecks: ["npm run test:audit-edge"] },
+      evidenceRefs: [],
+    },
+  ]);
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "runtime-edge-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:runtime-edge", status: "passed" }],
+    }],
+  });
+
+  const runtimeCheck = result.checkSelection.checks.find((check) =>
+    check.command === "npm run test:runtime-edge");
+  assert.ok(runtimeCheck);
+  assert.ok(runtimeCheck.requirements.some((entry) =>
+    entry.sourceType === "flow-handoff" && entry.sourceId === "bootstrap-flow:entry-runtime"));
+  assert.ok(runtimeCheck.proofObligationIds.includes("handoff:bootstrap-flow:entry-runtime:edge"));
+  assert.ok(!runtimeCheck.proofObligationIds.includes("handoff:bootstrap-flow:entry-audit:edge"));
+  assert.ok(result.proofGate.results.some((entry) =>
+    entry.obligationId === "handoff:bootstrap-flow:entry-runtime:edge" && entry.verdict === "supported"));
+  assert.ok(!result.proofGate.results.some((entry) =>
+    entry.obligationId === "handoff:bootstrap-flow:entry-audit:edge" && entry.method === "test"));
 });
 
 test("supported edge proof clears its compatibility obligation", () => {

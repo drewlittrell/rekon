@@ -27,7 +27,8 @@ can update local Rekon artifacts.
 - `validate_change`: post-edit comparison against Git, task-scoped repository
   law, ownership, dependency policy, and flow handoffs. It returns blocking
   violations, required checks, and a proof gate that names the evidence needed
-  for each affected contract edge. It does not execute checks or persist a
+  for each affected contract edge. Selected checks include the exact proof
+  obligation IDs they can satisfy. It does not execute checks or persist a
   report.
 
 The server still accepts the earlier `orientation`, `where_does_this_belong`,

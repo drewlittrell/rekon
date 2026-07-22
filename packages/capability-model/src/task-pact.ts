@@ -76,6 +76,9 @@ export function buildTaskPact(input: BuildTaskPactInput) {
       const handoffPaths = unique([...(stageById.get(handoff.fromStageId)?.paths ?? []), ...(stageById.get(handoff.toStageId)?.paths ?? [])]);
       for (const [index, guarantee] of (handoff.guarantees ?? []).entries()) constraints.push(constraint(contract, ref, "handoff", `${contract.contractId}.handoff.${handoff.id}.guarantee.${index + 1}`, guarantee, handoffPaths));
       if (handoff.failureSemantics) constraints.push(constraint(contract, ref, "handoff", `${contract.contractId}.handoff.${handoff.id}.failure`, handoff.failureSemantics, handoffPaths));
+      const selectedHandoff = selectedPaths.some((path) =>
+        (handoffPaths.length > 0 ? handoffPaths : flowPaths).some((scope) => pathMatchesScope(path, scope)));
+      if (selectedHandoff) requiredChecks.push(...(handoff.verification?.requiredChecks ?? []));
     }
     const inspectPaths = flowPaths.filter((path) => !selectedPaths.includes(path));
     if (inspectPaths.length > 0) impactObligations.push({

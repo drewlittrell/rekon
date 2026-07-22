@@ -7,6 +7,7 @@ import {
   validateArtifactHeader,
   validateArtifactRef,
 } from "@rekon/kernel-artifacts";
+import type { ProofAcceptancePolicy, ProofMethod } from "./proof-gates.js";
 
 export const REPOSITORY_CONTRACT_SOURCE_VERSION = "1.0.0" as const;
 
@@ -63,6 +64,11 @@ export type FlowContractHandoffSource = {
   carriedInvariantIds?: string[];
   ordering?: string;
   failureSemantics?: string;
+  verification?: {
+    acceptedMethods: ProofMethod[];
+    acceptancePolicy?: ProofAcceptancePolicy;
+    requiredChecks?: string[];
+  };
 };
 
 export type FlowContractSource = {
@@ -183,6 +189,12 @@ const AUTHORITIES = new Set<ContractAuthority>([
   "adopted",
 ]);
 const CRITICALITIES = new Set<ContractCriticality>(["critical", "high", "normal"]);
+const PROOF_METHODS = new Set<ProofMethod>(["static", "test", "runtime", "model-judgment"]);
+const PROOF_ACCEPTANCE_POLICIES = new Set<ProofAcceptancePolicy>([
+  "all-required",
+  "any-authoritative",
+  "any-supported",
+]);
 const CONTRACT_TYPES = new Set<EffectiveContractRegistryEntry["contractType"]>([
   "SystemContract",
   "CapabilityContract",
@@ -284,6 +296,15 @@ export function createFlowContract(input: FlowContract): FlowContract {
       carriedInvariantIds: handoff.carriedInvariantIds ? unique(handoff.carriedInvariantIds) : undefined,
       payload: handoff.payload
         ? { ...handoff.payload, requiredFields: handoff.payload.requiredFields ? unique(handoff.payload.requiredFields) : undefined }
+        : undefined,
+      verification: handoff.verification
+        ? {
+          ...handoff.verification,
+          acceptedMethods: [...new Set(handoff.verification.acceptedMethods)],
+          requiredChecks: handoff.verification.requiredChecks
+            ? unique(handoff.verification.requiredChecks)
+            : undefined,
+        }
         : undefined,
       evidenceRefs: uniqueRefs(handoff.evidenceRefs),
     })),
@@ -490,6 +511,49 @@ function validateHandoffSemantics(issues: ValidationIssue[], value: Record<strin
     else {
       optionalString(issues, value.payload.schema, `${path}.payload.schema`);
       optionalStringArray(issues, value.payload.requiredFields, `${path}.payload.requiredFields`);
+    }
+  }
+  if (value.verification !== undefined) {
+    if (!isRecord(value.verification)) {
+      issues.push({ path: `${path}.verification`, message: "Expected an object." });
+    } else {
+      const acceptedMethods = value.verification.acceptedMethods;
+      if (!Array.isArray(acceptedMethods) || acceptedMethods.length === 0) {
+        issues.push({ path: `${path}.verification.acceptedMethods`, message: "Expected at least one proof method." });
+      } else {
+        acceptedMethods.forEach((method, index) => {
+          if (typeof method !== "string" || !PROOF_METHODS.has(method as ProofMethod)) {
+            issues.push({
+              path: `${path}.verification.acceptedMethods[${index}]`,
+              message: "Expected static, test, runtime, or model-judgment.",
+            });
+          }
+        });
+      }
+      if (
+        value.verification.acceptancePolicy !== undefined
+        && (
+          typeof value.verification.acceptancePolicy !== "string"
+          || !PROOF_ACCEPTANCE_POLICIES.has(value.verification.acceptancePolicy as ProofAcceptancePolicy)
+        )
+      ) {
+        issues.push({
+          path: `${path}.verification.acceptancePolicy`,
+          message: "Expected all-required, any-authoritative, or any-supported.",
+        });
+      }
+      optionalStringArray(issues, value.verification.requiredChecks, `${path}.verification.requiredChecks`);
+      if (
+        Array.isArray(value.verification.requiredChecks)
+        && value.verification.requiredChecks.length > 0
+        && Array.isArray(acceptedMethods)
+        && !acceptedMethods.includes("test")
+      ) {
+        issues.push({
+          path: `${path}.verification.acceptedMethods`,
+          message: "Expected test when requiredChecks declares checks that prove this handoff.",
+        });
+      }
     }
   }
 }

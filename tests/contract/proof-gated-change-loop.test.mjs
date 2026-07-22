@@ -45,6 +45,12 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.ok(!initial.requiredChecks.includes("npm run stale-check"));
     assert.ok(initial.proofGate.obligations.some((entry) => entry.id.endsWith(":edge")));
     assert.equal(initial.checkSelection.checks[0].selection, "declared");
+    assert.ok(initial.checkSelection.checks[0].requirements.some((entry) =>
+      entry.sourceType === "flow-handoff" && entry.sourceId === "proof-flow:bootstrap-runtime"));
+    assert.deepEqual(
+      initial.proofGate.obligations.find((entry) => entry.id.endsWith(":edge"))?.requiredEvidence,
+      ["test"],
+    );
     assert.equal(initial.correctiveContext.entries[0].kind, "missing-check");
 
     const refused = runCliFailure([
@@ -475,6 +481,10 @@ async function createFixture(root, options = {}) {
         payload: { requiredFields: ["runtime"] },
         guarantees: ["The selected runtime reaches initialization."],
         failureSemantics: "A missing runtime must fail explicitly.",
+        verification: {
+          acceptedMethods: ["test"],
+          requiredChecks,
+        },
       }],
       requiredChecks,
     }],
@@ -538,6 +548,10 @@ async function createFixture(root, options = {}) {
       payload: { requiredFields: ["runtime"] },
       guarantees: ["The selected runtime reaches initialization."],
       failureSemantics: "A missing runtime must fail explicitly.",
+      verification: {
+        acceptedMethods: ["test"],
+        requiredChecks,
+      },
       evidenceRefs: [],
     }],
     requiredChecks,

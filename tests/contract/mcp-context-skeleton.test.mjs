@@ -838,9 +838,10 @@ test("validate_change compares Git and current source without persisting or runn
     assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
       /bootstrap\/runtime compatibility/u.test(entry.statement.value)));
     assert.ok(validation.requiredChecks.value.includes("npm run test:bootstrap"));
-    assert.ok(validation.checkSelection.checks.some((entry) =>
-      entry.command.value === "npm run test:bootstrap"
-      && entry.selection.value === "declared"));
+    const selectedCheck = validation.checkSelection.checks.find((entry) =>
+      entry.command.value === "npm run test:bootstrap");
+    assert.equal(selectedCheck?.selection.value, "declared");
+    assert.ok(selectedCheck?.proofObligationIds.value.some((id) => id.endsWith(":edge")));
     assert.ok(validation.correctiveContext.entries.some((entry) =>
       entry.kind.value === "missing-check"
       && entry.command.value === "npm run test:bootstrap"));

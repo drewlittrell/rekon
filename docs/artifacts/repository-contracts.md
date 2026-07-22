@@ -22,6 +22,36 @@ handoffs, completion conditions, and invariants that must survive the flow.
 Critical flows use `criticality: "critical"`; the artifact is not limited to
 performance hot paths.
 
+### Handoff verification
+
+A handoff may declare how its dependency edge is proved:
+
+```json
+{
+  "id": "route-to-handler",
+  "fromStageId": "route",
+  "toStageId": "handler",
+  "verification": {
+    "acceptedMethods": ["test", "runtime"],
+    "acceptancePolicy": "all-required",
+    "requiredChecks": ["npm run test:request-flow"]
+  }
+}
+```
+
+`acceptedMethods` supports `static`, `test`, `runtime`, and
+`model-judgment`. `acceptancePolicy` defaults to `any-supported`; it may also
+be `all-required` or `any-authoritative`. A handoff with `requiredChecks` must
+accept `test` evidence. Those commands are selected only when the task or diff
+intersects that handoff's stages, and each command records the exact edge it
+can prove.
+
+The declaration applies to edge continuity. Payload fields, guarantees,
+ordering, and failure semantics remain independent proof obligations. Existing
+contracts without `verification` retain the compatible default: one supported
+test, runtime observation, or model judgment can prove the edge, and a
+flow-level check may bind to affected handoffs.
+
 `EffectiveContractRegistry` indexes current system, capability, handoff, and
 flow contracts by authority and scope. It contains refs rather than copying
 contract bodies.

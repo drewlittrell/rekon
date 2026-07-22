@@ -21,9 +21,11 @@ explainable resolution.
 7. Validate the resulting diff and prove each affected contract edge.
 8. Record the satisfied gate and refresh maintained knowledge.
 
-Each gate names its accepted verifier methods. Deterministic checks and runtime
-observations bind directly to the edges they exercise; the acting model judges
-semantic obligations against cited source. Counterevidence blocks completion.
+Each flow handoff may name its accepted verifier methods, acceptance policy,
+and exact checks. Deterministic checks and runtime observations bind directly
+to the edges they exercise; one handoff's check cannot prove a sibling edge.
+The acting model judges semantic obligations against cited source.
+Counterevidence blocks completion.
 Executed checks capture their bounded source state before and after execution;
 only an unchanged post-run digest can satisfy the matching current change.
 Declared checks remain authoritative. When they leave changed source without a
@@ -84,9 +86,9 @@ and provenance.
   digest equality, not timestamp order. Validation never runs project checks
   or writes source.
 - Change-generated verification plans preserve why each command was selected
-  and which check or flow-edge obligations it can prove. Semantic handoff
-  guarantees still require their declared verifier method; a passing command
-  does not silently prove them.
+  and which check or flow-edge obligations it can prove. Flow contracts own
+  accepted edge methods and policy. Semantic handoff guarantees still require
+  their own verifier method; a passing command does not silently prove them.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial
   packet. Absence remains unresolved rather than authorizing broad search.

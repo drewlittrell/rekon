@@ -63,11 +63,49 @@ test("repository contract source validates system and flow law", () => {
         fromStageId: "normalize",
         toStageId: "select",
         carriedInvariantIds: ["meaning-preserved"],
+        verification: {
+          acceptedMethods: ["test", "runtime"],
+          acceptancePolicy: "all-required",
+          requiredChecks: ["npm run test:experience-selection"],
+        },
       }],
     }],
   });
 
   assert.equal(result.ok, true);
+});
+
+test("repository contract source rejects invalid handoff verification policy", () => {
+  const result = validateRepositoryContractSourceDocument({
+    version: "1.0.0",
+    sourceId: "invalid-verification",
+    flows: [{
+      id: "flow",
+      name: "Flow",
+      criticality: "normal",
+      purpose: "Complete the flow.",
+      userOutcomes: ["Done."],
+      completionConditions: ["Done."],
+      invariants: [{ id: "stable", statement: "Stay stable." }],
+      stages: [{ id: "start" }, { id: "finish" }],
+      handoffs: [{
+        id: "edge",
+        fromStageId: "start",
+        toStageId: "finish",
+        verification: {
+          acceptedMethods: ["runtime", "unsupported"],
+          acceptancePolicy: "sometimes",
+          requiredChecks: ["npm run test:flow"],
+        },
+      }],
+    }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.issues.some((issue) => issue.path.endsWith("acceptedMethods[1]")));
+  assert.ok(result.issues.some((issue) => issue.path.endsWith("acceptancePolicy")));
+  assert.ok(result.issues.some((issue) =>
+    issue.path.endsWith("acceptedMethods") && /Expected test/u.test(issue.message)));
 });
 
 test("repository contract source rejects generated workspace scopes and broken flow refs", () => {
@@ -152,6 +190,11 @@ test("system and flow artifact factories normalize public contracts", () => {
       fromStageId: "normalize",
       toStageId: "select",
       carriedInvariantIds: ["meaning-preserved"],
+      verification: {
+        acceptedMethods: ["runtime", "test", "runtime"],
+        acceptancePolicy: "all-required",
+        requiredChecks: ["npm run test:flow", "npm run test:flow"],
+      },
       evidenceRefs: [evidenceRef],
     }],
     requiredChecks: [],
@@ -160,6 +203,11 @@ test("system and flow artifact factories normalize public contracts", () => {
   assert.deepEqual(system.system.paths, ["packages/intelligence/**"]);
   assert.deepEqual(system.invariants[0].evidenceRefs, [evidenceRef]);
   assert.equal(validateFlowContract(flow).ok, true);
+  assert.deepEqual(flow.handoffs[0].verification, {
+    acceptedMethods: ["runtime", "test"],
+    acceptancePolicy: "all-required",
+    requiredChecks: ["npm run test:flow"],
+  });
 });
 
 test("effective contract registry summarizes authority and rejects duplicate identities", () => {

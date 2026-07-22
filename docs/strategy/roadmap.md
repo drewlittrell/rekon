@@ -57,9 +57,11 @@ verification recording, reconciliation planning, and artifact validation.
   applies TaskPact scope, ownership, capability dependency policy, and complete
   flow handoffs, and returns typed proof obligations without executing checks.
   Selected VerificationResults and runtime observations bind to the exact
-  checks and handoff edges they support. The acting model handles only declared
-  semantic judgments; repository purpose and user outcomes are completion
-  gates rather than advisory text.
+  checks and handoff edges they support. Flow handoffs may declare accepted
+  verifier methods, acceptance policy, and exact proving checks; exact checks
+  cannot satisfy sibling edges. The acting model handles only declared semantic
+  judgments; repository purpose and user outcomes are completion gates rather
+  than advisory text.
 - Targeted verification now preserves declared task and contract checks, fills
   changed-source test gaps only from passed isolated coverage linked to exact
   runner commands, and chooses a deterministic minimal candidate set. Failed,

@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Flow handoffs may now declare accepted verifier methods, acceptance policy,
+  and exact proving checks. Task pacts select only intersecting handoff checks;
+  change validation exposes each check's exact proof-obligation IDs, prevents
+  sibling-edge proof leakage, and preserves the previous flow-level fallback
+  for contracts without explicit verifier policy. MCP interface `1.3.2`
+  includes those IDs in bounded model-facing check selection.
 - Proof-gated refresh now completes the accepted-change maintenance loop. It
   records the gate as observation lineage, regenerates all maintained local
   publications and managed agent instructions, refuses confirmed contract

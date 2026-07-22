@@ -131,10 +131,12 @@ prohibitions, and handoff semantics become typed proof obligations for the
 acting model to judge against cited source.
 
 Checks are separate verifier obligations. A declared handoff edge can be
-supported by its selected check, a matching runtime observation, or model
-judgment when that method is allowed. A failed verifier blocks the edge even if
-another verifier supports it. Missing, skipped, stale, and unrelated evidence
-remain unresolved rather than disappearing from the graph.
+supported only by methods allowed in its `FlowContract`. A handoff may require
+an exact check, runtime observation, model judgment, or a declared combination.
+Selected checks carry the exact edge obligation IDs they can satisfy, so one
+handoff's test cannot prove a sibling edge. A failed accepted verifier blocks
+the edge even if another verifier supports it. Missing, skipped, stale, and
+unrelated evidence remain unresolved rather than disappearing from the graph.
 
 The first call identifies required proof. The final call supplies explicit
 `VerificationResult` and runtime-observation refs plus model judgments. A

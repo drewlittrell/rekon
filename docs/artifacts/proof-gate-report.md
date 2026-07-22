@@ -33,8 +33,9 @@ The artifact contains:
 Each obligation declares its accepted methods and policy. `all-required`
 requires every listed method. `any-authoritative` excludes model judgment when
 a stronger listed method exists. `any-supported` accepts one listed method and
-is used for a handoff edge that may be exercised by a test, runtime observation,
-or explicit semantic judgment. Any accepted refutation blocks the gate.
+is the default for a handoff edge. A `FlowContract` handoff may instead declare
+its accepted methods, policy, and exact proving checks. Any accepted refutation
+blocks the gate.
 
 ```json
 {
@@ -67,9 +68,11 @@ Missing, skipped, stale, or unrelated evidence remains unresolved. Results for
 an unknown obligation do not count. Contradictory evidence is retained, and a
 refutation wins over support.
 
-A selected check binds to its own verification gate and, when declared by an
-affected flow, the handoff's `:edge` obligation. It does not silently satisfy
-the handoff's payload, guarantee, ordering, or failure-semantic obligations.
+A selected check exposes `proofObligationIds`. An exact handoff check binds
+only to its own `:edge` obligation; it cannot prove a sibling edge. Legacy
+flow-level checks retain their affected-edge behavior only for handoffs that
+do not declare exact checks. No check silently satisfies payload, guarantee,
+ordering, or failure-semantic obligations.
 
 ## Freshness
 

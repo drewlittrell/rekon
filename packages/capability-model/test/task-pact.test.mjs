@@ -78,6 +78,11 @@ const flowContract = {
     toStageId: "handle",
     guarantees: ["The normalized request reaches the handler."],
     failureSemantics: "Handler failures remain typed domain failures.",
+    verification: {
+      acceptedMethods: ["test", "runtime"],
+      acceptancePolicy: "any-supported",
+      requiredChecks: ["npm run test -- route-to-handler"],
+    },
     evidenceRefs: [],
   }],
   requiredChecks: ["npm test -- request-flow"],
@@ -144,8 +149,40 @@ test("task pact selects adopted system and whole-flow law for a scoped path", ()
   assert.ok(pact.constraints.some((constraint) => constraint.statement === "The normalized request reaches the handler."));
   assert.ok(pact.requiredContextPaths.includes("src/domain/handler.ts"));
   assert.ok(pact.impactObligations.some((obligation) => obligation.kind === "inspect"));
-  assert.deepEqual(pact.requiredChecks, ["npm test -- api", "npm test -- request-flow"]);
+  assert.deepEqual(pact.requiredChecks, [
+    "npm run test -- route-to-handler",
+    "npm test -- api",
+    "npm test -- request-flow",
+  ]);
   assert.deepEqual(pact.header.inputRefs, [registryRef, systemRef, flowRef]);
+});
+
+test("task pact selects verifier checks only for handoffs intersecting the task", () => {
+  const flow = structuredClone(flowContract);
+  flow.stages.push({ id: "audit", paths: ["src/audit/write.ts"], evidenceRefs: [] });
+  flow.handoffs.push({
+    id: "handler-to-audit",
+    fromStageId: "handle",
+    toStageId: "audit",
+    verification: {
+      acceptedMethods: ["test"],
+      requiredChecks: ["npm run test -- handler-to-audit"],
+    },
+    evidenceRefs: [],
+  });
+  const pact = buildTaskPact({
+    repoId: "example",
+    taskText: "Change request routing.",
+    paths: ["src/api/route.ts"],
+    generatedAt,
+    registry,
+    registryRef,
+    systemContracts: [systemContract],
+    flowContracts: [flow],
+  });
+
+  assert.ok(pact.requiredChecks.includes("npm run test -- route-to-handler"));
+  assert.ok(!pact.requiredChecks.includes("npm run test -- handler-to-audit"));
 });
 
 test("task pact excludes contracts absent from the effective registry", () => {
@@ -214,7 +251,11 @@ test("task pact surfaces drift and reaches the compact model context", () => {
   assert.ok(delivery.readFirst.includes("src/domain/handler.ts"));
   assert.ok(delivery.constraints.some((constraint) => /Preserve the request id/u.test(constraint)));
   assert.ok(delivery.constraints.some((constraint) => /Inspect the remaining Request processing flow stages/u.test(constraint)));
-  assert.deepEqual(delivery.checks, ["npm test -- api", "npm test -- request-flow"]);
+  assert.deepEqual(delivery.checks, [
+    "npm run test -- route-to-handler",
+    "npm test -- api",
+    "npm test -- request-flow",
+  ]);
   assert.ok(delivery.warnings?.some((warning) => /stale/u.test(warning)));
 });
 

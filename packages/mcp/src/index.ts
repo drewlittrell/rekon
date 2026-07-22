@@ -64,7 +64,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.3.1";
+export const MCP_SERVER_VERSION = "1.3.2";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -1437,6 +1437,7 @@ export function buildChangeValidationResponse(
       paths: boundedChangeList(check.requirements.flatMap((requirement) => requirement.paths), 6, 220),
       reasons: boundedChangeList(check.requirements.map((requirement) => requirement.reason), 4, 360),
       evidenceRefs: boundedChangeList(check.requirements.flatMap((requirement) => requirement.evidenceRefs), 6, 220),
+      proofObligationIds: boundedChangeList(check.proofObligationIds ?? [], 8, 220),
     }));
     const corrections = correctiveContext.entries.slice(0, correctionLimit).map((entry) => ({
       id: boundedChangeText(entry.id, 180),
@@ -1563,6 +1564,7 @@ export function buildChangeValidationResponse(
               paths: tag(check.paths, "deterministic"),
               reasons: tag(check.reasons, "declared"),
               evidenceRefs: tag(check.evidenceRefs, "declared"),
+              proofObligationIds: tag(check.proofObligationIds, "deterministic"),
             })),
             omittedChecks: tag(omittedSelections, "deterministic"),
           },

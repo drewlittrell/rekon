@@ -22,6 +22,9 @@ whether it came from declared repository law or prior execution evidence, the
 paths and reasons it covers, its evidence refs, and the exact proof obligations
 it may satisfy. Historical coverage can nominate an exact command, but only a
 new digest-bound run can satisfy the plan.
+When a flow handoff declares `verification.requiredChecks`, the plan maps each
+command only to that handoff's edge. It does not generalize the result to other
+edges in the same flow.
 
 Intent handoff generation preserves supported commands verbatim and in plan
 order, including npm argument separators and flags such as

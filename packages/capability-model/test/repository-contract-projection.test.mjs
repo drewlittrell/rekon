@@ -29,7 +29,17 @@ const source = {
       paths: ["packages/intelligence/**"],
       invariants: [{ id: "meaning-survives", statement: "Meaning survives normalization and selection." }],
       stages: [{ id: "normalize" }, { id: "select" }],
-      handoffs: [{ id: "meaning", fromStageId: "normalize", toStageId: "select", carriedInvariantIds: ["meaning-survives"] }],
+      handoffs: [{
+        id: "meaning",
+        fromStageId: "normalize",
+        toStageId: "select",
+        carriedInvariantIds: ["meaning-survives"],
+        verification: {
+          acceptedMethods: ["test", "runtime"],
+          acceptancePolicy: "all-required",
+          requiredChecks: ["npm run nlu:eval:intents"],
+        },
+      }],
     }],
   },
 };
@@ -46,6 +56,11 @@ test("committed sources compile into adopted contracts and one effective registr
   assert.equal(projection.systemContracts[0].authority, "adopted");
   assert.equal(projection.systemContracts[0].invariants[0].sourceRefs[0].path, source.path);
   assert.deepEqual(projection.flowContracts[0].handoffs[0].carriedInvariantIds, ["meaning-survives"]);
+  assert.deepEqual(projection.flowContracts[0].handoffs[0].verification, {
+    acceptedMethods: ["test", "runtime"],
+    acceptancePolicy: "all-required",
+    requiredChecks: ["npm run nlu:eval:intents"],
+  });
   assert.equal(projection.registry.summary.total, 2);
   assert.equal(projection.registry.summary.byAuthority.adopted, 2);
   assert.deepEqual(projection.registry.header.inputRefs.map((ref) => ref.type), ["SystemContract", "FlowContract"]);

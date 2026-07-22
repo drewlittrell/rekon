@@ -3,7 +3,9 @@ import type {
   CapabilityContract,
   CapabilityEvidenceGraph,
   FlowContract,
+  FlowContractHandoff,
   OwnershipMap,
+  ProofAcceptancePolicy,
   ProofGateEvaluation,
   ProofMethod,
   ProofObligation,
@@ -64,6 +66,7 @@ export type ChangeValidationCheckRequirement = {
     | "task-context"
     | "system-contract"
     | "flow-contract"
+    | "flow-handoff"
     | "capability-contract"
     | "task-pact-fallback"
     | "coverage-observation";
@@ -89,6 +92,7 @@ export type ChangeValidationSelectedCheck = {
   kind: ChangeValidationCheckKind;
   selection: "declared" | "evidence-backed";
   requirements: ChangeValidationCheckRequirement[];
+  proofObligationIds: string[];
 };
 
 export type ChangeVerificationDiagnostic = {
@@ -474,7 +478,8 @@ function toProofObligation(
 ): ProofObligation {
   const subject = proofSubject(obligation, input);
   const sourceRefs = proofSourceRefs(obligation, input);
-  const requiredEvidence = proofMethods(obligation);
+  const edgePolicy = handoffEdgePolicy(obligation, input);
+  const requiredEvidence = edgePolicy?.acceptedMethods ?? proofMethods(obligation);
   return {
     id: obligation.id,
     subject: {
@@ -489,7 +494,8 @@ function toProofObligation(
     },
     assertion: obligation.statement,
     requiredEvidence,
-    acceptancePolicy: /:edge$/u.test(obligation.id) ? "any-supported" : "all-required",
+    acceptancePolicy: edgePolicy?.acceptancePolicy
+      ?? (/:edge$/u.test(obligation.id) ? "any-supported" : "all-required"),
     required: obligation.blockingIfViolated,
     sourceRefs,
   };
@@ -558,6 +564,23 @@ function proofMethods(obligation: ChangeValidationObligation): ProofMethod[] {
   return ["model-judgment"];
 }
 
+function handoffEdgePolicy(
+  obligation: ChangeValidationObligation,
+  input: ValidateChangeInput,
+): { acceptedMethods: ProofMethod[]; acceptancePolicy: ProofAcceptancePolicy } | undefined {
+  if (!/:edge$/u.test(obligation.id)) return undefined;
+  const match = /^handoff:([^:]+):([^:]+):edge$/u.exec(obligation.id);
+  if (!match) return undefined;
+  const handoff = input.flowContracts
+    ?.find((flow) => flow.contractId === match[1])
+    ?.handoffs.find((candidate) => candidate.id === match[2]);
+  if (!handoff?.verification) return undefined;
+  return {
+    acceptedMethods: [...handoff.verification.acceptedMethods],
+    acceptancePolicy: handoff.verification.acceptancePolicy ?? "any-supported",
+  };
+}
+
 function checkProofObligationId(command: string): string {
   return `check:${digestJson(command).slice(0, 16)}`;
 }
@@ -570,6 +593,10 @@ function proofSourceRefsForCheck(
   const requested = new Set(check.requirements.flatMap((requirement) => requirement.evidenceRefs));
   for (const requirement of check.requirements) {
     if (requirement.sourceType === "flow-contract") requested.add(`FlowContract:${requirement.sourceId}`);
+    if (requirement.sourceType === "flow-handoff") {
+      const matched = findFlowHandoffBySourceId(input.flowContracts ?? [], requirement.sourceId);
+      if (matched) requested.add(`FlowContract:${matched.flow.header.artifactId}`);
+    }
     if (requirement.sourceType === "system-contract") requested.add(`SystemContract:${requirement.sourceId}`);
     if (requirement.sourceType === "capability-contract" && input.capabilityContract) {
       requested.add(`CapabilityContract:${input.capabilityContract.header.artifactId}`);
@@ -645,16 +672,11 @@ function bindVerificationEvidence(
         results.push(verificationProofResult(checkObligation.id, verdict, evidence, commandResult.command));
       }
 
-      const flowIds = unique(check.requirements
-        .filter((requirement) => requirement.sourceType === "flow-contract")
-        .map((requirement) => requirement.sourceId));
-      for (const flowId of flowIds) {
-        for (const obligation of input.obligations.filter((candidate) =>
-          candidate.subject.kind === "flow-handoff"
-          && candidate.id.startsWith(`handoff:${flowId}:`)
-          && candidate.id.endsWith(":edge"))) {
-          results.push(verificationProofResult(obligation.id, verdict, evidence, commandResult.command));
-        }
+      for (const obligationId of check.proofObligationIds) {
+        const obligation = obligationsById.get(obligationId);
+        if (!obligation || obligation.subject.kind !== "flow-handoff") continue;
+        if (!obligation.requiredEvidence.includes("test")) continue;
+        results.push(verificationProofResult(obligation.id, verdict, evidence, commandResult.command));
       }
     }
   }
@@ -704,6 +726,7 @@ function bindRuntimeEvidence(
       const flow = input.input.flowContracts?.find((candidate) => candidate.contractId === match[1]);
       const handoff = flow?.handoffs.find((candidate) => candidate.id === match[2]);
       if (!handoff) continue;
+      if (!obligation.requiredEvidence.includes("runtime")) continue;
       const observed = evidence.edges.some((edge) =>
         edge.kind === "handoff"
         && edge.observedCount > 0
@@ -802,17 +825,7 @@ function buildVerificationCorrectiveContext(input: {
     if (match?.evidence.freshness === "fresh" && match.commandResult.status === "passed") continue;
 
     const paths = unique(check.requirements.flatMap((requirement) => requirement.paths));
-    const flowIds = new Set(check.requirements
-      .filter((requirement) => requirement.sourceType === "flow-contract")
-      .map((requirement) => requirement.sourceId));
-    const obligationIds = unique([
-      checkProofObligationId(check.command),
-      ...input.obligations
-        .filter((obligation) => obligation.subject.kind === "flow-handoff"
-          && obligation.id.endsWith(":edge")
-          && [...flowIds].some((flowId) => obligation.id.startsWith(`handoff:${flowId}:`)))
-        .map((obligation) => obligation.id),
-    ]);
+    const obligationIds = [...check.proofObligationIds];
     const reasons = unique(check.requirements.map((requirement) => requirement.reason)).sort();
     const selectionEvidenceRefs = check.requirements.flatMap((requirement) => requirement.evidenceRefs);
     const evidenceRefs = unique([
@@ -938,6 +951,8 @@ function proofResultKey(result: ProofResult): string {
   ].join("\0");
 }
 
+type PendingSelectedCheck = Omit<ChangeValidationSelectedCheck, "proofObligationIds">;
+
 function selectRequiredChecks(input: {
   input: ValidateChangeInput;
   changedPaths: string[];
@@ -945,7 +960,7 @@ function selectRequiredChecks(input: {
   affectedFlowContracts: FlowContract[];
   matchedCapabilityContracts: CapabilityContract["contracts"];
 }): ChangeValidationResult["checkSelection"] {
-  const checks = new Map<string, ChangeValidationSelectedCheck>();
+  const checks = new Map<string, PendingSelectedCheck>();
   let fallbackUsed = false;
   const add = (
     command: string,
@@ -998,6 +1013,17 @@ function selectRequiredChecks(input: {
         flowPaths(contract).some((scope) => pathMatchesScope(path, scope))),
       evidenceRefs: [`FlowContract:${contract.header.artifactId}`],
     });
+    for (const handoff of contract.handoffs) {
+      const paths = changedHandoffPaths(contract, handoff, input.changedPaths);
+      if (paths.length === 0) continue;
+      for (const command of handoff.verification?.requiredChecks ?? []) add(command, {
+        sourceType: "flow-handoff",
+        sourceId: flowHandoffSourceId(contract.contractId, handoff.id),
+        reason: `Changed source intersects handoff ${contract.contractId}:${handoff.id}.`,
+        paths,
+        evidenceRefs: [`FlowContract:${contract.header.artifactId}`],
+      });
+    }
   }
 
   const capabilityArtifactId = input.input.capabilityContract?.header.artifactId;
@@ -1095,8 +1121,71 @@ function selectRequiredChecks(input: {
       ...check,
       requirements: check.requirements.sort((left, right) =>
         left.sourceType.localeCompare(right.sourceType) || left.sourceId.localeCompare(right.sourceId)),
+      proofObligationIds: proofObligationIdsForCheck(
+        check,
+        input.affectedFlowContracts,
+        input.changedPaths,
+      ),
     })),
   };
+}
+
+function proofObligationIdsForCheck(
+  check: PendingSelectedCheck,
+  flows: FlowContract[],
+  changedPaths: string[],
+): string[] {
+  const obligationIds = new Set<string>([checkProofObligationId(check.command)]);
+  for (const requirement of check.requirements) {
+    if (requirement.sourceType === "flow-handoff") {
+      const matched = findFlowHandoffBySourceId(flows, requirement.sourceId);
+      if (matched) obligationIds.add(handoffEdgeObligationId(matched.flow.contractId, matched.handoff.id));
+      continue;
+    }
+    if (requirement.sourceType !== "flow-contract") continue;
+    const flow = flows.find((candidate) => candidate.contractId === requirement.sourceId);
+    if (!flow) continue;
+    for (const handoff of flow.handoffs) {
+      if ((handoff.verification?.requiredChecks?.length ?? 0) > 0) continue;
+      if (changedHandoffPaths(flow, handoff, changedPaths).length === 0) continue;
+      obligationIds.add(handoffEdgeObligationId(flow.contractId, handoff.id));
+    }
+  }
+  return [...obligationIds].sort();
+}
+
+function changedHandoffPaths(
+  flow: FlowContract,
+  handoff: FlowContractHandoff,
+  changedPaths: string[],
+): string[] {
+  const stageById = new Map(flow.stages.map((stage) => [stage.id, stage]));
+  const scopes = unique([
+    ...(stageById.get(handoff.fromStageId)?.paths ?? []),
+    ...(stageById.get(handoff.toStageId)?.paths ?? []),
+  ]);
+  const effectiveScopes = scopes.length > 0 ? scopes : flowPaths(flow);
+  return changedPaths.filter((path) => effectiveScopes.some((scope) => pathMatchesScope(path, scope)));
+}
+
+function handoffEdgeObligationId(flowId: string, handoffId: string): string {
+  return `handoff:${flowId}:${handoffId}:edge`;
+}
+
+function flowHandoffSourceId(flowId: string, handoffId: string): string {
+  return `${flowId}:${handoffId}`;
+}
+
+function findFlowHandoffBySourceId(
+  flows: FlowContract[],
+  sourceId: string,
+): { flow: FlowContract; handoff: FlowContractHandoff } | undefined {
+  for (const flow of flows) {
+    for (const handoff of flow.handoffs) {
+      if (flowHandoffSourceId(flow.contractId, handoff.id) === sourceId) return { flow, handoff };
+    }
+  }
+  return undefined;
 }
 
 function classifyCheckKind(command: string): ChangeValidationCheckKind {
@@ -1161,14 +1250,9 @@ function addFlowObligations(
   flow: FlowContract,
   changedPaths: string[],
 ): void {
-  const stageById = new Map(flow.stages.map((stage) => [stage.id, stage]));
   const evidenceRefs = [`FlowContract:${flow.contractId}`];
   for (const handoff of flow.handoffs) {
-    const handoffScopes = [
-      ...(stageById.get(handoff.fromStageId)?.paths ?? []),
-      ...(stageById.get(handoff.toStageId)?.paths ?? []),
-    ];
-    const paths = changedPaths.filter((path) => handoffScopes.some((scope) => pathMatchesScope(path, scope)));
+    const paths = changedHandoffPaths(flow, handoff, changedPaths);
     if (paths.length === 0) continue;
     addObligation(output, {
       id: `handoff:${flow.contractId}:${handoff.id}:edge`,

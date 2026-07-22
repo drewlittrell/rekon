@@ -15621,27 +15621,15 @@ async function recordChangeVerificationPlan(root: string, result: ChangeValidati
       evidenceBackedChecks: result.checkSelection.evidenceBackedChecks,
       uncoveredTestPaths: [...result.checkSelection.uncoveredTestPaths],
       warnings: [...result.checkSelection.warnings],
-      checks: result.checkSelection.checks.map((check) => {
-        const flowIds = new Set(check.requirements
-          .filter((requirement) => requirement.sourceType === "flow-contract")
-          .map((requirement) => requirement.sourceId));
-        return {
-          command: check.command,
-          kind: check.kind,
-          selection: check.selection,
-          paths: [...new Set(check.requirements.flatMap((requirement) => requirement.paths))].sort(),
-          reasons: [...new Set(check.requirements.map((requirement) => requirement.reason))].sort(),
-          evidenceRefs: [...new Set(check.requirements.flatMap((requirement) => requirement.evidenceRefs))].sort(),
-          proofObligationIds: result.proofGate.obligations
-            .filter((obligation) =>
-              (obligation.subject.kind === "verification-gate" && obligation.subject.id === check.command)
-              || (obligation.subject.kind === "flow-handoff"
-                && obligation.id.endsWith(":edge")
-                && [...flowIds].some((flowId) => obligation.id.startsWith(`handoff:${flowId}:`))))
-            .map((obligation) => obligation.id)
-            .sort(),
-        };
-      }),
+      checks: result.checkSelection.checks.map((check) => ({
+        command: check.command,
+        kind: check.kind,
+        selection: check.selection,
+        paths: [...new Set(check.requirements.flatMap((requirement) => requirement.paths))].sort(),
+        reasons: [...new Set(check.requirements.map((requirement) => requirement.reason))].sort(),
+        evidenceRefs: [...new Set(check.requirements.flatMap((requirement) => requirement.evidenceRefs))].sort(),
+        proofObligationIds: [...check.proofObligationIds],
+      })),
     },
     proofObligationIds: result.proofGate.obligations
       .filter((obligation) => obligation.required)
