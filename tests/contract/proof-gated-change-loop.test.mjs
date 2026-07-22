@@ -6,10 +6,14 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import {
+  createVerificationRun,
+} from "@rekon/capability-intent";
+import {
   assertProofGateReport,
   createEffectiveContractRegistry,
   createFlowContract,
   createOwnershipMap,
+  createRuntimeGraphObservationReport,
   createSystemContract,
   createTaskPact,
 } from "@rekon/kernel-repo-model";
@@ -39,6 +43,8 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.ok(initial.requiredChecks.includes(selectedCheck));
     assert.ok(!initial.requiredChecks.includes("npm run stale-check"));
     assert.ok(initial.proofGate.obligations.some((entry) => entry.id.endsWith(":edge")));
+    assert.equal(initial.checkSelection.checks[0].selection, "declared");
+    assert.equal(initial.correctiveContext.entries[0].kind, "missing-check");
 
     const refused = runCliFailure([
       "context", "validate-change",
@@ -67,6 +73,9 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     const preparedPlan = await store.read(prepared.verificationPlan);
     assert.deepEqual(preparedPlan.commands, [selectedCheck]);
     assert.ok(preparedPlan.proofObligationIds.some((id) => id.endsWith(":edge")));
+    assert.equal(preparedPlan.checkSelection.checks[0].selection, "declared");
+    assert.ok(preparedPlan.checkSelection.checks[0].proofObligationIds.some((id) => id.endsWith(":edge")));
+    assert.ok(!preparedPlan.checkSelection.checks[0].proofObligationIds.some((id) => id.includes(":guarantee:")));
 
     const run = runCliJson([
       "verify", "run",
@@ -122,6 +131,8 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(staleVerification.status, "needs-judgment");
     assert.ok(staleVerification.proofGate.warnings.some((warning) =>
       warning.includes("verification-evidence-stale")));
+    assert.equal(staleVerification.correctiveContext.entries[0].kind, "stale-check");
+    assert.equal(staleVerification.correctiveContext.entries[0].command, selectedCheck);
     await writeFile(join(root, "src/index.ts"), verifiedSource, "utf8");
 
     const completed = runCliJson([
@@ -194,14 +205,170 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
   }
 });
 
-async function createFixture(root) {
+test("failed verification returns bounded redacted context for the exact edge", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-proof-gate-failure-"));
+
+  try {
+    await createFixture(root, {
+      scripts: {
+        "test:proof": "node -e \"console.error('EDGE_DIAGNOSTIC API_KEY=fixture-secret'); process.exit(1)\"",
+      },
+    });
+    const prepared = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--base-ref", "HEAD",
+      "--prepare-verification",
+      "--root", root,
+      "--json",
+    ]);
+    const failedRun = runCliFailure([
+      "verify", "run",
+      "--plan", `${prepared.verificationPlan.type}:${prepared.verificationPlan.id}`,
+      "--execute",
+      "--root", root,
+      "--json",
+    ]);
+    const runOutput = JSON.parse(failedRun.stdout);
+    assert.equal(runOutput.verificationRun.status, "failed");
+    const verification = runCliJson([
+      "verify", "result", "from-run",
+      "--run", `${runOutput.artifact.type}:${runOutput.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]);
+    const validationFailure = runCliFailure([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--base-ref", "HEAD",
+      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]);
+    const validation = JSON.parse(validationFailure.stdout);
+    const correction = validation.correctiveContext.entries.find((entry) => entry.kind === "failed-check");
+    assert.ok(correction);
+    assert.equal(correction.command, selectedCheck);
+    assert.deepEqual(correction.paths, ["src/index.ts"]);
+    assert.ok(correction.obligationIds.some((id) => id.endsWith(":edge")));
+    assert.ok(!correction.obligationIds.some((id) => id.includes(":guarantee:")));
+    assert.equal(correction.diagnostic.stream, "stderr");
+    assert.match(correction.diagnostic.excerpt, /EDGE_DIAGNOSTIC/u);
+    assert.match(correction.diagnostic.excerpt, /API_KEY=\[REDACTED\]/u);
+    assert.ok(!correction.diagnostic.excerpt.includes("fixture-secret"));
+    assert.ok(correction.evidenceRefs.some((entry) => entry.startsWith("VerificationResult:")));
+    assert.ok(correction.evidenceRefs.some((entry) => entry.startsWith("VerificationRun:")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("prior isolated coverage fills a changed-source test gap without acting as current proof", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-proof-gate-coverage-selection-"));
+
+  try {
+    await createFixture(root, {
+      requiredChecks: ["npm run typecheck:proof"],
+      scripts: {
+        "typecheck:proof": "node -e \"process.exit(0)\"",
+        "test:focused": "node -e \"process.exit(0)\"",
+      },
+    });
+    await mkdir(join(root, "test"), { recursive: true });
+    await writeFile(join(root, "test/focused.test.mjs"), "// focused coverage fixture\n", "utf8");
+    const store = createLocalArtifactStore(root);
+    const run = createVerificationRun({
+      header: artifactHeader(root, "VerificationRun", "coverage-verification-run"),
+      status: "passed",
+      verificationPlanRef: { type: "VerificationPlan", id: "coverage-plan", schemaVersion: "1.0.0" },
+      commands: [{
+        id: "focused-test",
+        command: "npm run test:focused -- test/focused.test.mjs",
+        argv: ["npm", "run", "test:focused", "--", "test/focused.test.mjs"],
+        status: "passed",
+        exitCode: 0,
+      }],
+      runner: { id: "@rekon/test.coverage-selector", version: "1.0.0" },
+    });
+    const runRef = await store.write(run, { category: "actions" });
+    const observation = createRuntimeGraphObservationReport({
+      header: artifactHeader(root, "RuntimeGraphObservationReport", "coverage-observation", [runRef]),
+      source: {
+        coverageSources: [{
+          format: "istanbul",
+          path: "coverage/coverage-final.json",
+          digest: "c".repeat(64),
+          testPath: "test/focused.test.mjs",
+          targetPaths: ["src/index.ts"],
+          isolated: true,
+          totalFiles: 1,
+          observedFiles: 1,
+          ignoredFiles: 0,
+          fileCoverage: [{
+            path: "src/index.ts",
+            statements: { total: 1, covered: 1 },
+            functions: { total: 0, covered: 0 },
+            branches: { total: 0, covered: 0 },
+            functionRanges: [],
+          }],
+          verificationRunRef: runRef,
+          commandId: "focused-test",
+          commandStatus: "passed",
+        }],
+      },
+      summary: { observedNodes: 0, observedEdges: 0, handoffEvents: 0, ignoredRows: 0, parseErrors: 0 },
+      nodes: [],
+      edges: [],
+    });
+    const observationRef = await store.write(observation, { category: "graphs" });
+
+    const validation = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--base-ref", "HEAD",
+      "--prepare-verification",
+      "--root", root,
+      "--json",
+    ]);
+    assert.deepEqual(validation.requiredChecks, [
+      "npm run typecheck:proof",
+      "npm run test:focused -- test/focused.test.mjs",
+    ]);
+    assert.equal(validation.checkSelection.evidenceCandidatesConsidered, 1);
+    assert.equal(validation.checkSelection.evidenceBackedChecks, 1);
+    assert.equal(validation.proofGate.evaluation.status, "incomplete");
+    const focused = validation.checkSelection.checks.find((check) =>
+      check.command === "npm run test:focused -- test/focused.test.mjs");
+    assert.equal(focused.selection, "evidence-backed");
+    assert.ok(focused.requirements[0].evidenceRefs.includes(`RuntimeGraphObservationReport:${observationRef.id}`));
+    assert.ok(focused.requirements[0].evidenceRefs.includes(`VerificationRun:${runRef.id}`));
+
+    const plan = await store.read(validation.verificationPlan);
+    const plannedFocused = plan.checkSelection.checks.find((check) =>
+      check.command === "npm run test:focused -- test/focused.test.mjs");
+    assert.equal(plannedFocused.selection, "evidence-backed");
+    assert.ok(plan.header.inputRefs.some((entry) => entry.type === "RuntimeGraphObservationReport" && entry.id === observationRef.id));
+    assert.ok(plan.header.inputRefs.some((entry) => entry.type === "VerificationRun" && entry.id === runRef.id));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+async function createFixture(root, options = {}) {
+  const requiredChecks = options.requiredChecks ?? [selectedCheck];
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "package.json"), `${JSON.stringify({
     name: "rekon-proof-gate-fixture",
     version: "1.0.0",
     private: true,
     type: "module",
-    scripts: { "test:proof": "node -e \"process.exit(0)\"" },
+    scripts: {
+      "test:proof": "node -e \"process.exit(0)\"",
+      ...(options.scripts ?? {}),
+    },
   }, null, 2)}\n`, "utf8");
   await writeFile(join(root, "src/index.ts"), "export const bootstrap = 'stable';\n", "utf8");
   await writeFile(join(root, "src/runtime.ts"), "export const runtime = 'stable';\n", "utf8");
@@ -229,7 +396,7 @@ async function createFixture(root) {
     invariants: [clause("bootstrap-stable", "Keep bootstrap behavior stable.")],
     prohibitedChanges: [],
     requiredContextPaths: ["src/runtime.ts"],
-    requiredChecks: [selectedCheck],
+    requiredChecks,
   });
   const systemRef = await store.write(system, { category: "actions" });
   const flow = createFlowContract({
@@ -260,7 +427,7 @@ async function createFixture(root) {
       failureSemantics: "A missing runtime must fail explicitly.",
       evidenceRefs: [],
     }],
-    requiredChecks: [selectedCheck],
+    requiredChecks,
   });
   const flowRef = await store.write(flow, { category: "actions" });
   const registry = createEffectiveContractRegistry({

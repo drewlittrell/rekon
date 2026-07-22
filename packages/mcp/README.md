@@ -71,7 +71,10 @@ When the MCP tools are available to an agent:
    obligations that accept `model-judgment`. Run the equivalent CLI call with
    `--prepare-verification`, execute its returned plan, and derive the
    `VerificationResult`.
-   If a failure remains unexplained, call `context_for_task` again with
+   For a failed check, consume `correctiveContext` first: inspect only its
+   listed paths and obligations plus the bounded redacted diagnostic, repair,
+   and rerun the exact command. If the failure remains unexplained, call
+   `context_for_task` again with
    `escalation: validation-failed`; this raises context depth without changing
    the task's intent classification.
 7. If a returned check fails and names an exact unread path or symbol, request

@@ -60,16 +60,41 @@ export type ChangeValidationTaskCheck = {
 };
 
 export type ChangeValidationCheckRequirement = {
-  sourceType: "task-context" | "system-contract" | "flow-contract" | "capability-contract" | "task-pact-fallback";
+  sourceType:
+    | "task-context"
+    | "system-contract"
+    | "flow-contract"
+    | "capability-contract"
+    | "task-pact-fallback"
+    | "coverage-observation";
   sourceId: string;
   reason: string;
   paths: string[];
   evidenceRefs: string[];
 };
 
+export type ChangeVerificationCandidate = {
+  command: string;
+  sourceType: "coverage-observation";
+  sourceId: string;
+  reason: string;
+  paths: string[];
+  evidenceRefs: ArtifactRef[];
+};
+
+export type ChangeValidationCheckKind = "test" | "static" | "build" | "artifact" | "other";
+
 export type ChangeValidationSelectedCheck = {
   command: string;
+  kind: ChangeValidationCheckKind;
+  selection: "declared" | "evidence-backed";
   requirements: ChangeValidationCheckRequirement[];
+};
+
+export type ChangeVerificationDiagnostic = {
+  stream: "stderr" | "stdout" | "notes";
+  excerpt: string;
+  truncated: boolean;
 };
 
 export type ChangeVerificationEvidence = {
@@ -82,11 +107,27 @@ export type ChangeVerificationEvidence = {
     id: string;
     version: string;
   };
+  verificationRunRef?: ArtifactRef;
   commandResults: Array<{
     command: string;
     status: "passed" | "failed" | "skipped" | "not-run";
     completedAt?: string;
+    notes?: string;
+    diagnostic?: ChangeVerificationDiagnostic;
   }>;
+};
+
+export type ChangeValidationCorrection = {
+  id: string;
+  kind: "failed-check" | "stale-check" | "incomplete-check" | "missing-check";
+  command: string;
+  summary: string;
+  paths: string[];
+  obligationIds: string[];
+  reasons: string[];
+  evidenceRefs: string[];
+  diagnostic?: ChangeVerificationDiagnostic;
+  nextAction: string;
 };
 
 export type ChangeRuntimeEvidence = {
@@ -135,7 +176,15 @@ export type ChangeValidationResult = {
   checkSelection: {
     strategy: "changed-scope";
     fallbackUsed: boolean;
+    evidenceCandidatesConsidered: number;
+    evidenceBackedChecks: number;
+    uncoveredTestPaths: string[];
+    warnings: string[];
     checks: ChangeValidationSelectedCheck[];
+  };
+  correctiveContext: {
+    strategy: "proof-local";
+    entries: ChangeValidationCorrection[];
   };
   baseline: {
     taskPactRef?: ArtifactRef;
@@ -162,6 +211,7 @@ export type ValidateChangeInput = {
   capabilityContract?: CapabilityContract;
   capabilityGraph?: CapabilityEvidenceGraph;
   taskChecks?: ChangeValidationTaskCheck[];
+  verificationCandidates?: ChangeVerificationCandidate[];
   files?: ChangeFileEvidence[];
   dependencyChanges?: ChangeDependencyDelta[];
   verificationEvidence?: ChangeVerificationEvidence[];
@@ -350,6 +400,11 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     ...boundProof.results,
   ], proofResultKey);
   const proofEvaluation = evaluateProofGate(proofObligations, proofResults);
+  const correctiveContext = buildVerificationCorrectiveContext({
+    input,
+    checks: checkSelection.checks,
+    obligations: proofObligations,
+  });
   const unresolvedIds = new Set(proofEvaluation.decisions
     .filter((decision) => decision.verdict === "unresolved")
     .map((decision) => decision.obligationId));
@@ -395,10 +450,11 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
       obligations: proofObligations,
       results: proofResults,
       evaluation: proofEvaluation,
-      warnings: boundProof.warnings,
+      warnings: unique([...boundProof.warnings, ...checkSelection.warnings]).sort(),
     },
     requiredChecks,
     checkSelection,
+    correctiveContext,
     baseline: {
       ...(pactRef ? { taskPactRef: pactRef } : {}),
       files: files.sort((left, right) => left.path.localeCompare(right.path)),
@@ -537,6 +593,7 @@ function knownProofRefs(input: ValidateChangeInput): ArtifactRef[] {
     input.capabilityGraph ? artifactRef(input.capabilityGraph.header) : undefined,
     ...(input.systemContracts ?? []).map((contract) => artifactRef(contract.header)),
     ...(input.flowContracts ?? []).map((contract) => artifactRef(contract.header)),
+    ...(input.verificationCandidates ?? []).flatMap((candidate) => candidate.evidenceRefs),
   ].filter((ref): ref is ArtifactRef => Boolean(ref));
   return dedupe(refs, (ref) => `${ref.type}:${ref.id}`);
 }
@@ -721,6 +778,133 @@ function bindModelJudgments(
   return results;
 }
 
+function buildVerificationCorrectiveContext(input: {
+  input: ValidateChangeInput;
+  checks: ChangeValidationSelectedCheck[];
+  obligations: ProofObligation[];
+}): ChangeValidationResult["correctiveContext"] {
+  const entries: ChangeValidationCorrection[] = [];
+
+  for (const check of input.checks) {
+    const matches = (input.input.verificationEvidence ?? []).flatMap((evidence) =>
+      evidence.commandResults
+        .filter((result) => normalizeCommand(result.command) === normalizeCommand(check.command))
+        .map((commandResult) => ({ evidence, commandResult })));
+    matches.sort((left, right) => {
+      const priority = correctionEvidenceRank(right) - correctionEvidenceRank(left);
+      if (priority !== 0) return priority;
+      const generated = Date.parse(right.evidence.generatedAt) - Date.parse(left.evidence.generatedAt);
+      if (Number.isFinite(generated) && generated !== 0) return generated;
+      return `${right.evidence.ref.type}:${right.evidence.ref.id}`
+        .localeCompare(`${left.evidence.ref.type}:${left.evidence.ref.id}`);
+    });
+    const match = matches[0];
+    if (match?.evidence.freshness === "fresh" && match.commandResult.status === "passed") continue;
+
+    const paths = unique(check.requirements.flatMap((requirement) => requirement.paths));
+    const flowIds = new Set(check.requirements
+      .filter((requirement) => requirement.sourceType === "flow-contract")
+      .map((requirement) => requirement.sourceId));
+    const obligationIds = unique([
+      checkProofObligationId(check.command),
+      ...input.obligations
+        .filter((obligation) => obligation.subject.kind === "flow-handoff"
+          && obligation.id.endsWith(":edge")
+          && [...flowIds].some((flowId) => obligation.id.startsWith(`handoff:${flowId}:`)))
+        .map((obligation) => obligation.id),
+    ]);
+    const reasons = unique(check.requirements.map((requirement) => requirement.reason)).sort();
+    const selectionEvidenceRefs = check.requirements.flatMap((requirement) => requirement.evidenceRefs);
+    const evidenceRefs = unique([
+      ...selectionEvidenceRefs,
+      ...(match
+        ? [
+          `${match.evidence.ref.type}:${match.evidence.ref.id}`,
+          ...(match.evidence.verificationRunRef
+            ? [`${match.evidence.verificationRunRef.type}:${match.evidence.verificationRunRef.id}`]
+            : []),
+        ]
+        : []),
+    ]).sort();
+    const diagnostic = match ? boundedDiagnostic(match.commandResult) : undefined;
+
+    let kind: ChangeValidationCorrection["kind"];
+    let summary: string;
+    let nextAction: string;
+    if (!match) {
+      kind = "missing-check";
+      summary = `No verification evidence exists for selected check: ${check.command}`;
+      nextAction = `Run ${check.command} against the current source state.`;
+    } else if (match.evidence.freshness !== "fresh") {
+      kind = "stale-check";
+      summary = `Verification evidence for ${check.command} is ${match.evidence.freshness} for the current source state.`;
+      nextAction = `Rerun ${check.command} against the current source state before drawing conclusions.`;
+    } else if (match.commandResult.status === "failed") {
+      kind = "failed-check";
+      summary = `Selected check failed: ${check.command}`;
+      nextAction = `Inspect only the listed paths and diagnostic, repair the violated behavior without weakening the check, then rerun ${check.command}.`;
+    } else {
+      kind = "incomplete-check";
+      summary = `Selected check was ${match.commandResult.status}: ${check.command}`;
+      nextAction = `Execute ${check.command}; skipped or unexecuted commands do not satisfy proof.`;
+    }
+
+    entries.push({
+      id: `correction:${digestJson({ kind, command: check.command }).slice(0, 16)}`,
+      kind,
+      command: check.command,
+      summary,
+      paths: paths.length > 0 ? paths : unique(input.input.changedPaths.map(normalizePath).filter(Boolean)),
+      obligationIds,
+      reasons,
+      evidenceRefs,
+      ...(diagnostic ? { diagnostic } : {}),
+      nextAction,
+    });
+  }
+
+  return {
+    strategy: "proof-local",
+    entries: entries.sort((left, right) => correctionRank(left.kind) - correctionRank(right.kind)
+      || left.command.localeCompare(right.command)),
+  };
+}
+
+function boundedDiagnostic(
+  result: ChangeVerificationEvidence["commandResults"][number],
+): ChangeVerificationDiagnostic | undefined {
+  const supplied = result.diagnostic;
+  if (supplied && supplied.excerpt.trim().length > 0) {
+    const excerpt = supplied.excerpt.trim().slice(0, 1600);
+    return {
+      stream: supplied.stream,
+      excerpt,
+      truncated: supplied.truncated || supplied.excerpt.trim().length > excerpt.length,
+    };
+  }
+  const notes = result.notes?.trim();
+  if (!notes) return undefined;
+  const excerpt = notes.slice(0, 1600);
+  return { stream: "notes", excerpt, truncated: notes.length > excerpt.length };
+}
+
+function correctionEvidenceRank(input: {
+  evidence: ChangeVerificationEvidence;
+  commandResult: ChangeVerificationEvidence["commandResults"][number];
+}): number {
+  if (input.evidence.freshness !== "fresh") return 0;
+  if (input.commandResult.status === "failed") return 3;
+  if (input.commandResult.status === "skipped" || input.commandResult.status === "not-run") return 2;
+  return 1;
+}
+
+function correctionRank(value: ChangeValidationCorrection["kind"]): number {
+  if (value === "failed-check") return 0;
+  if (value === "stale-check") return 1;
+  if (value === "incomplete-check") return 2;
+  return 3;
+}
+
 function proofVerdictForCommand(status: ChangeVerificationEvidence["commandResults"][number]["status"]): ProofResult["verdict"] {
   if (status === "passed") return "supported";
   if (status === "failed") return "refuted";
@@ -763,14 +947,21 @@ function selectRequiredChecks(input: {
 }): ChangeValidationResult["checkSelection"] {
   const checks = new Map<string, ChangeValidationSelectedCheck>();
   let fallbackUsed = false;
-  const add = (command: string, requirement: ChangeValidationCheckRequirement): void => {
+  const add = (
+    command: string,
+    requirement: ChangeValidationCheckRequirement,
+    selection: ChangeValidationSelectedCheck["selection"] = "declared",
+    kind: ChangeValidationCheckKind = classifyCheckKind(command),
+  ): void => {
     const normalized = command.trim().replace(/\s+/gu, " ");
     if (!normalized) return;
     const current = checks.get(normalized);
     if (!current) {
-      checks.set(normalized, { command: normalized, requirements: [requirement] });
+      checks.set(normalized, { command: normalized, kind, selection, requirements: [requirement] });
       return;
     }
+    if (selection === "declared") current.selection = "declared";
+    if (current.kind === "other" && kind !== "other") current.kind = kind;
     const key = requirementKey(requirement);
     if (!current.requirements.some((entry) => requirementKey(entry) === key)) {
       current.requirements.push(requirement);
@@ -845,15 +1036,82 @@ function selectRequiredChecks(input: {
     });
   }
 
+  const candidates = (input.input.verificationCandidates ?? []).flatMap((candidate) => {
+    const paths = unique(candidate.paths
+      .map(normalizePath)
+      .filter((path) => input.changedPaths.includes(path)));
+    const command = normalizeCommand(candidate.command);
+    return command && paths.length > 0
+      ? [{ ...candidate, command, paths }]
+      : [];
+  });
+  const verificationPaths = input.changedPaths.filter(isVerificationRelevantPath);
+  const coveredPaths = new Set([...checks.values()]
+    .filter((check) => check.kind === "test")
+    .flatMap((check) => check.requirements.flatMap((requirement) => requirement.paths))
+    .map(normalizePath)
+    .filter(Boolean));
+  const uncovered = new Set(verificationPaths.filter((path) => !coveredPaths.has(path)));
+  const unusedCandidates = [...candidates];
+
+  while (uncovered.size > 0) {
+    const ranked = unusedCandidates
+      .map((candidate, index) => ({
+        candidate,
+        index,
+        covers: candidate.paths.filter((path) => uncovered.has(path)),
+      }))
+      .filter((entry) => entry.covers.length > 0)
+      .sort((left, right) => right.covers.length - left.covers.length
+        || left.candidate.command.localeCompare(right.candidate.command)
+        || left.candidate.sourceId.localeCompare(right.candidate.sourceId));
+    const selected = ranked[0];
+    if (!selected) break;
+    unusedCandidates.splice(selected.index, 1);
+    add(selected.candidate.command, {
+      sourceType: selected.candidate.sourceType,
+      sourceId: selected.candidate.sourceId,
+      reason: selected.candidate.reason,
+      paths: selected.covers,
+      evidenceRefs: selected.candidate.evidenceRefs
+        .map((ref) => `${ref.type}:${ref.id}`)
+        .sort(),
+    }, "evidence-backed", "test");
+    for (const path of selected.covers) uncovered.delete(path);
+  }
+
+  const warnings = [...uncovered]
+    .sort()
+    .map((path) => `verification-test-unavailable: no declared or observed test command covers ${path}`);
+
   return {
     strategy: "changed-scope",
     fallbackUsed,
+    evidenceCandidatesConsidered: candidates.length,
+    evidenceBackedChecks: [...checks.values()].filter((check) => check.selection === "evidence-backed").length,
+    uncoveredTestPaths: [...uncovered].sort(),
+    warnings,
     checks: [...checks.values()].map((check) => ({
       ...check,
       requirements: check.requirements.sort((left, right) =>
         left.sourceType.localeCompare(right.sourceType) || left.sourceId.localeCompare(right.sourceId)),
     })),
   };
+}
+
+function classifyCheckKind(command: string): ChangeValidationCheckKind {
+  const normalized = normalizeCommand(command).toLowerCase();
+  if (/^(?:npm (?:test|run test(?:$|[:_\s-]))|pnpm (?:test|run test(?:$|[:_\s-]))|yarn (?:test|run test(?:$|[:_\s-]))|node --test|(?:npx )?(?:vitest|jest)\b|(?:python(?:3)? -m )?pytest\b|go test\b|cargo test\b|dotnet test\b|swift test\b|(?:bundle exec )?rspec\b|phpunit\b)/u.test(normalized)) {
+    return "test";
+  }
+  if (/\b(?:typecheck|tsc|lint|eslint|biome|ruff|mypy|pyright)\b/u.test(normalized)) return "static";
+  if (/\bbuild\b/u.test(normalized)) return "build";
+  if (/^rekon artifacts (?:validate|freshness)\b/u.test(normalized)) return "artifact";
+  return "other";
+}
+
+function isVerificationRelevantPath(path: string): boolean {
+  return /\.(?:[cm]?[jt]sx?|py|go|rs|java|kt|kts|rb|php|cs|swift|scala|sc|ex|exs|dart|vue|svelte|c|cc|cpp|cxx|h|hh|hpp|hxx)$/iu.test(path);
 }
 
 function requirementKey(requirement: ChangeValidationCheckRequirement): string {

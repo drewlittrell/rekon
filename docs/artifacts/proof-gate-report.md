@@ -64,6 +64,10 @@ Missing, skipped, stale, or unrelated evidence remains unresolved. Results for
 an unknown obligation do not count. Contradictory evidence is retained, and a
 refutation wins over support.
 
+A selected check binds to its own verification gate and, when declared by an
+affected flow, the handoff's `:edge` obligation. It does not silently satisfy
+the handoff's payload, guarantee, ordering, or failure-semantic obligations.
+
 ## Freshness
 
 The report is fresh only for the exact recorded source bytes. A later edit,

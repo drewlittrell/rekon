@@ -4,6 +4,22 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Post-edit validation now explains every selected check and fills uncovered
+  changed-source test scope from prior isolated coverage when that observation
+  is linked to a passed `VerificationRun`. Rekon reuses the exact recorded
+  command and deterministically minimizes added checks; historical coverage
+  selects work but never proves current source.
+- Added proof-local `correctiveContext` to CLI and MCP change validation. A
+  failed, stale, skipped, or missing check now returns its exact paths, check
+  gate, affected flow-edge obligations, provenance refs, bounded redacted
+  diagnostic, and rerun action instead of requiring broad repository
+  re-exploration.
+- Change-generated `VerificationPlan` artifacts now preserve check-selection
+  lineage, including declared versus evidence-backed origin and the exact
+  proof obligations each command can satisfy.
+- Updated the managed Rekon instructions to `2.0.1` and MCP server interface to
+  `1.3.0` so coding agents consume focused corrective context before requesting
+  deeper task context.
 - Added a shared, deterministic `SourceStateBinding` contract for a resolved
   repository base and bounded path set. Executed verification now records the
   source state before and after its commands, rejects runs that changed the

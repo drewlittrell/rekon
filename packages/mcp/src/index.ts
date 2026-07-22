@@ -64,7 +64,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.2.0";
+export const MCP_SERVER_VERSION = "1.3.0";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -1383,17 +1383,34 @@ export function buildChangeValidationResponse(
   result: ChangeValidationResult,
   sources: SourceRef[] = [],
 ): McpToolResponse {
+  const checkSelection = result.checkSelection ?? {
+    strategy: "changed-scope" as const,
+    fallbackUsed: false,
+    evidenceCandidatesConsidered: 0,
+    evidenceBackedChecks: 0,
+    uncoveredTestPaths: [],
+    warnings: [],
+    checks: [],
+  };
+  const correctiveContext = result.correctiveContext ?? {
+    strategy: "proof-local" as const,
+    entries: [],
+  };
   const sourceLimit = Math.min(sources.length, 8);
   let violationLimit = Math.min(result.blockingViolations.length, 6);
   let obligationLimit = Math.min(result.unresolvedSemanticObligations.length, 8);
   let proofLimit = Math.min(result.proofGate.evaluation.decisions.filter((entry) =>
     entry.verdict === "blocked" || entry.verdict === "unresolved").length, 10);
   let checkLimit = Math.min(result.requiredChecks.length, 12);
+  let selectionLimit = Math.min(checkSelection.checks.length, 8);
+  let correctionLimit = Math.min(correctiveContext.entries.length, 4);
 
   const buildResponse = (): McpToolResponse => {
     const omittedViolations = result.blockingViolations.length - violationLimit;
     const omittedObligations = result.unresolvedSemanticObligations.length - obligationLimit;
     const omittedChecks = result.requiredChecks.length - checkLimit;
+    const omittedSelections = checkSelection.checks.length - selectionLimit;
+    const omittedCorrections = correctiveContext.entries.length - correctionLimit;
     const incompleteProof = result.proofGate.evaluation.decisions.filter((entry) =>
       entry.verdict === "blocked" || entry.verdict === "unresolved");
     const omittedProof = incompleteProof.length - proofLimit;
@@ -1413,6 +1430,30 @@ export function buildChangeValidationResponse(
       blockingIfViolated: entry.blockingIfViolated,
     }));
     const checks = result.requiredChecks.slice(0, checkLimit).map((entry) => boundedChangeText(entry, 420));
+    const selectedChecks = checkSelection.checks.slice(0, selectionLimit).map((check) => ({
+      command: boundedChangeText(check.command, 420),
+      kind: check.kind,
+      selection: check.selection,
+      paths: boundedChangeList(check.requirements.flatMap((requirement) => requirement.paths), 6, 220),
+      reasons: boundedChangeList(check.requirements.map((requirement) => requirement.reason), 4, 360),
+      evidenceRefs: boundedChangeList(check.requirements.flatMap((requirement) => requirement.evidenceRefs), 6, 220),
+    }));
+    const corrections = correctiveContext.entries.slice(0, correctionLimit).map((entry) => ({
+      id: boundedChangeText(entry.id, 180),
+      kind: entry.kind,
+      command: boundedChangeText(entry.command, 420),
+      summary: boundedChangeText(entry.summary, 420),
+      paths: boundedChangeList(entry.paths, 6, 220),
+      obligationIds: boundedChangeList(entry.obligationIds, 8, 220),
+      reasons: boundedChangeList(entry.reasons, 4, 360),
+      evidenceRefs: boundedChangeList(entry.evidenceRefs, 6, 220),
+      diagnostic: entry.diagnostic ? {
+        stream: entry.diagnostic.stream,
+        excerpt: boundedChangeText(entry.diagnostic.excerpt, 1600),
+        truncated: entry.diagnostic.truncated,
+      } : undefined,
+      nextAction: boundedChangeText(entry.nextAction, 520),
+    }));
     const proofObligations = incompleteProof.slice(0, proofLimit).flatMap((decision) => {
       const obligation = result.proofGate.obligations.find((entry) => entry.id === decision.obligationId);
       if (!obligation) return [];
@@ -1508,13 +1549,54 @@ export function buildChangeValidationResponse(
             warnings: tag(result.proofGate.warnings.map((warning) => boundedChangeText(warning, 320)), "deterministic"),
           },
           requiredChecks: tag(checks, "declared"),
+          checkSelection: {
+            strategy: tag(checkSelection.strategy, "deterministic"),
+            fallbackUsed: tag(checkSelection.fallbackUsed, "deterministic"),
+            evidenceCandidatesConsidered: tag(checkSelection.evidenceCandidatesConsidered, "deterministic"),
+            evidenceBackedChecks: tag(checkSelection.evidenceBackedChecks, "deterministic"),
+            uncoveredTestPaths: tag(boundedChangeList(checkSelection.uncoveredTestPaths, 8, 220), "deterministic"),
+            warnings: tag(boundedChangeList(checkSelection.warnings, 6, 320), "deterministic"),
+            checks: selectedChecks.map((check) => ({
+              command: tag(check.command, "declared"),
+              kind: tag(check.kind, "deterministic"),
+              selection: tag(check.selection, "deterministic"),
+              paths: tag(check.paths, "deterministic"),
+              reasons: tag(check.reasons, "declared"),
+              evidenceRefs: tag(check.evidenceRefs, "declared"),
+            })),
+            omittedChecks: tag(omittedSelections, "deterministic"),
+          },
+          correctiveContext: {
+            strategy: tag(correctiveContext.strategy, "deterministic"),
+            entries: corrections.map((entry) => ({
+              id: tag(entry.id, "deterministic"),
+              kind: tag(entry.kind, "deterministic"),
+              command: tag(entry.command, "declared"),
+              summary: tag(entry.summary, "deterministic"),
+              paths: tag(entry.paths, "deterministic"),
+              obligationIds: tag(entry.obligationIds, "deterministic"),
+              reasons: tag(entry.reasons, "declared"),
+              evidenceRefs: tag(entry.evidenceRefs, "declared"),
+              ...(entry.diagnostic ? {
+                diagnostic: {
+                  stream: tag(entry.diagnostic.stream, "deterministic"),
+                  excerpt: tag(entry.diagnostic.excerpt, "deterministic"),
+                  truncated: tag(entry.diagnostic.truncated, "deterministic"),
+                },
+              } : {}),
+              nextAction: tag(entry.nextAction, "deterministic"),
+            })),
+            omittedEntries: tag(omittedCorrections, "deterministic"),
+          },
         },
       },
       truncated: sources.length > sourceLimit
         || omittedViolations > 0
         || omittedObligations > 0
         || omittedProof > 0
-        || omittedChecks > 0,
+        || omittedChecks > 0
+        || omittedSelections > 0
+        || omittedCorrections > 0,
     };
   };
 
@@ -1524,6 +1606,8 @@ export function buildChangeValidationResponse(
     else if (obligationLimit > 0) obligationLimit -= 1;
     else if (violationLimit > 0) violationLimit -= 1;
     else if (checkLimit > 0) checkLimit -= 1;
+    else if (selectionLimit > 0) selectionLimit -= 1;
+    else if (correctionLimit > 0) correctionLimit -= 1;
     else break;
     response = buildResponse();
   }
@@ -1545,6 +1629,21 @@ export function buildChangeValidationResponse(
         }],
         unresolvedSemanticObligations: [],
         requiredChecks: tag([], "declared"),
+        checkSelection: {
+          strategy: tag(checkSelection.strategy, "deterministic"),
+          fallbackUsed: tag(checkSelection.fallbackUsed, "deterministic"),
+          evidenceCandidatesConsidered: tag(checkSelection.evidenceCandidatesConsidered, "deterministic"),
+          evidenceBackedChecks: tag(checkSelection.evidenceBackedChecks, "deterministic"),
+          uncoveredTestPaths: tag([], "deterministic"),
+          warnings: tag([], "deterministic"),
+          checks: [],
+          omittedChecks: tag(checkSelection.checks.length, "deterministic"),
+        },
+        correctiveContext: {
+          strategy: tag(correctiveContext.strategy, "deterministic"),
+          entries: [],
+          omittedEntries: tag(correctiveContext.entries.length, "deterministic"),
+        },
       },
     },
     truncated: true,
@@ -1717,7 +1816,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Follow its operation and batch-read every `readFirst` path before editing.",
   "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. Escalate unexplained failures with `escalation: validation-failed`.",
+  "After editing, call `validate_change` with the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. For failed checks, use `correctiveContext` to inspect only the listed paths, obligations, and redacted diagnostic; repair and rerun before escalating an unexplained failure with `escalation: validation-failed`.",
   "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
   "Record the satisfied gate with `rekon context validate-change ... --record-proof --json`, then run `rekon refresh --proof-gate <ProofGateReport:id> --json`. Digest drift, gate failure, refresh failure, or contract drift means incomplete.",
 ]);

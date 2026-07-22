@@ -60,6 +60,12 @@ verification recording, reconciliation planning, and artifact validation.
   checks and handoff edges they support. The acting model handles only declared
   semantic judgments; repository purpose and user outcomes are completion
   gates rather than advisory text.
+- Targeted verification now preserves declared task and contract checks, fills
+  changed-source test gaps only from passed isolated coverage linked to exact
+  runner commands, and chooses a deterministic minimal candidate set. Failed,
+  stale, incomplete, and missing checks return proof-local corrective context
+  with bounded redacted diagnostics. Historical observations select commands;
+  current digest-bound runs provide proof.
 - A satisfied `ProofGateReport` binds those results to post-edit source digests.
   Executed verification captures the plan's bounded source before and after
   commands, refuses proof when those bytes changed, and carries the stable
@@ -233,6 +239,9 @@ verification recording, reconciliation planning, and artifact validation.
 - Runtime observation and drift reporting.
 - Watcher-driven freshness.
 - Additional CI and pull request publication surfaces.
+- Finish the verified-change maintenance loop so one satisfied gate refreshes
+  every affected evidence, projection, index, contract publication, and
+  Rekon-managed instruction surface without a human coordinator.
 - More mature memory curation and work-order flows.
 - Permissioned source-write reconciliation for narrow, reviewable operations.
 - Optional hosted or dashboard surfaces after the local substrate is solid.

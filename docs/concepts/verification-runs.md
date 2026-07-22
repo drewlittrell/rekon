@@ -37,6 +37,17 @@ failed command explicitly names the test file. The resulting
 `RuntimeGraphObservationReport` cites the run and command. This makes the
 attribution auditable without treating execution as assertion proof.
 
+Linked isolated coverage may later help change validation select the smallest
+known test set for changed source. Selection requires a schema-valid
+`RuntimeGraphObservationReport`, an indexed passed `VerificationRun`, the exact
+recorded command ID, and positive observed coverage for the changed path. This
+is routing evidence only. The selected command must run again against the
+current source-state digest.
+
+For a failed result, change validation reads the linked run through the
+hardened artifact store, reapplies secret redaction, and caps the selected
+stderr, stdout, or note excerpt before returning it as corrective context.
+
 Framework coverage plans carry the test, intended source targets, and output
 path on the `VerificationPlan`. The runner consumes that metadata only during
 explicit `--execute`; preview remains non-executing. Target declarations allow

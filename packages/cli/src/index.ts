@@ -52,6 +52,7 @@ import verifyCapability, {
   createVerificationRunDryRun,
   deriveVerificationResultFromRun,
   executeVerificationRun,
+  redactVerificationRunStreamText,
   type VerificationRun as VerificationRunArtifact,
   type VerificationRunCommandValidationIssue,
   type VerificationRunDryRunResult,
@@ -237,6 +238,8 @@ import modelCapability, {
   type ChangeValidationResult,
   type ChangeModelJudgment,
   type ChangeRuntimeEvidence,
+  type ChangeVerificationCandidate,
+  type ChangeVerificationDiagnostic,
   type ChangeVerificationEvidence,
   validateChange,
 } from "@rekon/capability-model";
@@ -385,6 +388,7 @@ import {
   createEffectiveContractRegistry,
   createProofGateReport,
   assertProofGateReport,
+  validateRuntimeGraphObservationReport,
   INTENT_TASK_KINDS,
   isIntentTaskKind,
 } from "@rekon/kernel-repo-model";
@@ -14981,12 +14985,22 @@ async function validateRepositoryChange(
     const artifact = await store.read(entry) as VerificationResult;
     assertProofArtifactRepository(root, artifact.header, requested);
     addValidationSource(sources, artifact);
+    const runRef = artifact.header.inputRefs.find((ref) => ref.type === "VerificationRun");
+    const runContext = runRef
+      ? await readVerificationRunContext(store, root, runRef, sources, warnings)
+      : undefined;
     verificationEvidence.push(toChangeVerificationEvidence(
       artifact,
       artifactIndexRef(entry),
       currentSourceState,
+      runContext,
     ));
   }
+
+  const verificationCandidateSelection = artifactIndexAvailable
+    ? await discoverCoverageVerificationCandidates(store, root, input.changedPaths, sources)
+    : { candidates: [] as ChangeVerificationCandidate[], warnings: [] as string[] };
+  warnings.push(...verificationCandidateSelection.warnings);
 
   const runtimeEvidence: ChangeRuntimeEvidence[] = [];
   for (const requested of input.runtimeObservationRefs ?? []) {
@@ -15035,6 +15049,9 @@ async function validateRepositoryChange(
           ...(hint.evidenceRefs.length > 0 ? { evidenceRefs: hint.evidenceRefs } : {}),
         })),
     } : {}),
+    ...(verificationCandidateSelection.candidates.length > 0
+      ? { verificationCandidates: verificationCandidateSelection.candidates }
+      : {}),
     files: evidence.files,
     dependencyChanges: evidence.dependencyChanges,
     ...(verificationEvidence.length > 0 ? { verificationEvidence } : {}),
@@ -15086,6 +15103,7 @@ function toChangeVerificationEvidence(
   artifact: VerificationResult,
   ref: ArtifactRef,
   currentSourceState: SourceStateBinding | undefined,
+  runContext?: { ref: ArtifactRef; run: VerificationRunArtifact },
 ): ChangeVerificationEvidence {
   const completionTimes = artifact.commandResults
     .map((result) => result.completedAt ? Date.parse(result.completedAt) : Number.NaN)
@@ -15113,11 +15131,188 @@ function toChangeVerificationEvidence(
       id: artifact.recordedBy ?? artifact.header.producer.id,
       version: artifact.header.producer.version,
     },
-    commandResults: artifact.commandResults.map((result) => ({
-      command: result.command,
-      status: result.status,
-      ...(result.completedAt ? { completedAt: result.completedAt } : {}),
-    })),
+    ...(runContext ? { verificationRunRef: runContext.ref } : {}),
+    commandResults: artifact.commandResults.map((result) => {
+      const diagnostic = runContext
+        ? verificationDiagnosticForCommand(runContext.run, result.command)
+        : undefined;
+      const notes = result.notes
+        ? redactVerificationRunStreamText(result.notes).text
+        : undefined;
+      return {
+        command: result.command,
+        status: result.status,
+        ...(result.completedAt ? { completedAt: result.completedAt } : {}),
+        ...(notes ? { notes } : {}),
+        ...(diagnostic ? { diagnostic } : {}),
+      };
+    }),
+  };
+}
+
+async function readVerificationRunContext(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  root: string,
+  ref: ArtifactRef,
+  sources: SourceRef[],
+  warnings: string[],
+): Promise<{ ref: ArtifactRef; run: VerificationRunArtifact } | undefined> {
+  try {
+    const candidate = await store.read(ref);
+    const validation = validateVerificationRun(candidate);
+    if (!validation.ok) {
+      warnings.push(
+        `verification-run-invalid: ${ref.type}:${ref.id} ${validation.issues
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ")}`,
+      );
+      return undefined;
+    }
+    assertProofArtifactRepository(root, validation.value.header, `${ref.type}:${ref.id}`);
+    addValidationSource(sources, validation.value);
+    return { ref, run: validation.value };
+  } catch (error) {
+    warnings.push(
+      `verification-run-unavailable: ${ref.type}:${ref.id} ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+}
+
+function verificationDiagnosticForCommand(
+  run: VerificationRunArtifact,
+  command: string,
+): ChangeVerificationDiagnostic | undefined {
+  const normalized = command.trim().replace(/\s+/gu, " ");
+  const result = run.commands.find((candidate) =>
+    candidate.command.trim().replace(/\s+/gu, " ") === normalized);
+  if (!result) return undefined;
+
+  const selected = result.stderrExcerpt?.text.trim()
+    ? { stream: "stderr" as const, excerpt: result.stderrExcerpt }
+    : result.stdoutExcerpt?.text.trim()
+      ? { stream: "stdout" as const, excerpt: result.stdoutExcerpt }
+      : result.notes?.trim()
+        ? {
+            stream: "notes" as const,
+            excerpt: { text: result.notes, redacted: false, truncated: false },
+          }
+        : undefined;
+  if (!selected) return undefined;
+
+  const redacted = redactVerificationRunStreamText(selected.excerpt.text).text.trim();
+  if (!redacted) return undefined;
+  const bounded = redacted.slice(0, 1600);
+  return {
+    stream: selected.stream,
+    excerpt: bounded,
+    truncated: selected.excerpt.truncated || redacted.length > bounded.length,
+  };
+}
+
+async function discoverCoverageVerificationCandidates(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  root: string,
+  changedPaths: string[],
+  sources: SourceRef[],
+): Promise<{ candidates: ChangeVerificationCandidate[]; warnings: string[] }> {
+  const warnings: string[] = [];
+  const normalizedChangedPaths = new Set(changedPaths.flatMap((path) => {
+    try {
+      return [normalizeProofPath(path)];
+    } catch {
+      return [];
+    }
+  }));
+  if (normalizedChangedPaths.size === 0) return { candidates: [], warnings };
+
+  const entries = (await store.list("RuntimeGraphObservationReport"))
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))
+    .slice(0, 12);
+  const candidates = new Map<string, ChangeVerificationCandidate>();
+  for (const entry of entries) {
+    let report: RuntimeGraphObservationReport;
+    try {
+      const candidate = await store.read(entry);
+      const validation = validateRuntimeGraphObservationReport(candidate);
+      if (!validation.ok) {
+        warnings.push(
+          `coverage-observation-invalid: RuntimeGraphObservationReport:${entry.id} ${validation.issues
+            .map((issue) => `${issue.path}: ${issue.message}`)
+            .join("; ")}`,
+        );
+        continue;
+      }
+      report = validation.value;
+      assertProofArtifactRepository(root, report.header, `RuntimeGraphObservationReport:${entry.id}`);
+    } catch (error) {
+      warnings.push(
+        `coverage-observation-unavailable: RuntimeGraphObservationReport:${entry.id} ${error instanceof Error ? error.message : String(error)}`,
+      );
+      continue;
+    }
+
+    for (const coverage of report.source.coverageSources ?? []) {
+      if (coverage.isolated !== true
+        || coverage.commandStatus !== "passed"
+        || !coverage.verificationRunRef
+        || !coverage.commandId) continue;
+
+      const coveredPaths = (coverage.fileCoverage ?? []).flatMap((file) => {
+        let path: string;
+        try {
+          path = normalizeProofPath(file.path);
+        } catch {
+          return [];
+        }
+        const observed = file.statements.covered + file.functions.covered + file.branches.covered;
+        return normalizedChangedPaths.has(path) && observed > 0 ? [path] : [];
+      });
+      const paths = [...new Set(coveredPaths)].sort();
+      if (paths.length === 0) continue;
+
+      const runContext = await readVerificationRunContext(
+        store,
+        root,
+        coverage.verificationRunRef,
+        [],
+        warnings,
+      );
+      if (!runContext) continue;
+      const runCommand = runContext.run.commands.find((command) => command.id === coverage.commandId);
+      if (!runCommand
+        || runCommand.status !== "passed"
+        || !runCommand.argv.some((argument) =>
+          verificationArgumentMatchesPath(root, argument, coverage.testPath))) {
+        warnings.push(
+          `coverage-observation-run-mismatch: RuntimeGraphObservationReport:${entry.id} does not link command ${coverage.commandId} to a passed VerificationRun command that names ${coverage.testPath}`,
+        );
+        continue;
+      }
+
+      const reportRef = artifactIndexRef(entry);
+      const evidenceRefs = dedupeArtifactRefs([reportRef, runContext.ref]);
+      const command = runCommand.command.trim().replace(/\s+/gu, " ");
+      const key = `${command}\0${paths.join("\0")}`;
+      if (!command || candidates.has(key)) continue;
+      candidates.set(key, {
+        command,
+        sourceType: "coverage-observation",
+        sourceId: `${entry.id}:${coverage.digest}`,
+        reason: `A prior isolated ${coverage.format} run for ${coverage.testPath} observed the changed source. The command must be rerun against the current source state.`,
+        paths,
+        evidenceRefs,
+      });
+      addValidationSource(sources, report);
+      addValidationSource(sources, runContext.run);
+    }
+  }
+
+  return {
+    candidates: [...candidates.values()].sort((left, right) =>
+      left.command.localeCompare(right.command) || left.sourceId.localeCompare(right.sourceId)),
+    warnings: [...new Set(warnings)].sort(),
   };
 }
 
@@ -15190,7 +15385,23 @@ function renderChangeValidation(result: ChangeValidationResult): string {
     for (const entry of result.unresolvedSemanticObligations) lines.push(`- ${entry.statement} (${entry.reason})`);
   }
   if (result.requiredChecks.length > 0) {
-    lines.push("", "Required checks:", ...result.requiredChecks.map((command) => `- ${command}`));
+    lines.push("", "Selected verification:");
+    for (const check of result.checkSelection.checks) {
+      lines.push(`- ${check.command} [${check.kind}; ${check.selection}]`);
+      for (const reason of [...new Set(check.requirements.map((entry) => entry.reason))]) {
+        lines.push(`  ${reason}`);
+      }
+    }
+  }
+  if (result.correctiveContext.entries.length > 0) {
+    lines.push("", "Focused corrective context:");
+    for (const entry of result.correctiveContext.entries) {
+      lines.push(`- ${entry.summary}`);
+      if (entry.paths.length > 0) lines.push(`  Paths: ${entry.paths.join(", ")}`);
+      if (entry.obligationIds.length > 0) lines.push(`  Proof: ${entry.obligationIds.join(", ")}`);
+      if (entry.diagnostic) lines.push(`  ${entry.diagnostic.stream}: ${entry.diagnostic.excerpt}`);
+      lines.push(`  Next: ${entry.nextAction}`);
+    }
   }
   if (result.proofGate.warnings.length > 0) {
     lines.push("", "Proof warnings:", ...result.proofGate.warnings.map((warning) => `- ${warning}`));
@@ -15206,6 +15417,8 @@ function projectChangeValidationDecision(result: ChangeValidationResult) {
     unresolvedSemanticObligations: result.unresolvedSemanticObligations,
     proofGate: result.proofGate,
     requiredChecks: result.requiredChecks,
+    checkSelection: result.checkSelection,
+    correctiveContext: result.correctiveContext,
   };
 }
 
@@ -15279,6 +15492,7 @@ async function recordChangeVerificationPlan(root: string, result: ChangeValidati
         baseRef: result.baseRef,
         files: result.baseline.files,
         checks: result.requiredChecks,
+        checkSelection: result.checkSelection,
       }).slice(0, 20)}`,
       schemaVersion: "0.1.0",
       generatedAt,
@@ -15294,6 +15508,35 @@ async function recordChangeVerificationPlan(root: string, result: ChangeValidati
       .filter((obligation) => obligation.required)
       .map((obligation) => obligation.assertion),
     source: "change-validation",
+    checkSelection: {
+      strategy: result.checkSelection.strategy,
+      fallbackUsed: result.checkSelection.fallbackUsed,
+      evidenceCandidatesConsidered: result.checkSelection.evidenceCandidatesConsidered,
+      evidenceBackedChecks: result.checkSelection.evidenceBackedChecks,
+      uncoveredTestPaths: [...result.checkSelection.uncoveredTestPaths],
+      warnings: [...result.checkSelection.warnings],
+      checks: result.checkSelection.checks.map((check) => {
+        const flowIds = new Set(check.requirements
+          .filter((requirement) => requirement.sourceType === "flow-contract")
+          .map((requirement) => requirement.sourceId));
+        return {
+          command: check.command,
+          kind: check.kind,
+          selection: check.selection,
+          paths: [...new Set(check.requirements.flatMap((requirement) => requirement.paths))].sort(),
+          reasons: [...new Set(check.requirements.map((requirement) => requirement.reason))].sort(),
+          evidenceRefs: [...new Set(check.requirements.flatMap((requirement) => requirement.evidenceRefs))].sort(),
+          proofObligationIds: result.proofGate.obligations
+            .filter((obligation) =>
+              (obligation.subject.kind === "verification-gate" && obligation.subject.id === check.command)
+              || (obligation.subject.kind === "flow-handoff"
+                && obligation.id.endsWith(":edge")
+                && [...flowIds].some((flowId) => obligation.id.startsWith(`handoff:${flowId}:`))))
+            .map((obligation) => obligation.id)
+            .sort(),
+        };
+      }),
+    },
     proofObligationIds: result.proofGate.obligations
       .filter((obligation) => obligation.required)
       .map((obligation) => obligation.id),

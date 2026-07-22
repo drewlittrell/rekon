@@ -160,6 +160,26 @@ export type VerificationPlanCoverage = {
   isolated: true;
 };
 
+export type VerificationPlanSelectedCheck = {
+  command: string;
+  kind: "test" | "static" | "build" | "artifact" | "other";
+  selection: "declared" | "evidence-backed";
+  paths: string[];
+  reasons: string[];
+  evidenceRefs: string[];
+  proofObligationIds: string[];
+};
+
+export type VerificationPlanCheckSelection = {
+  strategy: "changed-scope";
+  fallbackUsed: boolean;
+  evidenceCandidatesConsidered: number;
+  evidenceBackedChecks: number;
+  uncoveredTestPaths: string[];
+  warnings: string[];
+  checks: VerificationPlanSelectedCheck[];
+};
+
 export type VerificationPlanLike = {
   header: ArtifactHeader;
   workOrderRef?: ArtifactRef;
@@ -171,6 +191,8 @@ export type VerificationPlanLike = {
   source?: string;
   intentHandoff?: VerificationPlanIntentHandoff;
   coverage?: VerificationPlanCoverage;
+  /** Explainable command selection for plans produced by post-edit validation. */
+  checkSelection?: VerificationPlanCheckSelection;
 };
 
 export type CreateVerificationResultInput = {

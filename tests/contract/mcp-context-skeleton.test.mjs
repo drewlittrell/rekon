@@ -838,8 +838,16 @@ test("validate_change compares Git and current source without persisting or runn
     assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
       /bootstrap\/runtime compatibility/u.test(entry.statement.value)));
     assert.ok(validation.requiredChecks.value.includes("npm run test:bootstrap"));
+    assert.ok(validation.checkSelection.checks.some((entry) =>
+      entry.command.value === "npm run test:bootstrap"
+      && entry.selection.value === "declared"));
+    assert.ok(validation.correctiveContext.entries.some((entry) =>
+      entry.kind.value === "missing-check"
+      && entry.command.value === "npm run test:bootstrap"));
     assert.deepEqual(Object.keys(validation).sort(), [
       "blockingViolations",
+      "checkSelection",
+      "correctiveContext",
       "proofGate",
       "requiredChecks",
       "status",
@@ -866,6 +874,8 @@ test("validate_change compares Git and current source without persisting or runn
     assert.equal(cliValidation.status, "needs-judgment");
     assert.deepEqual(Object.keys(cliValidation).sort(), [
       "blockingViolations",
+      "checkSelection",
+      "correctiveContext",
       "proofGate",
       "requiredChecks",
       "status",
@@ -914,6 +924,8 @@ test("CLI validate-change does not initialize Rekon in an unscanned Git reposito
     assert.equal(decision.status, "needs-judgment");
     assert.deepEqual(Object.keys(decision).sort(), [
       "blockingViolations",
+      "checkSelection",
+      "correctiveContext",
       "proofGate",
       "requiredChecks",
       "status",
@@ -1132,12 +1144,49 @@ test("response ceilings exist and truncation is explicit", async () => {
       warnings: [],
     },
     requiredChecks: Array.from({ length: 20 }, (_, index) => `npm run check:${index} -- ${"c".repeat(2_000)}`),
+    checkSelection: {
+      strategy: "changed-scope",
+      fallbackUsed: false,
+      evidenceCandidatesConsidered: 20,
+      evidenceBackedChecks: 20,
+      uncoveredTestPaths: [],
+      warnings: [],
+      checks: Array.from({ length: 20 }, (_, index) => ({
+        command: `npm run check:${index} -- ${"c".repeat(2_000)}`,
+        kind: "test",
+        selection: "evidence-backed",
+        requirements: [{
+          sourceType: "coverage-observation",
+          sourceId: `coverage-${index}`,
+          reason: "r".repeat(2_000),
+          paths: [`src/${index}.ts`],
+          evidenceRefs: [`RuntimeGraphObservationReport:${index}`],
+        }],
+      })),
+    },
+    correctiveContext: {
+      strategy: "proof-local",
+      entries: Array.from({ length: 8 }, (_, index) => ({
+        id: `correction-${index}`,
+        kind: "failed-check",
+        command: `npm run check:${index}`,
+        summary: "failed ".repeat(1_000),
+        paths: [`src/${index}.ts`],
+        obligationIds: [`check:${index}`],
+        reasons: ["r".repeat(2_000)],
+        evidenceRefs: [`VerificationResult:${index}`],
+        diagnostic: { stream: "stderr", excerpt: "d".repeat(4_000), truncated: true },
+        nextAction: "repair and rerun ".repeat(1_000),
+      })),
+    },
     baseline: { files: [] },
     boundaries: { wroteArtifact: false, wroteSource: false, executedChecks: false, invokedModel: false },
   });
   assert.equal(oversizedValidation.truncated, true);
   assert.deepEqual(Object.keys(oversizedValidation.data.changeValidation).sort(), [
     "blockingViolations",
+    "checkSelection",
+    "correctiveContext",
     "proofGate",
     "requiredChecks",
     "status",

@@ -48,6 +48,11 @@ Coverage records observed execution context, not assertion coverage. Dry runs,
 timed-out commands, killed commands, and commands that do not name the test
 cannot support a coverage binding.
 
+A linked passed isolated run can later nominate its exact command when a
+changed source path has no declared test. Rekon never synthesizes a command
+from coverage paths and never accepts the historical run as proof of current
+bytes; the selected command must execute again.
+
 Plans created by `rekon verify coverage plan` mark the resulting source as
 isolated. Policy can then match fresh function ranges to an existing complexity
 risk while preserving the run and command as provenance. Generated plans also

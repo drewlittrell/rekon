@@ -252,6 +252,7 @@ test("selected command evidence gates completion independently from semantic jud
   assert.ok(gate);
   assert.ok(result.proofGate.results.some((entry) =>
     entry.obligationId === gate.id && entry.method === "test" && entry.verdict === "supported"));
+  assert.deepEqual(result.correctiveContext.entries, []);
 });
 
 test("failed selected command evidence refutes its exact verification gate", () => {
@@ -299,6 +300,7 @@ test("a later failed result from the same verifier cannot be hidden by a passed 
 
   assert.equal(result.proofGate.results.length, 2);
   assert.equal(result.status, "blocked");
+  assert.equal(result.correctiveContext.entries[0].kind, "failed-check");
 });
 
 test("runtime observation can prove the declared handoff edge without proving its semantic clauses", () => {
@@ -547,4 +549,184 @@ test("check selection retains the conservative TaskPact set when contract bodies
   assert.equal(result.checkSelection.fallbackUsed, true);
   assert.ok(result.checkSelection.checks.every((check) =>
     check.requirements.some((entry) => entry.sourceType === "task-pact-fallback")));
+});
+
+test("check selection greedily adds the smallest observed test set for uncovered changed source", () => {
+  const evidenceRefs = [
+    ref("RuntimeGraphObservationReport", "coverage-observation"),
+    ref("VerificationRun", "coverage-run"),
+  ];
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts", "src/runtime.ts"],
+    baseRef: "HEAD",
+    taskPact: pact({ task: { text: "change bootstrap", paths: ["src/index.ts", "src/runtime.ts"] } }),
+    ownershipMap,
+    files: [
+      { path: "src/index.ts", status: "modified" },
+      { path: "src/runtime.ts", status: "modified" },
+    ],
+    verificationCandidates: [
+      {
+        command: "npm run test:index",
+        sourceType: "coverage-observation",
+        sourceId: "index-only",
+        reason: "Observed isolated coverage for src/index.ts.",
+        paths: ["src/index.ts"],
+        evidenceRefs,
+      },
+      {
+        command: "npm run test:runtime",
+        sourceType: "coverage-observation",
+        sourceId: "runtime-only",
+        reason: "Observed isolated coverage for src/runtime.ts.",
+        paths: ["src/runtime.ts"],
+        evidenceRefs,
+      },
+      {
+        command: "npm run test:focused",
+        sourceType: "coverage-observation",
+        sourceId: "both-paths",
+        reason: "Observed isolated coverage for both changed paths.",
+        paths: ["src/index.ts", "src/runtime.ts"],
+        evidenceRefs,
+      },
+    ],
+  });
+
+  assert.deepEqual(result.requiredChecks, ["npm run test:focused"]);
+  assert.equal(result.checkSelection.evidenceCandidatesConsidered, 3);
+  assert.equal(result.checkSelection.evidenceBackedChecks, 1);
+  assert.deepEqual(result.checkSelection.uncoveredTestPaths, []);
+  assert.equal(result.checkSelection.checks[0].kind, "test");
+  assert.equal(result.checkSelection.checks[0].selection, "evidence-backed");
+});
+
+test("a declared test covering the changed scope suppresses observed fallback checks", () => {
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    taskChecks: [{ command: "npm test", sourceId: "task-context" }],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationCandidates: [{
+      command: "npm run test:focused",
+      sourceType: "coverage-observation",
+      sourceId: "observed",
+      reason: "Observed isolated coverage.",
+      paths: ["src/index.ts"],
+      evidenceRefs: [ref("RuntimeGraphObservationReport", "coverage-observation")],
+    }],
+  });
+
+  assert.deepEqual(result.requiredChecks, ["npm test"]);
+  assert.equal(result.checkSelection.evidenceCandidatesConsidered, 1);
+  assert.equal(result.checkSelection.evidenceBackedChecks, 0);
+  assert.equal(result.checkSelection.checks[0].selection, "declared");
+});
+
+test("common non-JavaScript test commands cover their declared source scope", () => {
+  const result = validateChange({
+    task: "change service",
+    changedPaths: ["service/app.py"],
+    baseRef: "HEAD",
+    taskChecks: [{ command: "python -m pytest tests/test_app.py", sourceId: "task-context" }],
+    files: [{ path: "service/app.py", status: "modified" }],
+  });
+
+  assert.equal(result.checkSelection.checks[0].kind, "test");
+  assert.deepEqual(result.checkSelection.uncoveredTestPaths, []);
+});
+
+test("failed edge verification returns proof-local corrective context", () => {
+  const flow = {
+    header: header("FlowContract", "bootstrap-flow"),
+    contractId: "bootstrap-flow",
+    authority: "adopted",
+    confidence: 1,
+    source: {},
+    name: "Bootstrap flow",
+    criticality: "high",
+    purpose: "Start the runtime",
+    userOutcomes: ["The runtime starts"],
+    entryConditions: [],
+    completionConditions: ["Runtime ready"],
+    systems: ["app"],
+    paths: ["src/**"],
+    invariants: [],
+    stages: [
+      { id: "entry", paths: ["src/index.ts"], evidenceRefs: [] },
+      { id: "runtime", paths: ["src/runtime.ts"], evidenceRefs: [] },
+    ],
+    handoffs: [{
+      id: "entry-runtime",
+      fromStageId: "entry",
+      toStageId: "runtime",
+      guarantees: ["Forward configuration unchanged."],
+      evidenceRefs: [],
+    }],
+    requiredChecks: ["npm run test:proof"],
+  };
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "failed-proof"),
+      verificationRunRef: ref("VerificationRun", "failed-run"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{
+        command: "npm run test:proof",
+        status: "failed",
+        diagnostic: { stream: "stderr", excerpt: "expected runtime handoff", truncated: false },
+      }],
+    }],
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.correctiveContext.entries.length, 1);
+  const correction = result.correctiveContext.entries[0];
+  assert.equal(correction.kind, "failed-check");
+  assert.deepEqual(correction.paths, ["src/index.ts"]);
+  assert.ok(correction.obligationIds.some((id) => id.startsWith("check:")));
+  assert.ok(correction.obligationIds.includes("handoff:bootstrap-flow:entry-runtime:edge"));
+  assert.ok(!correction.obligationIds.some((id) => id.includes(":guarantee:")));
+  assert.deepEqual(correction.evidenceRefs, [
+    "FlowContract:bootstrap-flow",
+    "VerificationResult:failed-proof",
+    "VerificationRun:failed-run",
+  ]);
+  assert.equal(correction.diagnostic.excerpt, "expected runtime handoff");
+});
+
+test("stale verification asks for the exact selected check to be rerun", () => {
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    systemContracts: [systemContract("app", ["src/index.ts"], ["npm run test:app"])],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "stale-proof"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "stale",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:app", status: "passed" }],
+    }],
+  });
+
+  assert.equal(result.correctiveContext.entries[0].kind, "stale-check");
+  assert.match(result.correctiveContext.entries[0].nextAction, /Rerun npm run test:app/u);
 });

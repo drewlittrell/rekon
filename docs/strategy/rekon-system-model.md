@@ -26,6 +26,12 @@ observations bind directly to the edges they exercise; the acting model judges
 semantic obligations against cited source. Counterevidence blocks completion.
 Executed checks capture their bounded source state before and after execution;
 only an unchanged post-run digest can satisfy the matching current change.
+Declared checks remain authoritative. When they leave changed source without a
+test, prior isolated coverage may nominate exact recorded commands; a
+deterministic set-cover pass adds only the commands needed to cover the gap.
+That history chooses what to rerun and is never accepted as present-state
+proof. Failed or stale proof returns bounded context for the exact check,
+paths, and affected flow edge before any broader context escalation.
 One digest-bound, proof-gated refresh then advances the maintained repository
 model. Existing adopted contracts are reconciled after projection; missing
 contracts remain an explicit bootstrap decision.
@@ -72,6 +78,10 @@ and provenance.
   `ProofGateReport`. Verification evidence is admitted by exact source-state
   digest equality, not timestamp order. Validation never runs project checks
   or writes source.
+- Change-generated verification plans preserve why each command was selected
+  and which check or flow-edge obligations it can prove. Semantic handoff
+  guarantees still require their declared verifier method; a passing command
+  does not silently prove them.
 - Context refinement is an explicit delta protocol: a model must name the
   unresolved question, anchor, and graph relationship after reading the initial
   packet. Absence remains unresolved rather than authorizing broad search.

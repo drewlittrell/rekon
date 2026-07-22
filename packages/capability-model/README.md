@@ -142,6 +142,13 @@ families unless the task names the target language, exact path, or
 cross-language coordination.
 Explicit `npm`, `pytest`, and `go test` commands remain unexecuted verification
 hints, and preservation clauses remain operator-trust pact context.
+Post-edit `validateChange()` keeps declared checks authoritative and may fill
+uncovered changed-source test scope from exact commands in linked, passed
+isolated coverage observations. Its deterministic greedy selector minimizes
+added commands. Historical observations select a check; only a fresh,
+digest-bound result proves it. Failed, stale, incomplete, and missing checks
+produce bounded proof-local corrective context tied to the exact paths and
+flow-edge obligations the check can satisfy.
 `selectTaskContractGuidance()` adds only path-matched `CapabilityContract`
 rules as declared, freshness-aware constraints and checks. Required neighbor
 capabilities route to their graph-declared implementation files. Literal pact

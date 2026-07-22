@@ -12,8 +12,16 @@
 - `commands`
 - `successCriteria`
 - `workOrderRef`
+- optional `checkSelection`
 
 Plans describe verification. They do not prove that commands have run.
+
+Plans produced by `rekon context validate-change --prepare-verification`
+include changed-scope selection lineage. Each selected check records its kind,
+whether it came from declared repository law or prior execution evidence, the
+paths and reasons it covers, its evidence refs, and the exact proof obligations
+it may satisfy. Historical coverage can nominate an exact command, but only a
+new digest-bound run can satisfy the plan.
 
 Intent handoff generation preserves supported commands verbatim and in plan
 order, including npm argument separators and flags such as
@@ -57,3 +65,9 @@ Target paths express verification intent. If a passing isolated run includes a
 target function in its coverage data with an execution count of zero, policy
 can describe that as a scoped target gap. Plans written before target paths
 were introduced remain readable, but zero counts from them are context only.
+
+A later change-validation pass may reuse the exact command from a linked,
+passed isolated run when its coverage observed a changed source path and no
+declared test already covers that path. Rekon chooses a deterministic minimal
+set of these candidates. It does not infer commands from graph paths or treat
+the old run as current proof.

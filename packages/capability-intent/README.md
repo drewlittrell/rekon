@@ -34,6 +34,11 @@ owned by `@rekon/capability-verify`. Plans may pin a `baseRef` for source-state
 capture. Executed runs can carry before/after `SourceStateBinding` values, and
 derived results retain the exact stable post-run binding.
 
+Plans created by post-edit validation may also carry `checkSelection`. This
+records declared versus evidence-backed origin, covered paths, provenance, and
+the check and flow-edge proof obligations associated with each command. The
+metadata explains planning; it is not execution proof.
+
 ## Import Boundary
 
 Do not treat work orders as source mutations. They are typed action artifacts

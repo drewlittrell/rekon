@@ -150,17 +150,27 @@ After editing, run `rekon context validate-change --task "<task>"
 --changed-path <path> --base-ref HEAD --json`. Repeat `--changed-path` for the
 complete task diff. The command reads Git and current source, reuses the
 matching TaskPact when available, and returns blocking violations, unresolved
-semantic obligations, required checks, and a typed proof gate. The check list preserves explicit
+semantic obligations, required checks, selection provenance, proof-local
+corrective context, and a typed proof gate. The check list preserves explicit
 task checks and narrows contract checks to systems, flows, and capabilities
 touched by the observed diff; missing contract bodies trigger a conservative
-TaskPact fallback. Add `--prepare-verification` to write a plan containing those
-exact commands; execute it with `rekon verify run`, then derive its
+TaskPact fallback. When changed source has no selected test, Rekon may add the
+smallest set of exact commands backed by linked passed isolated coverage.
+Those observations select what to rerun and do not prove the current change.
+Add `--prepare-verification` to write a plan containing those exact commands
+and their selection lineage; execute it with `rekon verify run`, then derive its
 `VerificationResult`. Pass repeatable `--verification-result` and
 `--runtime-observation` refs plus `--judgment-json` on the final call. Model
 judgment is accepted only for obligations that declare it. `--record-proof`
 writes a `ProofGateReport` only when every required obligation is satisfied;
 the command never executes a check or writes source. `--prepare-verification`
 and `--record-proof` are intentionally separate phases.
+
+If selected verification fails, the returned `correctiveContext` names only
+the relevant paths, check gate, affected flow-edge obligations, evidence refs,
+and bounded redacted run diagnostic. Repair that scope and rerun the command;
+raise task context to `validation-failed` only when the focused evidence does
+not explain the failure.
 
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.
