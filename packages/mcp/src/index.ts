@@ -64,7 +64,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.3.0";
+export const MCP_SERVER_VERSION = "1.3.1";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -1818,7 +1818,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
   "After editing, call `validate_change` with the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. For failed checks, use `correctiveContext` to inspect only the listed paths, obligations, and redacted diagnostic; repair and rerun before escalating an unexplained failure with `escalation: validation-failed`.",
   "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
-  "Record the satisfied gate with `rekon context validate-change ... --record-proof --json`, then run `rekon refresh --proof-gate <ProofGateReport:id> --json`. Digest drift, gate failure, refresh failure, or contract drift means incomplete.",
+  "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags. It refreshes maintained knowledge and rechecks gated source bytes; digest, gate, refresh, or contract-drift failure means incomplete.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([

@@ -201,6 +201,12 @@ export type ObserveOptions = {
   changedFiles?: string[];
   changedSince?: string | null;
   incremental?: boolean;
+  /**
+   * Additional artifacts that authorize or explain this observation. These
+   * refs are provenance only; providers still derive facts from repository
+   * evidence through ProviderContext.
+   */
+  inputRefs?: readonly ArtifactRef[];
 };
 
 export type ResolveOptions = {
@@ -2296,14 +2302,18 @@ export async function runObserve(
   registry: CapabilityRegistrySnapshot,
   options: ObserveOptions = {},
 ): Promise<ArtifactRef> {
+  const previousEvidence = options.incremental
+    ? await readLatestEvidenceGraph(context.artifacts)
+    : undefined;
+  const incremental = options.incremental === true && Boolean(previousEvidence);
   const providerContext: ProviderContext = {
     repoRoot: context.repo.root,
     // Repository intelligence includes tests by default. Providers must still
     // honor an explicit false so focused scans can omit test-only evidence.
     includeTests: options.includeTests ?? true,
-    changedFiles: options.changedFiles,
-    changedSince: options.changedSince,
-    incremental: options.incremental,
+    changedFiles: incremental ? options.changedFiles : undefined,
+    changedSince: incremental ? options.changedSince : undefined,
+    incremental,
   };
   const facts: EvidenceFact[] = [];
   const activeProviders = registry.evidenceProviders.filter((provider) => provider.supports(providerContext));
@@ -2318,16 +2328,17 @@ export async function runObserve(
     }
   }
 
-  const previousEvidence = options.incremental
-    ? await readLatestEvidenceGraph(context.artifacts)
-    : undefined;
-  const changedPaths = normalizeChangedPaths(context.repo.root, options.changedFiles ?? []);
+  const changedPaths = normalizeChangedPaths(
+    context.repo.root,
+    incremental ? (options.changedFiles ?? []) : [],
+  );
   const mergedFacts = previousEvidence
     ? mergeIncrementalEvidenceFacts(previousEvidence.graph.facts, facts, changedPaths)
     : facts;
-  const inputRefs = previousEvidence
-    ? [previousEvidence.ref]
-    : [];
+  const inputRefs = dedupeRefs([
+    ...(previousEvidence ? [previousEvidence.ref] : []),
+    ...(options.inputRefs ?? []),
+  ]);
   const invalidation = await createObserveInvalidationBaseline(
     context.repo.root,
     mergedFacts,
@@ -2341,9 +2352,9 @@ export async function runObserve(
     repo: context.repo,
     producerId: "@rekon/runtime.observe",
     inputRefs,
-    paths: options.changedFiles,
+    paths: incremental ? options.changedFiles : undefined,
     invalidation,
-    freshnessStatus: options.incremental && !previousEvidence ? "partial" : "fresh",
+    freshnessStatus: "fresh",
   });
   const graph = createEvidenceGraph({
     header,
@@ -2351,6 +2362,14 @@ export async function runObserve(
   });
 
   return context.artifacts.write(graph, { category: "evidence" });
+}
+
+function dedupeRefs(refs: readonly ArtifactRef[]): ArtifactRef[] {
+  const byKey = new Map<string, ArtifactRef>();
+  for (const ref of refs) {
+    byKey.set(`${ref.type}:${ref.id}`, ref);
+  }
+  return [...byKey.values()];
 }
 
 async function readLatestEvidenceGraph(

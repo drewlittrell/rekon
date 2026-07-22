@@ -114,15 +114,22 @@ rekon context validate-change --task "<task>" --changed-path <path> \
 rekon refresh --proof-gate <ProofGateReport:id> --json
 ```
 
-The report binds verifier results to the post-edit source digests. Refresh
-refuses a stale or incomplete gate, updates evidence and projections,
-reconciles any existing contract registry, then rebuilds governance, snapshot,
-and architecture publication artifacts. Executed verification captures the
-plan's bounded source state before and after commands. A command that changes
-those bytes makes the run non-proof and returns a nonzero CLI result even when
-the command itself exits zero. Derived verification results retain the stable
-post-run digest, and final validation compares that digest with current source
-rather than relying on artifact timestamps.
+The report binds verifier results to the post-edit source digests. Proof mode
+does not accept `--skip-publish` or `--skip-freshness`. It records the gate in
+the refreshed evidence lineage, preserves unaffected evidence, rebuilds models
+and governance, reconciles adopted repository law, writes a current snapshot,
+regenerates agent guidance, repository summary, architecture summary, proof
+report, agent contract, and managed `AGENTS.md` instructions, then validates
+artifacts and freshness. Confirmed contract drift fails the refresh. The CLI
+re-reads the gate and compares source bytes again after the final write so a
+mid-refresh edit cannot advance accepted knowledge.
+
+Executed verification captures the plan's bounded source state before and
+after commands. A command that changes those bytes makes the run non-proof and
+returns a nonzero CLI result even when the command itself exits zero. Derived
+verification results retain the stable post-run digest, and final validation
+compares that digest with current source rather than relying on artifact
+timestamps.
 
 CLI JSON reports the check as `artifactFreshness.status`: `current`,
 `refreshed`, or `unchecked` when `--no-auto-refresh` is set.

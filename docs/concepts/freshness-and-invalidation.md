@@ -54,10 +54,20 @@ possible. This is an on-demand check, not a watcher.
 After verified edits, agents record a digest-bound `ProofGateReport` and pass it
 to `rekon refresh --proof-gate <ref>`. The report supplies the changed paths;
 refresh rejects it when its repository identity differs, proof freshness is
-unknown, or current source no longer matches. Existing adopted repository law
-is reconciled against the new projection before snapshot construction.
-Repositories without an effective contract registry do not gain implicit law
-during refresh.
+unknown, or current source no longer matches. The gate becomes an input ref on
+the new `EvidenceGraph`, so accepted projections and the snapshot retain a
+transitive proof root. If no previous graph exists, the incremental request is
+promoted to a full observation; otherwise unchanged facts are retained.
+
+Proof mode cannot skip publication or freshness checks. Existing adopted
+repository law is reconciled against the new projection before snapshot
+construction, and confirmed drift blocks acceptance. The refresh regenerates
+the local guidance, repository summary, architecture summary, proof report,
+agent contract, and managed agent instructions. Cached embedding records are
+used only when their derived chunk digest exists in the current capability
+graph; stale records are ignored without a provider call. The gate and source
+bytes are validated again after the final write. Repositories without an
+effective contract registry do not gain implicit law during refresh.
 
 Verification proof uses the same byte-level rule before the gate is recorded.
 An executed `VerificationRun` captures its bounded source state before and

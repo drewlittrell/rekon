@@ -87,8 +87,10 @@ When the MCP tools are available to an agent:
    skipped, stale, or unbound evidence is not proof.
 9. Record the satisfied gate with `rekon context validate-change ...
    --record-proof --json`, then run `rekon refresh --proof-gate
-   <ProofGateReport:id> --json`. The refresh is refused if source bytes changed
-   after validation. A failed refresh or contract drift remains incomplete.
+   <ProofGateReport:id> --json` without skip flags. This refresh updates all
+   maintained knowledge and instruction surfaces and rechecks the gated source
+   bytes after its final write. A failed refresh or contract drift remains
+   incomplete.
 
 If MCP is unavailable, use `rekon context task --model-context`, `rekon context
 validate-change`, and `rekon artifacts freshness`. The task command performs the same

@@ -11,7 +11,10 @@ every required obligation is satisfied.
 ## Consumed By
 
 `rekon refresh --proof-gate <ProofGateReport:id>` verifies the recorded source
-digests before refreshing evidence, projections, governance, and publications.
+digests before and after refreshing evidence, projections, governance,
+snapshot, maintained publications, and managed agent instructions. The gate is
+an input ref on the refreshed evidence generation, providing transitive
+provenance without changing source-derived facts.
 Future source-writing actuators may use the same completion gate.
 
 ## Contract
@@ -74,4 +77,6 @@ The report is fresh only for the exact recorded source bytes. A later edit,
 restored deletion, path mismatch, malformed digest, or non-satisfied evaluation
 causes proof-gated refresh to fail. Verification evidence is admitted only when
 its own source-state digest equals this change state; a newer timestamp cannot
-substitute for digest equality.
+substitute for digest equality. Proof refresh also fails on confirmed adopted
+contract drift and cannot bypass publication or freshness validation with skip
+flags.

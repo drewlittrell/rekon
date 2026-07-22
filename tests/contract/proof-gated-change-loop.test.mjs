@@ -17,6 +17,7 @@ import {
   createSystemContract,
   createTaskPact,
 } from "@rekon/kernel-repo-model";
+import { digestJson } from "@rekon/kernel-artifacts";
 import { createLocalArtifactStore } from "@rekon/runtime";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -180,13 +181,79 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     ]);
     assert.match(foreignRefresh.stderr, /belongs to repository/iu);
 
+    for (const skippedPhase of ["--skip-publish", "--skip-freshness"]) {
+      const incompleteRefresh = runCliFailure([
+        "refresh",
+        "--proof-gate", `${completed.proofArtifact.type}:${completed.proofArtifact.id}`,
+        skippedPhase,
+        "--root", root,
+        "--json",
+      ]);
+      assert.match(incompleteRefresh.stderr, /accepted knowledge requires complete maintenance/iu);
+    }
+
     const refresh = runCliJson([
       "refresh",
       "--proof-gate", `${completed.proofArtifact.type}:${completed.proofArtifact.id}`,
       "--root", root,
       "--json",
     ]);
+    assert.equal(refresh.status, "passed");
     assert.ok(refresh.artifacts.some((entry) => entry.type === "ProofGateReport"));
+    assert.equal(refresh.steps.find((step) => step.id === "proof-gate.revalidate")?.status, "passed");
+
+    const observeStep = refresh.steps.find((step) => step.id === "observe");
+    const evidenceRef = observeStep?.artifacts?.[0];
+    assert.ok(evidenceRef);
+    const evidence = await store.read(evidenceRef);
+    assert.ok(evidence.header.inputRefs.some((entry) =>
+      entry.type === "ProofGateReport" && entry.id === completed.proofArtifact.id));
+    assert.ok(evidence.facts.some((fact) =>
+      fact.subject === "src/runtime.ts" || fact.provenance?.file === "src/runtime.ts"),
+    "incremental proof refresh should retain unaffected source evidence");
+
+    const projectedRef = refresh.steps.find((step) => step.id === "project")?.artifacts
+      ?.find((entry) => entry.type === "ObservedRepo");
+    assert.ok(projectedRef);
+    const projected = await store.read(projectedRef);
+    assert.ok(projected.header.inputRefs.some((entry) =>
+      entry.type === evidenceRef.type && entry.id === evidenceRef.id));
+
+    const snapshotRef = refresh.steps.find((step) => step.id === "snapshot")?.artifacts?.[0];
+    assert.ok(snapshotRef);
+    const snapshot = await store.read(snapshotRef);
+    assert.ok(snapshot.header.inputRefs.some((entry) =>
+      entry.type === evidenceRef.type && entry.id === evidenceRef.id));
+
+    const publicationRefs = refresh.steps
+      .filter((step) => step.id.startsWith("publish."))
+      .flatMap((step) => step.artifacts ?? []);
+    const publicationKinds = new Set();
+    for (const publicationRef of publicationRefs) {
+      const publication = await store.read(publicationRef);
+      publicationKinds.add(publication.kind);
+      assert.ok(publication.header.inputRefs.some((entry) =>
+        entry.type === snapshotRef.type && entry.id === snapshotRef.id));
+    }
+    assert.deepEqual(
+      [...publicationKinds].sort(),
+      ["agent-contract", "agents", "architecture-summary", "proof-report", "repo-summary"],
+    );
+
+    const contractSourcePath = join(root, "rekon/contracts/proof.json");
+    const contractSource = await readFile(contractSourcePath, "utf8");
+    await writeFile(contractSourcePath, `${contractSource.trimEnd()}\n\n`, "utf8");
+    const driftedRefresh = runCliFailure([
+      "refresh",
+      "--proof-gate", `${completed.proofArtifact.type}:${completed.proofArtifact.id}`,
+      "--root", root,
+      "--json",
+    ]);
+    const driftedResult = JSON.parse(driftedRefresh.stdout);
+    const driftedStep = driftedResult.steps.find((step) => step.id === "contracts.reconcile");
+    assert.equal(driftedStep.status, "failed");
+    assert.ok(driftedStep.issues.some((issue) => issue.code === "contract.source_changed"));
+    await writeFile(contractSourcePath, contractSource, "utf8");
 
     await writeFile(
       join(root, "src/index.ts"),
@@ -360,6 +427,7 @@ test("prior isolated coverage fills a changed-source test gap without acting as 
 async function createFixture(root, options = {}) {
   const requiredChecks = options.requiredChecks ?? [selectedCheck];
   await mkdir(join(root, "src"), { recursive: true });
+  await mkdir(join(root, "rekon", "contracts"), { recursive: true });
   await writeFile(join(root, "package.json"), `${JSON.stringify({
     name: "rekon-proof-gate-fixture",
     version: "1.0.0",
@@ -373,9 +441,54 @@ async function createFixture(root, options = {}) {
   await writeFile(join(root, "src/index.ts"), "export const bootstrap = 'stable';\n", "utf8");
   await writeFile(join(root, "src/runtime.ts"), "export const runtime = 'stable';\n", "utf8");
 
+  const contractSourceDocument = {
+    version: "1.0.0",
+    sourceId: "proof-loop",
+    systems: [{
+      id: "proof-system-contract",
+      systemId: "proof-system",
+      scope: { paths: ["src/**"] },
+      purpose: "Preserve the proof fixture's bootstrap behavior.",
+      userOutcomes: ["Bootstrap remains usable."],
+      invariants: [{ id: "bootstrap-stable", statement: "Keep bootstrap behavior stable." }],
+      requiredContextPaths: ["src/runtime.ts"],
+      requiredChecks,
+    }],
+    flows: [{
+      id: "proof-flow",
+      name: "Bootstrap to runtime",
+      criticality: "high",
+      purpose: "Carry bootstrap configuration into runtime initialization.",
+      userOutcomes: ["The selected runtime starts."],
+      completionConditions: ["Runtime initialization completes."],
+      systems: ["proof-system"],
+      paths: ["src/**"],
+      invariants: [{ id: "runtime-identity", statement: "Preserve runtime identity end to end." }],
+      stages: [
+        { id: "bootstrap", systemId: "proof-system", paths: ["src/index.ts"] },
+        { id: "runtime", systemId: "proof-system", paths: ["src/runtime.ts"] },
+      ],
+      handoffs: [{
+        id: "bootstrap-runtime",
+        fromStageId: "bootstrap",
+        toStageId: "runtime",
+        payload: { requiredFields: ["runtime"] },
+        guarantees: ["The selected runtime reaches initialization."],
+        failureSemantics: "A missing runtime must fail explicitly.",
+      }],
+      requiredChecks,
+    }],
+  };
+  const contractSourceText = `${JSON.stringify(contractSourceDocument, null, 2)}\n`;
+  await writeFile(join(root, "rekon/contracts/proof.json"), contractSourceText, "utf8");
+
   const store = createLocalArtifactStore(root);
   await store.init();
-  const source = { path: "rekon/contracts/proof.json", digest: "a".repeat(64), sourceId: "proof-loop" };
+  const source = {
+    path: "rekon/contracts/proof.json",
+    digest: digestJson(contractSourceText),
+    sourceId: "proof-loop",
+  };
   const clause = (id, statement) => ({
     id,
     statement,
@@ -478,7 +591,7 @@ async function createFixture(root, options = {}) {
 
   for (const args of [
     ["init", "-q"],
-    ["add", "package.json", "src"],
+    ["add", "package.json", "src", "rekon/contracts"],
     ["-c", "user.email=rekon@example.test", "-c", "user.name=Rekon Test", "commit", "-qm", "fixture baseline"],
   ]) {
     const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });

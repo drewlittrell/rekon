@@ -327,16 +327,33 @@ test("incremental observe retains unchanged facts and replaces changed or delete
       },
     });
     const runtime = await createRuntime({ repoRoot: root, capabilities: [capability], logger: silentLogger });
-    const firstRef = await runtime.runObserve();
+    const firstRef = await runtime.runObserve({ incremental: true, changedFiles: ["two.ts"] });
+    const first = await runtime.artifacts.read(firstRef);
+    assert.equal(first.facts.some((fact) => fact.subject === "one.ts"), true);
+    assert.equal(first.facts.some((fact) => fact.subject === "two.ts"), true);
+    assert.equal(first.header.freshness.status, "fresh");
+    const proofRef = {
+      type: "ProofGateReport",
+      id: "proof-gate-runtime-test",
+      schemaVersion: "1.0.0",
+    };
 
     await writeFile(join(root, "two.ts"), "export const two = 3;\n", "utf8");
-    const changedRef = await runtime.runObserve({ incremental: true, changedFiles: ["two.ts"] });
+    const changedRef = await runtime.runObserve({
+      incremental: true,
+      changedFiles: ["two.ts"],
+      inputRefs: [proofRef, proofRef],
+    });
     const changed = await runtime.artifacts.read(changedRef);
 
     assert.equal(changed.facts.some((fact) => fact.subject === "one.ts"), true);
     assert.equal(changed.facts.some((fact) => fact.id.includes("two = 2")), false);
     assert.equal(changed.facts.some((fact) => fact.id.includes("two = 3")), true);
     assert.equal(changed.header.inputRefs[0].id, firstRef.id);
+    assert.deepEqual(
+      changed.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`),
+      [`EvidenceGraph:${firstRef.id}`, "ProofGateReport:proof-gate-runtime-test"],
+    );
 
     await rm(join(root, "one.ts"));
     const deletedRef = await runtime.runObserve({ incremental: true, changedFiles: ["one.ts"] });

@@ -1087,20 +1087,25 @@ export async function main(argv: string[]): Promise<void> {
     const skipPublish = parsed.flags["skip-publish"] === true;
     const skipFreshness = parsed.flags["skip-freshness"] === true;
     let changedFiles = parseRepeatableFlag(parsed.flags["changed-file"]);
-    let proofGateRef: ArtifactRef | undefined;
+    let proofGate: ValidatedProofGateForRefresh | undefined;
     if (parsed.flags["proof-gate"] !== undefined) {
+      if (skipPublish || skipFreshness) {
+        throw new Error(
+          "rekon refresh --proof-gate cannot be combined with --skip-publish or --skip-freshness; accepted knowledge requires complete maintenance and validation.",
+        );
+      }
       if (typeof parsed.flags["proof-gate"] !== "string" || !parsed.flags["proof-gate"].trim()) {
         throw new Error("rekon refresh --proof-gate requires a ProofGateReport ref.");
       }
       const proof = await validateProofGateForRefresh(root, parsed.flags["proof-gate"].trim(), changedFiles);
       changedFiles = proof.changedFiles;
-      proofGateRef = proof.ref;
+      proofGate = proof;
     }
     const result = await runRefresh(root, {
       skipPublish,
       skipFreshness,
       changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
-      ...(proofGateRef ? { seedArtifactRefs: [proofGateRef] } : {}),
+      ...(proofGate ? { proofGate } : {}),
     });
 
     writeOutput(result, json);
@@ -2723,7 +2728,12 @@ export async function main(argv: string[]): Promise<void> {
     let providerCallFailed = false;
     let providerErrorCode = "";
     const cacheDir = embeddingCacheDir(root);
-    const records = await readEmbeddingIndexRecords(cacheDir);
+    const cachedRecords = await readEmbeddingIndexRecords(cacheDir);
+    const currentEmbeddingRecords = selectCurrentEmbeddingIndexRecords(
+      cachedRecords,
+      graphForContext as EvidenceGraphForChunks,
+    );
+    const records = currentEmbeddingRecords.records;
     const compatibleRecords = records.filter((record) =>
       record.provider === providerId
       && record.dimensions === dimensions
@@ -2734,7 +2744,9 @@ export async function main(argv: string[]): Promise<void> {
     let retrievalResults: TaskContextRetrievalResultLike[] = [];
     if (records.length === 0) {
       warnings.push(
-        "retrieval-unavailable: no embeddings indexed (run `rekon embeddings index`); building from graph + explicit paths only",
+        cachedRecords.length === 0
+          ? "retrieval-unavailable: no embeddings indexed (run `rekon embeddings index`); building from graph + explicit paths only"
+          : `retrieval-unavailable: ignored ${currentEmbeddingRecords.ignored} stale embedding record(s); run \`rekon embeddings index\`; building from graph + explicit paths only`,
       );
     } else if (compatibleRecords.length === 0) {
       providerCallFailed = true;
@@ -11191,7 +11203,22 @@ async function buildRefreshCapabilityEvidenceGraph(
   }
 
   const semanticReports = [...latestSemanticByPath.values()];
-  const embeddingRecords = await readEmbeddingIndexRecords(embeddingCacheDir(root));
+  const generatedAt = new Date().toISOString();
+  const evidenceGraph = await readLatestEvidenceGraphForCapabilityGraph(store);
+  const graphInput = {
+    root,
+    files,
+    generatedAt,
+    ...(evidenceGraph ? { evidenceGraph } : {}),
+    ...(semanticReports.length > 0 ? { semanticFileUnderstandingReports: semanticReports } : {}),
+  };
+  const graphWithoutEmbeddings = buildCapabilityEvidenceGraph(graphInput);
+  const cachedEmbeddingRecords = await readEmbeddingIndexRecords(embeddingCacheDir(root));
+  const currentEmbeddingRecords = selectCurrentEmbeddingIndexRecords(
+    cachedEmbeddingRecords,
+    graphWithoutEmbeddings,
+  );
+  const embeddingRecords = currentEmbeddingRecords.records;
   const embeddingSearch = embeddingRecords.length > 0
     ? await computeEmbeddingSimilaritiesFromCache(embeddingCacheDir(root), embeddingRecords, {
         topK: GRAPH_EMBEDDING_NEIGHBOR_TOP_K,
@@ -11199,15 +11226,9 @@ async function buildRefreshCapabilityEvidenceGraph(
       })
     : undefined;
   const embeddingSimilarities = embeddingSearch?.similarities ?? [];
-  const evidenceGraph = await readLatestEvidenceGraphForCapabilityGraph(store);
-  const graph = buildCapabilityEvidenceGraph({
-    root,
-    files,
-    generatedAt: new Date().toISOString(),
-    ...(evidenceGraph ? { evidenceGraph } : {}),
-    ...(semanticReports.length > 0 ? { semanticFileUnderstandingReports: semanticReports } : {}),
-    ...(embeddingSimilarities.length > 0 ? { embeddingSimilarities } : {}),
-  });
+  const graph = embeddingSimilarities.length > 0
+    ? buildCapabilityEvidenceGraph({ ...graphInput, embeddingSimilarities })
+    : graphWithoutEmbeddings;
   const ref = await store.write(graph, { category: "graphs" });
   return {
     ref,
@@ -11215,12 +11236,27 @@ async function buildRefreshCapabilityEvidenceGraph(
     summary: {
       ...graph.summary,
       semanticFileReports: semanticReports.length,
+      embeddingCacheRecords: cachedEmbeddingRecords.length,
+      embeddingCacheStaleRecordsIgnored: currentEmbeddingRecords.ignored,
       embeddingSimilarityPairs: embeddingSimilarities.reduce(
         (total, similarity) => total + similarity.neighbors.length,
         0,
       ),
     },
   };
+}
+
+function selectCurrentEmbeddingIndexRecords(
+  records: readonly EmbeddingIndexRecord[],
+  graph: EvidenceGraphForChunks,
+): { records: EmbeddingIndexRecord[]; ignored: number } {
+  const currentChunkDigests = new Map(
+    buildEmbeddingChunks({ graph }).map((chunk) => [chunk.id, chunk.sha256]),
+  );
+  const current = records.filter((record) =>
+    currentChunkDigests.get(record.chunk.id) === record.chunk.sha256,
+  );
+  return { records: current, ignored: records.length - current.length };
 }
 
 async function readLatestEvidenceGraphForCapabilityGraph(
@@ -13585,10 +13621,14 @@ type RefreshStepId =
   | "findings.lifecycle"
   | "issues.adjudicate"
   | "coherency.delta"
+  | "publish.guidance"
   | "publish.architecture"
+  | "publish.proof"
+  | "publish.agent-contract"
   | "agent-instructions.sync"
   | "artifacts.validate"
-  | "artifacts.freshness";
+  | "artifacts.freshness"
+  | "proof-gate.revalidate";
 
 type RefreshStep = {
   id: RefreshStepId;
@@ -13620,6 +13660,7 @@ type RefreshOptions = {
   skipFreshness?: boolean;
   changedFiles?: string[];
   seedArtifactRefs?: ArtifactRef[];
+  proofGate?: ValidatedProofGateForRefresh;
   syncAgentInstructions?: boolean;
   afterEvaluate?: () => Promise<{
     status: "passed" | "failed" | "skipped";
@@ -13734,6 +13775,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   recordArtifacts(options.seedArtifactRefs);
+  recordArtifacts(options.proofGate?.ref);
 
   // 1. init (write .rekon/ + default config if missing; never overwrite a
   //    malformed existing config — let config.validate report it explicitly)
@@ -13777,11 +13819,12 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
 
   // 3. observe
   try {
-    const ref = await runtime.runObserve(
-      options.changedFiles && options.changedFiles.length > 0
+    const ref = await runtime.runObserve({
+      ...(options.changedFiles && options.changedFiles.length > 0
         ? { changedFiles: options.changedFiles, incremental: true }
-        : undefined,
-    );
+        : {}),
+      ...(options.proofGate ? { inputRefs: [options.proofGate.ref] } : {}),
+    });
     steps.push({ id: "observe", status: "passed", artifacts: recordArtifacts(ref) });
   } catch (error) {
     steps.push({ id: "observe", status: "failed", message: messageOf(error) });
@@ -13834,15 +13877,31 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
         maxFlows: 50,
         maxDepth: 8,
       });
-      if (reconciliation.status === "blocked") {
-        const issues = "issues" in reconciliation
-          ? reconciliation.issues
-          : reconciliation.compiled.issues;
+      if (reconciliation.status === "blocked" || (options.proofGate && reconciliation.status === "drifted")) {
+        const issues = reconciliation.status === "blocked"
+          ? ("issues" in reconciliation ? reconciliation.issues : reconciliation.compiled.issues)
+          : reconciliation.drift.entries
+              .filter((entry) => entry.status === "drifted")
+              .flatMap((entry) => entry.reasons.map((reason) => ({
+                code: reason.code,
+                severity: reason.severity,
+                message: `${entry.contractType}:${entry.contractId}: ${reason.message}`,
+                paths: reason.paths,
+              })));
         steps.push({
           id: "contracts.reconcile",
           status: "failed",
           issues,
-          message: "Repository contract reconciliation is blocked.",
+          ...(reconciliation.status === "drifted" ? {
+            summary: {
+              status: reconciliation.status,
+              drift: reconciliation.drift.summary,
+              candidates: reconciliation.candidates.summary,
+            },
+          } : {}),
+          message: reconciliation.status === "drifted"
+            ? "Repository contract drift remains after the verified change; accepted knowledge was not advanced."
+            : "Repository contract reconciliation is blocked.",
         });
         return finalize("failed");
       }
@@ -14054,22 +14113,49 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // 11. publish architecture (optional)
+  // 11. Publish maintained local readouts. An ordinary refresh preserves the
+  // established architecture-only behavior. A proof-gated refresh is the
+  // accepted-change maintenance boundary and regenerates every local
+  // publication that models and contributors rely on.
   let currentPublicationRefs: ArtifactRef[] = [];
 
   if (options.skipPublish) {
     steps.push({ id: "publish.architecture", status: "skipped", message: "--skip-publish" });
   } else {
-    try {
-      const refs = await runtime.runPublish({
-        publisherId: "@rekon/capability-docs.architecture-summary",
-        input: { includeIntentLineage: false },
-      });
-      currentPublicationRefs = recordArtifacts(refs);
-      steps.push({ id: "publish.architecture", status: "passed", artifacts: currentPublicationRefs });
-    } catch (error) {
-      steps.push({ id: "publish.architecture", status: "failed", message: messageOf(error) });
-      return finalize("failed");
+    const publicationSteps: Array<{
+      id: Extract<RefreshStepId, `publish.${string}`>;
+      publisherId: string;
+      input?: Record<string, unknown>;
+    }> = options.proofGate
+      ? [
+          { id: "publish.guidance", publisherId: "@rekon/capability-docs.publisher" },
+          {
+            id: "publish.architecture",
+            publisherId: "@rekon/capability-docs.architecture-summary",
+            input: { includeIntentLineage: false },
+          },
+          { id: "publish.proof", publisherId: "@rekon/capability-docs.proof-report" },
+          { id: "publish.agent-contract", publisherId: "@rekon/capability-docs.agent-contract" },
+        ]
+      : [{
+          id: "publish.architecture",
+          publisherId: "@rekon/capability-docs.architecture-summary",
+          input: { includeIntentLineage: false },
+        }];
+
+    for (const publicationStep of publicationSteps) {
+      try {
+        const refs = await runtime.runPublish({
+          publisherId: publicationStep.publisherId,
+          ...(publicationStep.input ? { input: publicationStep.input } : {}),
+        });
+        const recorded = recordArtifacts(refs);
+        currentPublicationRefs.push(...recorded);
+        steps.push({ id: publicationStep.id, status: "passed", artifacts: recorded });
+      } catch (error) {
+        steps.push({ id: publicationStep.id, status: "failed", message: messageOf(error) });
+        return finalize("failed");
+      }
     }
   }
 
@@ -14084,19 +14170,17 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   if (!options.skipPublish) {
-    let foundArchitectureSummary = false;
-
+    const publicationKinds = new Set<string>();
     for (const ref of currentPublicationRefs) {
       const publication = await store.read(ref) as { kind?: string };
-
-      if (publication?.kind === "architecture-summary") {
-        foundArchitectureSummary = true;
-        break;
-      }
+      if (typeof publication?.kind === "string") publicationKinds.add(publication.kind);
     }
 
-    if (!foundArchitectureSummary) {
-      missing.push("Publication(architecture-summary)");
+    const requiredPublicationKinds = options.proofGate
+      ? ["agents", "repo-summary", "architecture-summary", "proof-report", "agent-contract"]
+      : ["architecture-summary"];
+    for (const kind of requiredPublicationKinds) {
+      if (!publicationKinds.has(kind)) missing.push(`Publication(${kind})`);
     }
   }
 
@@ -14174,6 +14258,28 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
       }
     } catch (error) {
       steps.push({ id: "agent-instructions.sync", status: "failed", message: messageOf(error) });
+    }
+  }
+
+  // Source can change while a long refresh is running. Re-read the stored gate
+  // and re-check every digest after all maintained artifacts and instructions
+  // have been written. A failed final check prevents this run from becoming an
+  // accepted repository generation.
+  if (options.proofGate) {
+    try {
+      const revalidated = await validateProofGateForRefresh(
+        root,
+        `${options.proofGate.ref.type}:${options.proofGate.ref.id}`,
+        options.proofGate.changedFiles,
+      );
+      steps.push({
+        id: "proof-gate.revalidate",
+        status: "passed",
+        artifacts: [revalidated.ref],
+        summary: { paths: revalidated.changedFiles },
+      });
+    } catch (error) {
+      steps.push({ id: "proof-gate.revalidate", status: "failed", message: messageOf(error) });
     }
   }
 
@@ -15544,6 +15650,11 @@ async function recordChangeVerificationPlan(root: string, result: ChangeValidati
   };
   return store.write(plan, { category: "actions" });
 }
+
+type ValidatedProofGateForRefresh = {
+  ref: ArtifactRef;
+  changedFiles: string[];
+};
 
 async function validateProofGateForRefresh(
   root: string,

@@ -408,6 +408,30 @@ test("re-running `embeddings index` reuses unchanged chunks", async () => {
   }
 });
 
+test("refresh ignores cached embeddings whose chunk digest no longer matches the current graph", async () => {
+  const work = await setupRepo();
+  try {
+    assert.equal(runCli(["capability", "graph", "build", "--root", work, "--json"], work).status, 0);
+    assert.equal(runCli(["embeddings", "index", "--all", "--provider", "mock", "--root", work, "--json"], work).status, 0);
+    await writeFile(
+      join(work, "src", "index.js"),
+      `${SAMPLE_SOURCE}\nexport function changedAfterIndex() { return true; }\n`,
+      "utf8",
+    );
+
+    const refreshed = runCli(["refresh", "--root", work, "--json"], work);
+    assert.equal(refreshed.status, 0, refreshed.stderr || refreshed.stdout);
+    const payload = JSON.parse(refreshed.stdout);
+    const graphStep = payload.steps.find((step) => step.id === "capability.graph");
+
+    assert.equal(graphStep.status, "passed");
+    assert.ok(graphStep.summary.embeddingCacheRecords > 0);
+    assert.ok(graphStep.summary.embeddingCacheStaleRecordsIgnored > 0);
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
 test("full embedding index prunes removed chunks while path-scoped updates preserve other records", async () => {
   const work = await setupRepo();
   try {

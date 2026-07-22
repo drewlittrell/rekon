@@ -33,8 +33,13 @@ That history chooses what to rerun and is never accepted as present-state
 proof. Failed or stale proof returns bounded context for the exact check,
 paths, and affected flow edge before any broader context escalation.
 One digest-bound, proof-gated refresh then advances the maintained repository
-model. Existing adopted contracts are reconciled after projection; missing
-contracts remain an explicit bootstrap decision.
+model. The gate is retained as observation provenance; unaffected evidence is
+preserved, stale embedding cache records are excluded, and projections,
+governance, snapshot, maintained publications, and managed agent instructions
+are regenerated. Existing adopted contracts are reconciled after projection;
+confirmed drift blocks acceptance, while missing contracts remain an explicit
+bootstrap decision. The gated source bytes are checked again after the final
+write so refresh cannot accept a source state that changed while it ran.
 
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The

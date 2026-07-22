@@ -4,6 +4,17 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Proof-gated refresh now completes the accepted-change maintenance loop. It
+  records the gate as observation lineage, regenerates all maintained local
+  publications and managed agent instructions, refuses confirmed contract
+  drift, validates artifact integrity and freshness, and rechecks the gated
+  source bytes after the final write. Proof mode cannot skip publication or
+  freshness checks.
+- Incremental observation now promotes itself to a full repository observation
+  when no prior `EvidenceGraph` exists, and accepts additive provenance refs
+  through `ObserveOptions.inputRefs`. Cached embedding records whose derived
+  chunk digest is absent from the current capability graph are ignored without
+  calling a provider.
 - Post-edit validation now explains every selected check and fills uncovered
   changed-source test scope from prior isolated coverage when that observation
   is linked to a passed `VerificationRun`. Rekon reuses the exact recorded
@@ -17,9 +28,9 @@ All notable changes to Rekon are documented here.
 - Change-generated `VerificationPlan` artifacts now preserve check-selection
   lineage, including declared versus evidence-backed origin and the exact
   proof obligations each command can satisfy.
-- Updated the managed Rekon instructions to `2.0.1` and MCP server interface to
-  `1.3.0` so coding agents consume focused corrective context before requesting
-  deeper task context.
+- Updated the managed Rekon instructions to `2.0.2` and MCP server interface to
+  `1.3.1` so coding agents consume focused corrective context before requesting
+  deeper task context and complete proof-gated maintenance without skip flags.
 - Added a shared, deterministic `SourceStateBinding` contract for a resolved
   repository base and bounded path set. Executed verification now records the
   source state before and after its commands, rejects runs that changed the
@@ -47,7 +58,7 @@ All notable changes to Rekon are documented here.
 - Added proof-gated refresh. A recorded gate carries safe repository-relative
   paths and before/after source digests; `rekon refresh --proof-gate <ref>`
   refuses incomplete proof, cross-repository proof, unknown proof freshness, or
-  source bytes changed after validation.
+  source bytes changed before or during refresh.
 - Updated the managed Rekon agent block to `2.0.0` with the two-pass validation,
   verification, proof-recording, and refresh protocol while keeping the block
   within its existing size limit. Sol calibrations bound to the prior managed

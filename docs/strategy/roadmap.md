@@ -74,6 +74,12 @@ verification recording, reconciliation planning, and artifact validation.
   for one incremental refresh; later source changes make the gate unusable.
   Existing adopted contracts reconcile against the new projection before the
   current snapshot, while first scans create no implicit repository law.
+- Proof-gated refresh now completes accepted-change maintenance in one command.
+  The gate roots observation lineage; absent baselines promote to a full first
+  observation; stale embedding cache records are excluded; every maintained
+  local publication and the Rekon-managed instruction block regenerate; and a
+  final source-state recheck prevents mid-refresh edits from advancing the
+  repository generation. Confirmed contract drift blocks acceptance.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.
@@ -239,9 +245,6 @@ verification recording, reconciliation planning, and artifact validation.
 - Runtime observation and drift reporting.
 - Watcher-driven freshness.
 - Additional CI and pull request publication surfaces.
-- Finish the verified-change maintenance loop so one satisfied gate refreshes
-  every affected evidence, projection, index, contract publication, and
-  Rekon-managed instruction surface without a human coordinator.
 - More mature memory curation and work-order flows.
 - Permissioned source-write reconciliation for narrow, reviewable operations.
 - Optional hosted or dashboard surfaces after the local substrate is solid.

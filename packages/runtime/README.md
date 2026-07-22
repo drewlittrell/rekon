@@ -53,7 +53,11 @@ duplicate source IDs, and invalid documents.
 
 Incremental observe retains unchanged evidence, replaces changed or deleted
 file evidence, refreshes repository-wide facts, and records the prior graph as
-lineage.
+lineage. If no prior graph exists, the runtime promotes the request to a full
+observation so the first generation is complete. Callers may pass
+`runObserve({ inputRefs })` to retain authorization or provenance artifacts in
+the new graph header; those refs do not change provider inputs or fact
+semantics.
 
 Snapshots retain the newest artifact in each declared supersession family,
 rather than one artifact per type. This keeps independent graph slices,
