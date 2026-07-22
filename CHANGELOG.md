@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Repository-contract discovery now assigns every proposed flow handoff an
+  explicit verifier policy. It preserves adopted policy, may nominate an exact
+  passed isolated test that covers both stage endpoints, then falls back to
+  runtime observation or model judgment. Prior coverage selects a check but
+  does not prove current source. Proof binding now handles Rekon's colon-rich
+  discovered flow and handoff IDs without parsing them as delimiter fields.
 - Flow handoffs may now declare accepted verifier methods, acceptance policy,
   and exact proving checks. Task pacts select only intersecting handoff checks;
   change validation exposes each check's exact proof-obligation IDs, prevents

@@ -58,7 +58,14 @@ The default export is a Rekon capability definition with a projector handler.
 sources into adopted artifacts and an effective registry without writing
 source files.
 `discoverRepositoryContractCandidates()` derives bounded, inferred system and
-flow proposals from the unified repository intelligence graph.
+flow proposals from the unified repository intelligence graph. Callers may
+provide current `existingFlowContracts` and validated
+`RepositoryContractVerificationEvidence`. Discovery preserves an adopted
+handoff policy first, then may nominate an exact passed isolated test that
+covers both stage endpoints, a current runtime-observed edge, or model judgment
+as the fallback. Historical coverage selects a check; it never proves current
+source. Discovery remains pure: it executes no command, calls no model
+provider, and writes no source.
 `buildRepositoryContractDriftReport()` compares adopted contracts with current
 source, ownership, and flow evidence.
 `buildTaskPact()` selects the adopted system and end-to-end flow law for one

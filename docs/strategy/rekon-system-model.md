@@ -26,6 +26,11 @@ and exact checks. Deterministic checks and runtime observations bind directly
 to the edges they exercise; one handoff's check cannot prove a sibling edge.
 The acting model judges semantic obligations against cited source.
 Counterevidence blocks completion.
+Contract discovery assigns an explicit policy to every proposed handoff. It
+preserves adopted policy, then prefers a validated isolated test covering both
+stage endpoints, current runtime observation, and finally model judgment.
+Historical observations nominate the verifier to rerun; they are not
+present-state proof.
 Executed checks capture their bounded source state before and after execution;
 only an unchanged post-run digest can satisfy the matching current change.
 Declared checks remain authoritative. When they leave changed source without a

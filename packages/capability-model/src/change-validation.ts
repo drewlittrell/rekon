@@ -525,12 +525,11 @@ function proofSubject(
   obligation: ChangeValidationObligation,
   input: ValidateChangeInput,
 ): { id: string; ref?: ArtifactRef } {
-  const handoffMatch = /^handoff:([^:]+):([^:]+):/u.exec(obligation.id);
-  if (handoffMatch) {
-    const flow = input.flowContracts?.find((candidate) => candidate.contractId === handoffMatch[1]);
+  const matchedHandoff = findFlowHandoffByObligationId(input.flowContracts ?? [], obligation.id);
+  if (matchedHandoff) {
     return {
-      id: `${handoffMatch[1]}:${handoffMatch[2]}`,
-      ...(flow ? { ref: artifactRef(flow.header) } : {}),
+      id: `${matchedHandoff.flow.contractId}:${matchedHandoff.handoff.id}`,
+      ref: artifactRef(matchedHandoff.flow.header),
     };
   }
   return {
@@ -544,11 +543,8 @@ function proofSourceRefs(obligation: ChangeValidationObligation, input: Validate
   if (input.taskPactRef && (obligation.kind === "repository-law" || obligation.kind === "handoff")) {
     refs.push(input.taskPactRef);
   }
-  const handoffMatch = /^handoff:([^:]+):/u.exec(obligation.id);
-  if (handoffMatch) {
-    const flow = input.flowContracts?.find((candidate) => candidate.contractId === handoffMatch[1]);
-    if (flow) refs.push(artifactRef(flow.header));
-  }
+  const matchedHandoff = findFlowHandoffByObligationId(input.flowContracts ?? [], obligation.id);
+  if (matchedHandoff) refs.push(artifactRef(matchedHandoff.flow.header));
   if (obligation.kind === "ownership" && input.ownershipMap) refs.push(artifactRef(input.ownershipMap.header));
   if (obligation.kind === "dependency" && input.capabilityContract) refs.push(artifactRef(input.capabilityContract.header));
   if (obligation.kind === "repository-law") refs.push(...(input.taskPact?.contracts.map((contract) => contract.ref) ?? []));
@@ -569,11 +565,7 @@ function handoffEdgePolicy(
   input: ValidateChangeInput,
 ): { acceptedMethods: ProofMethod[]; acceptancePolicy: ProofAcceptancePolicy } | undefined {
   if (!/:edge$/u.test(obligation.id)) return undefined;
-  const match = /^handoff:([^:]+):([^:]+):edge$/u.exec(obligation.id);
-  if (!match) return undefined;
-  const handoff = input.flowContracts
-    ?.find((flow) => flow.contractId === match[1])
-    ?.handoffs.find((candidate) => candidate.id === match[2]);
+  const handoff = findFlowHandoffByEdgeObligationId(input.flowContracts ?? [], obligation.id)?.handoff;
   if (!handoff?.verification) return undefined;
   return {
     acceptedMethods: [...handoff.verification.acceptedMethods],
@@ -721,10 +713,10 @@ function bindRuntimeEvidence(
       warnings.push(`runtime-evidence-${evidence.freshness}: ${evidence.ref.type}:${evidence.ref.id}`);
     }
     for (const obligation of input.obligations) {
-      const match = /^handoff:([^:]+):([^:]+):edge$/u.exec(obligation.id);
-      if (!match) continue;
-      const flow = input.input.flowContracts?.find((candidate) => candidate.contractId === match[1]);
-      const handoff = flow?.handoffs.find((candidate) => candidate.id === match[2]);
+      const handoff = findFlowHandoffByEdgeObligationId(
+        input.input.flowContracts ?? [],
+        obligation.id,
+      )?.handoff;
       if (!handoff) continue;
       if (!obligation.requiredEvidence.includes("runtime")) continue;
       const observed = evidence.edges.some((edge) =>
@@ -1186,6 +1178,39 @@ function findFlowHandoffBySourceId(
     }
   }
   return undefined;
+}
+
+function findFlowHandoffByEdgeObligationId(
+  flows: FlowContract[],
+  obligationId: string,
+): { flow: FlowContract; handoff: FlowContractHandoff } | undefined {
+  for (const flow of flows) {
+    for (const handoff of flow.handoffs) {
+      if (handoffEdgeObligationId(flow.contractId, handoff.id) === obligationId) return { flow, handoff };
+    }
+  }
+  return undefined;
+}
+
+function findFlowHandoffByObligationId(
+  flows: FlowContract[],
+  obligationId: string,
+): { flow: FlowContract; handoff: FlowContractHandoff } | undefined {
+  const matches: Array<{
+    flow: FlowContract;
+    handoff: FlowContractHandoff;
+    prefixLength: number;
+  }> = [];
+  for (const flow of flows) {
+    for (const handoff of flow.handoffs) {
+      const prefix = `handoff:${flow.contractId}:${handoff.id}:`;
+      if (obligationId.startsWith(prefix)) matches.push({ flow, handoff, prefixLength: prefix.length });
+    }
+  }
+  return matches
+    .sort((left, right) => right.prefixLength - left.prefixLength
+      || left.flow.contractId.localeCompare(right.flow.contractId)
+      || left.handoff.id.localeCompare(right.handoff.id))[0];
 }
 
 function classifyCheckKind(command: string): ChangeValidationCheckKind {

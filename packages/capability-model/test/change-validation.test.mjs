@@ -552,6 +552,58 @@ test("an exact handoff check cannot prove a sibling edge", () => {
     entry.obligationId === "handoff:bootstrap-flow:entry-audit:edge" && entry.method === "test"));
 });
 
+test("discovered flow and handoff ids retain verifier policy through proof binding", () => {
+  const contractId = "flow:route:POST-checkout:response:checkout-response";
+  const fromStageId = "stage:file:src-index-ts";
+  const toStageId = "stage:file:src-runtime-ts";
+  const handoffId = `handoff:${fromStageId}:${toStageId}`;
+  const flow = {
+    ...flowContract([]),
+    header: header("FlowContract", contractId),
+    contractId,
+    stages: [
+      { id: fromStageId, paths: ["src/index.ts"], evidenceRefs: [] },
+      { id: toStageId, paths: ["src/runtime.ts"], evidenceRefs: [] },
+    ],
+    handoffs: [{
+      id: handoffId,
+      fromStageId,
+      toStageId,
+      verification: {
+        acceptedMethods: ["test"],
+        acceptancePolicy: "all-required",
+        requiredChecks: ["npm run test:discovered-edge"],
+      },
+      evidenceRefs: [],
+    }],
+  };
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "discovered-edge-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:discovered-edge", status: "passed" }],
+    }],
+  });
+
+  const edgeId = `handoff:${contractId}:${handoffId}:edge`;
+  const obligation = result.proofGate.obligations.find((entry) => entry.id === edgeId);
+  assert.deepEqual(obligation?.requiredEvidence, ["test"]);
+  assert.equal(obligation?.subject.id, `${contractId}:${handoffId}`);
+  assert.ok(obligation?.sourceRefs.some((entry) => entry.id === contractId));
+  assert.ok(result.proofGate.results.some((entry) =>
+    entry.obligationId === edgeId && entry.method === "test" && entry.verdict === "supported"));
+});
+
 test("supported edge proof clears its compatibility obligation", () => {
   const flowRef = ref("FlowContract", "bootstrap-flow");
   const taskPact = pact({

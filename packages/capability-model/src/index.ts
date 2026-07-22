@@ -46,6 +46,7 @@ export {
 
 export {
   type DiscoverRepositoryContractCandidatesInput,
+  type RepositoryContractVerificationEvidence,
   discoverRepositoryContractCandidates,
 } from "./repository-contract-discovery.js";
 

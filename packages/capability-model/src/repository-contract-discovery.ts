@@ -3,6 +3,8 @@ import {
   type ContractCandidate,
   type ContractCandidateReport,
   type EffectiveContractRegistry,
+  type FlowContract,
+  type FlowContractHandoffSource,
   type FlowContractSource,
   type ObservedRepo,
   type OwnershipMap,
@@ -24,9 +26,19 @@ export type DiscoverRepositoryContractCandidatesInput = {
   ownershipMap?: OwnershipMap;
   capabilityMap?: CapabilityMap;
   effectiveRegistry?: EffectiveContractRegistry;
+  existingFlowContracts?: FlowContract[];
+  verificationEvidence?: RepositoryContractVerificationEvidence[];
   maxFlows?: number;
   maxDepth?: number;
   reconsiderContractIds?: string[];
+};
+
+export type RepositoryContractVerificationEvidence = {
+  method: "test";
+  command: string;
+  coveredPaths: string[];
+  testPath?: string;
+  evidenceRefs: ArtifactRef[];
 };
 
 const PRODUCER_ID = "@rekon/capability-model";
@@ -77,6 +89,8 @@ export function discoverRepositoryContractCandidates(
     inputRefs,
     existing,
     reconsider,
+    existingFlowContracts: input.existingFlowContracts ?? [],
+    verificationEvidence: input.verificationEvidence ?? [],
   });
   candidates.push(...flowDiscovery.candidates);
   unresolved.push(...flowDiscovery.unresolved);
@@ -182,6 +196,8 @@ function discoverFlows(
     inputRefs: ArtifactRef[];
     existing: Set<string>;
     reconsider: Set<string>;
+    existingFlowContracts: FlowContract[];
+    verificationEvidence: RepositoryContractVerificationEvidence[];
   },
 ): { candidates: ContractCandidate[]; unresolved: ContractCandidateReport["unresolved"] } {
   if (options.inputRefs.length === 0) return { candidates: [], unresolved: [] };
@@ -224,14 +240,29 @@ function discoverFlows(
       systemId: ownerForRef(ref, options.ownerByPath),
       paths: pathsForRef(ref),
     }));
-    const handoffs = path.map((claim, index) => ({
-      id: `handoff:${stageIds[index]}:${stageIds[index + 1]}`,
-      fromStageId: stageIds[index]!,
-      toStageId: stageIds[index + 1]!,
-      guarantees: [`Preserve ${invariantId} across this seam.`],
-      carriedInvariantIds: [invariantId],
-      failureSemantics: claim.predicate === "propagates_error" ? "Preserve the observed error propagation behavior." : undefined,
-    }));
+    const existingFlow = options.existingFlowContracts.find((flow) => flow.contractId === flowId);
+    const handoffs = path.map((claim, index) => {
+      const id = `handoff:${stageIds[index]}:${stageIds[index + 1]}`;
+      const fromStageId = stageIds[index]!;
+      const toStageId = stageIds[index + 1]!;
+      return {
+        id,
+        fromStageId,
+        toStageId,
+        guarantees: [`Preserve ${invariantId} across this seam.`],
+        carriedInvariantIds: [invariantId],
+        failureSemantics: claim.predicate === "propagates_error" ? "Preserve the observed error propagation behavior." : undefined,
+        verification: discoverHandoffVerification({
+          claim,
+          fromPaths: stages[index]?.paths ?? [],
+          toPaths: stages[index + 1]?.paths ?? [],
+          existing: existingFlow?.handoffs.find((handoff) =>
+            handoff.id === id
+            || (handoff.fromStageId === fromStageId && handoff.toStageId === toStageId)),
+          evidence: options.verificationEvidence,
+        }),
+      } satisfies FlowContractHandoffSource;
+    });
     const systems = unique(refs.map((ref) => ownerForRef(ref, options.ownerByPath)).filter(isString));
     const paths = unique(refs.flatMap(pathsForRef));
     const minConfidence = Math.min(...path.map((claim) => claim.confidence));
@@ -298,10 +329,69 @@ function shortestOutcomePath(
 function collectInputRefs(input: DiscoverRepositoryContractCandidatesInput): ArtifactRef[] {
   return uniqueRefs([
     ...input.graph.inputRefs,
+    ...(input.verificationEvidence ?? []).flatMap((entry) => entry.evidenceRefs),
     ...[input.observedRepo?.header, input.ownershipMap?.header, input.capabilityMap?.header, input.effectiveRegistry?.header]
       .filter((header): header is ArtifactHeader => Boolean(header))
       .map((header) => ({ type: header.artifactType, id: header.artifactId, schemaVersion: header.schemaVersion })),
+    ...(input.existingFlowContracts ?? []).map((flow) => ({
+      type: flow.header.artifactType,
+      id: flow.header.artifactId,
+      schemaVersion: flow.header.schemaVersion,
+    })),
   ]);
+}
+
+function discoverHandoffVerification(input: {
+  claim: RepositoryIntelligenceGraphClaim;
+  fromPaths: string[];
+  toPaths: string[];
+  existing?: FlowContract["handoffs"][number];
+  evidence: RepositoryContractVerificationEvidence[];
+}): NonNullable<FlowContractHandoffSource["verification"]> {
+  if (input.existing?.verification) {
+    return {
+      acceptedMethods: [...input.existing.verification.acceptedMethods],
+      ...(input.existing.verification.acceptancePolicy
+        ? { acceptancePolicy: input.existing.verification.acceptancePolicy }
+        : {}),
+      ...(input.existing.verification.requiredChecks
+        ? { requiredChecks: [...input.existing.verification.requiredChecks] }
+        : {}),
+    };
+  }
+
+  const test = input.fromPaths.length > 0 && input.toPaths.length > 0
+    ? [...input.evidence]
+      .filter((entry) =>
+        entry.method === "test"
+        && entry.command.trim().length > 0
+        && input.fromPaths.some((path) => entry.coveredPaths.includes(path))
+        && input.toPaths.some((path) => entry.coveredPaths.includes(path)))
+      .sort((left, right) =>
+        verificationEvidenceCost(left, input.fromPaths, input.toPaths)
+          - verificationEvidenceCost(right, input.fromPaths, input.toPaths)
+        || left.command.localeCompare(right.command))[0]
+    : undefined;
+  if (test) {
+    return {
+      acceptedMethods: ["test"],
+      acceptancePolicy: "all-required",
+      requiredChecks: [test.command.trim().replace(/\s+/gu, " ")],
+    };
+  }
+  if (input.claim.source === "runtime") {
+    return { acceptedMethods: ["runtime"], acceptancePolicy: "all-required" };
+  }
+  return { acceptedMethods: ["model-judgment"], acceptancePolicy: "all-required" };
+}
+
+function verificationEvidenceCost(
+  evidence: RepositoryContractVerificationEvidence,
+  fromPaths: string[],
+  toPaths: string[],
+): number {
+  const stagePaths = new Set([...fromPaths, ...toPaths]);
+  return evidence.coveredPaths.filter((path) => !stagePaths.has(path)).length;
 }
 
 function existingContractIds(registry: EffectiveContractRegistry | undefined): Set<string> {

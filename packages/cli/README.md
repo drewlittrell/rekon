@@ -55,7 +55,13 @@ prepares current system and flow candidates. The coding agent inspects cited
 source and reruns it with `--input`; `--apply` adopts eligible contracts only
 when source writes are enabled in policy, then compiles and reconciles them.
 The narrower `bootstrap`, `judge`, `adopt`, and `reconcile` commands remain
-available for explicit lifecycle control. No stage calls a model provider.
+available for explicit lifecycle control. Flow discovery preserves adopted
+handoff verifier policies. For a new handoff, it may nominate an exact command
+from a passed isolated coverage observation that exercises both sides of the
+edge; otherwise it uses current runtime evidence or asks the agent to judge the
+semantic edge. Prior coverage chooses what must run and is not accepted as
+current proof. No stage calls a model provider or executes the nominated
+command.
 
 ## Model Interface
 

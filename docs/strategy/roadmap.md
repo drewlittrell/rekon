@@ -85,6 +85,10 @@ verification recording, reconciliation planning, and artifact validation.
 - Contract maintenance is resumable by the coding agent: deterministic
   discovery returns a source-cited judgment task, and the same command can
   bind that judgment, perform permissioned adoption, compile, and reconcile.
+  Discovery preserves adopted handoff verifier policies and assigns every new
+  handoff an explicit policy from validated isolated coverage, runtime
+  observation, or model judgment. Historical coverage nominates the check; a
+  current digest-bound run still supplies proof.
 - A source-free repository-law gate covers compositional system semantics,
   cross-system baton preservation, and unrelated-law isolation. It raises
   required-path recall from 72.22% to 100% at 100% precision, with a 282-token

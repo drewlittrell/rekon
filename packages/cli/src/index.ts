@@ -84,6 +84,7 @@ import modelCapability, {
   buildTaskPact,
   coerceRepositoryContractJudgmentDrafts,
   discoverRepositoryContractCandidates,
+  type RepositoryContractVerificationEvidence,
   REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
   REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
   buildStepCapabilityGraph,
@@ -824,7 +825,15 @@ export async function main(argv: string[]): Promise<void> {
   if (command === "contracts" && subcommand === "discover") {
     const store = createLocalArtifactStore(root);
     await store.init();
-    const { graph, observedRepo, ownershipMap, capabilityMap, effectiveRegistry } = await loadRepositoryContractIntelligence(store);
+    const {
+      graph,
+      observedRepo,
+      ownershipMap,
+      capabilityMap,
+      effectiveRegistry,
+      existingFlowContracts,
+      verificationEvidence,
+    } = await loadRepositoryContractIntelligence(store, root);
     const report = discoverRepositoryContractCandidates({
       repoId: root,
       graph,
@@ -832,6 +841,8 @@ export async function main(argv: string[]): Promise<void> {
       ownershipMap,
       capabilityMap,
       effectiveRegistry,
+      existingFlowContracts,
+      verificationEvidence,
       maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
       maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
     });
@@ -14660,7 +14671,7 @@ async function bootstrapRepositoryContracts(input: {
   if (!compiled.valid) {
     return { status: "failed" as const, compiled };
   }
-  const intelligence = await loadRepositoryContractIntelligence(store);
+  const intelligence = await loadRepositoryContractIntelligence(store, input.root);
   const candidates = discoverRepositoryContractCandidates({
     repoId: input.root,
     graph: intelligence.graph,
@@ -14668,6 +14679,8 @@ async function bootstrapRepositoryContracts(input: {
     ownershipMap: intelligence.ownershipMap,
     capabilityMap: intelligence.capabilityMap,
     effectiveRegistry: intelligence.effectiveRegistry,
+    existingFlowContracts: intelligence.existingFlowContracts,
+    verificationEvidence: intelligence.verificationEvidence,
     maxFlows: input.maxFlows,
     maxDepth: input.maxDepth,
   });
@@ -14762,6 +14775,7 @@ async function compileRepositoryContracts(
 
 async function loadRepositoryContractIntelligence(
   store: ReturnType<typeof createLocalArtifactStore>,
+  root: string,
 ) {
   const [
     capabilityGraph,
@@ -14787,7 +14801,113 @@ async function loadRepositoryContractIntelligence(
     stepGraph,
     contractRegistry: effectiveRegistry,
   });
-  return { graph, observedRepo, ownershipMap, capabilityMap, effectiveRegistry };
+  const existingFlowContracts: FlowContract[] = [];
+  for (const entry of effectiveRegistry?.entries ?? []) {
+    if (entry.contractType !== "FlowContract") continue;
+    existingFlowContracts.push(await store.read(entry.ref) as FlowContract);
+  }
+  const verification = await loadRepositoryContractVerificationEvidence(store, root);
+  return {
+    graph: {
+      ...graph,
+      warnings: [...new Set([...graph.warnings, ...verification.warnings])].sort(),
+    },
+    observedRepo,
+    ownershipMap,
+    capabilityMap,
+    effectiveRegistry,
+    existingFlowContracts,
+    verificationEvidence: verification.evidence,
+  };
+}
+
+async function loadRepositoryContractVerificationEvidence(
+  store: ReturnType<typeof createLocalArtifactStore>,
+  root: string,
+): Promise<{ evidence: RepositoryContractVerificationEvidence[]; warnings: string[] }> {
+  const warnings: string[] = [];
+  const collected = new Map<string, RepositoryContractVerificationEvidence>();
+  const entries = (await store.list("RuntimeGraphObservationReport"))
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))
+    .slice(0, 12);
+
+  for (const entry of entries) {
+    let report: RuntimeGraphObservationReport;
+    try {
+      const validation = validateRuntimeGraphObservationReport(await store.read(entry));
+      if (!validation.ok) {
+        warnings.push(
+          `contract-verifier-observation-invalid: RuntimeGraphObservationReport:${entry.id} ${validation.issues
+            .map((issue) => `${issue.path}: ${issue.message}`)
+            .join("; ")}`,
+        );
+        continue;
+      }
+      report = validation.value;
+      assertProofArtifactRepository(root, report.header, `RuntimeGraphObservationReport:${entry.id}`);
+    } catch (error) {
+      warnings.push(
+        `contract-verifier-observation-unavailable: RuntimeGraphObservationReport:${entry.id} ${error instanceof Error ? error.message : String(error)}`,
+      );
+      continue;
+    }
+
+    for (const coverage of report.source.coverageSources ?? []) {
+      if (coverage.isolated !== true
+        || coverage.commandStatus !== "passed"
+        || !coverage.verificationRunRef
+        || !coverage.commandId) continue;
+      const coveredPaths = [...new Set((coverage.fileCoverage ?? []).flatMap((file) => {
+        const observed = file.statements.covered + file.functions.covered + file.branches.covered;
+        if (observed <= 0) return [];
+        try {
+          return [normalizeProofPath(file.path)];
+        } catch {
+          return [];
+        }
+      }))].sort();
+      if (coveredPaths.length === 0) continue;
+
+      const runContext = await readVerificationRunContext(
+        store,
+        root,
+        coverage.verificationRunRef,
+        [],
+        warnings,
+      );
+      if (!runContext) continue;
+      const runCommand = runContext.run.commands.find((command) => command.id === coverage.commandId);
+      if (!runCommand
+        || runCommand.status !== "passed"
+        || !runCommand.argv.some((argument) =>
+          verificationArgumentMatchesPath(root, argument, coverage.testPath))) {
+        warnings.push(
+          `contract-verifier-run-mismatch: RuntimeGraphObservationReport:${entry.id} does not link command ${coverage.commandId} to a passed VerificationRun command that names ${coverage.testPath}`,
+        );
+        continue;
+      }
+
+      const command = runCommand.command.trim().replace(/\s+/gu, " ");
+      if (!command) continue;
+      const evidenceRefs = dedupeArtifactRefs([artifactIndexRef(entry), runContext.ref]);
+      const key = `${command}\0${coveredPaths.join("\0")}`;
+      collected.set(key, {
+        method: "test",
+        command,
+        coveredPaths,
+        testPath: coverage.testPath,
+        evidenceRefs,
+      });
+    }
+  }
+
+  return {
+    evidence: [...collected.values()].sort((left, right) =>
+      left.command.localeCompare(right.command)
+      || left.coveredPaths.join("\0").localeCompare(right.coveredPaths.join("\0"))),
+    warnings: [...new Set(warnings)].sort(),
+  };
 }
 
 async function reconcileRepositoryContracts(input: {
@@ -14796,13 +14916,13 @@ async function reconcileRepositoryContracts(input: {
   maxFlows: number;
   maxDepth: number;
 }) {
-  let intelligence = await loadRepositoryContractIntelligence(input.store);
+  let intelligence = await loadRepositoryContractIntelligence(input.store, input.root);
   if (!intelligence.effectiveRegistry) {
     const compiled = await compileRepositoryContracts(input.root, input.store);
     if (!compiled.valid) {
       return { status: "blocked" as const, compiled };
     }
-    intelligence = await loadRepositoryContractIntelligence(input.store);
+    intelligence = await loadRepositoryContractIntelligence(input.store, input.root);
   }
   const registry = intelligence.effectiveRegistry;
   if (!registry) throw new Error("Contract reconciliation could not create an effective registry.");
@@ -14838,6 +14958,9 @@ async function reconcileRepositoryContracts(input: {
     ownershipMap: intelligence.ownershipMap,
     capabilityMap: intelligence.capabilityMap,
     effectiveRegistry: registry,
+    existingFlowContracts: contracts.filter((contract): contract is FlowContract =>
+      contract.header.artifactType === "FlowContract"),
+    verificationEvidence: intelligence.verificationEvidence,
     reconsiderContractIds,
     maxFlows: input.maxFlows,
     maxDepth: input.maxDepth,

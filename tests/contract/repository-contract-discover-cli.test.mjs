@@ -56,6 +56,9 @@ test("CLI discovers, judges, and permission-gates adoption of repository contrac
   assert.ok(report.candidates.every((candidate) => candidate.kind === "system" || candidate.kind === "flow"));
   const flow = report.candidates.find((candidate) => candidate.kind === "flow");
   assert.ok(flow.proposed.handoffs.length >= 1);
+  assert.ok(flow.proposed.handoffs.every((handoff) =>
+    Array.isArray(handoff.verification?.acceptedMethods)
+      && handoff.verification.acceptedMethods.length > 0));
 
   await assert.rejects(access(join(root, "rekon.contract.json")));
   await assert.rejects(access(join(root, "rekon", "contracts")));

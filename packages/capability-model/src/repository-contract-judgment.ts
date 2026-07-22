@@ -6,7 +6,7 @@ import {
   assertRepositoryContractSourceDocument,
 } from "@rekon/kernel-repo-model";
 
-export const REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION = "repository-contract-judge-v1";
+export const REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION = "repository-contract-judge-v2";
 
 export type RepositoryContractJudgmentDraftCitation = {
   path: string;
@@ -77,6 +77,9 @@ export function buildRepositoryContractJudgmentPrompt(report: ContractCandidateR
     "- inspect the source that owns the behavior and any focused tests or configuration that establish intent;",
     "- accept only when purpose, outcomes, invariants, boundaries, and required checks are supported;",
     "- replace generic discovery wording with concise repository-native wording in proposed;",
+    "- preserve an explicit verification policy for every proposed flow handoff;",
+    "- prefer the smallest repeatable test that exercises both sides of a handoff, use runtime only when current runtime evidence observes the edge, and use model-judgment only when no deterministic verifier is supported;",
+    "- keep exact requiredChecks only when the cited test or configuration supports the command; do not invent command names;",
     "- preserve the candidate target id and contract kind;",
     "- cite repository-relative source paths and tight line ranges;",
     "- reject a false boundary or flow; use uncertain when evidence is insufficient;",
@@ -119,6 +122,13 @@ export function coerceRepositoryContractJudgmentDrafts(
     const proposed = raw.proposed === undefined
       ? undefined
       : assertProposal(raw.proposed, candidate.kind, candidate.targetId, `judgments[${index}].proposed`);
+    if (decision === "accept" && proposed && candidate.kind === "flow") {
+      assertProposedVerifierPolicies(
+        candidate.proposed as FlowContractSource,
+        proposed as FlowContractSource,
+        `judgments[${index}].proposed`,
+      );
+    }
     if (decision === "accept" && citations.length === 0) {
       throw new TypeError(`Accepted judgment ${candidateId} requires a current source citation.`);
     }
@@ -142,6 +152,23 @@ export function coerceRepositoryContractJudgmentDrafts(
     });
   }
   return drafts.sort((left, right) => left.candidateId.localeCompare(right.candidateId));
+}
+
+function assertProposedVerifierPolicies(
+  discovered: FlowContractSource,
+  proposed: FlowContractSource,
+  path: string,
+): void {
+  for (const discoveredHandoff of discovered.handoffs) {
+    if (!discoveredHandoff.verification) continue;
+    const proposedHandoff = proposed.handoffs.find((handoff) => handoff.id === discoveredHandoff.id);
+    if (!proposedHandoff) {
+      throw new TypeError(`${path}.handoffs must retain discovered handoff ${discoveredHandoff.id}.`);
+    }
+    if (!proposedHandoff.verification) {
+      throw new TypeError(`${path}.handoffs.${discoveredHandoff.id}.verification must remain explicit.`);
+    }
+  }
 }
 
 function assertProposal(

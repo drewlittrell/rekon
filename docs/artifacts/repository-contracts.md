@@ -52,12 +52,27 @@ contracts without `verification` retain the compatible default: one supported
 test, runtime observation, or model judgment can prove the edge, and a
 flow-level check may bind to affected handoffs.
 
+Discovery gives every proposed flow handoff an explicit verifier policy. It
+uses this order:
+
+1. preserve the policy from the current adopted handoff;
+2. nominate the smallest passed, isolated test known to cover paths on both
+   sides of the handoff;
+3. accept runtime proof when the current graph observes the edge at runtime;
+4. require model judgment when no deterministic verifier is available.
+
+Historical coverage selects a command to run; it does not prove the current
+source. The accepted judgment must retain an explicit policy for every
+handoff. Reconciliation preserves adopted policies unless a source-cited
+judgment replaces them.
+
 `EffectiveContractRegistry` indexes current system, capability, handoff, and
 flow contracts by authority and scope. It contains refs rather than copying
 contract bodies.
 
 `ContractCandidateReport` contains bounded, inferred system and flow proposals
-from current repository evidence. It is not repository law.
+from current repository evidence. Its input refs include any coverage or
+adopted contract used to choose handoff verification. It is not repository law.
 
 `ContractJudgmentReport` records source-cited agent judgment. An accepted
 candidate must cite current repository source and provide a repository-native
