@@ -60,12 +60,22 @@ source files.
 `discoverRepositoryContractCandidates()` derives bounded, inferred system and
 flow proposals from the unified repository intelligence graph. Callers may
 provide current `existingFlowContracts` and validated
-`RepositoryContractVerificationEvidence`. Discovery preserves an adopted
+`RepositoryContractVerificationEvidence`, plus the inventory of indexed
+runtime reports that were checked. Discovery records whether that inventory
+was complete, whether topology included runtime claims, and whether isolated
+coverage was actually available. A complete inventory with zero runtime or
+coverage records is a structural-only proposal, not proof that deterministic
+evidence cannot exist. Discovery preserves an adopted
 handoff policy first, then may nominate an exact passed isolated test that
 covers both stage endpoints, a current runtime-observed edge, or model judgment
 as the fallback. Historical coverage selects a check; it never proves current
 source. Discovery remains pure: it executes no command, calls no model
 provider, and writes no source.
+CLI discovery follows the deterministic module-scope call path to a successful
+stdout boundary. Test entry points remain verification context and are not
+treated as product-flow starts. Built-in entry, callable, and CLI-output graph
+identities retain their repository paths so exact coverage observations can
+select a handoff check.
 `buildRepositoryContractDriftReport()` compares adopted contracts with current
 source, ownership, and flow evidence.
 `buildTaskPact()` selects the adopted system and end-to-end flow law for one

@@ -61,10 +61,32 @@ uses this order:
 3. accept runtime proof when the current graph observes the edge at runtime;
 4. require model judgment when no deterministic verifier is available.
 
+Discovery inventories every currently indexed source it supports before it
+proposes a flow. `ContractCandidateReport.evidenceInventory` records the graph
+artifact types and claims considered, accepted runtime claims, adopted flow
+contracts, runtime-observation reports checked, and validated isolated coverage
+records. `status: complete` means that inventory succeeded; it does not mean
+runtime or coverage evidence existed. Missing runtime evidence leaves a
+structural topology and provisional verifier fallbacks. Unreadable or invalid
+evidence makes the inventory and artifact freshness `partial` instead of being
+silently ignored.
+
+This is an iterative bootstrap. A cold scan can propose a structural flow,
+which identifies where runtime or test evidence is worth gathering. A later
+observe/project/discover pass can then refine the topology and verifier policy
+from those observations.
+
 Historical coverage selects a command to run; it does not prove the current
 source. The accepted judgment must retain an explicit policy for every
 handoff. Reconciliation preserves adopted policies unless a source-cited
 judgment replaces them.
+
+For JavaScript and TypeScript CLIs, discovery can follow the executable entry
+through module scope and resolved calls to AST-observed stdout. Test entry
+points are verification context, not product-flow starts. Entry, callable, and
+stdout stages preserve their repository path so a validated isolated coverage
+observation can match both sides of a handoff. Stderr and output correctness
+remain separate failure and semantic concerns.
 
 `EffectiveContractRegistry` indexes current system, capability, handoff, and
 flow contracts by authority and scope. It contains refs rather than copying
@@ -72,7 +94,8 @@ contract bodies.
 
 `ContractCandidateReport` contains bounded, inferred system and flow proposals
 from current repository evidence. Its input refs include any coverage or
-adopted contract used to choose handoff verification. It is not repository law.
+runtime observation inventoried during discovery and any adopted contract used
+to choose handoff verification. It is not repository law.
 
 `ContractJudgmentReport` records source-cited agent judgment. An accepted
 candidate must cite current repository source and provide a repository-native

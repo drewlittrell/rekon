@@ -1844,6 +1844,18 @@ function factsFromAstResult(
       }, path, flow.location.line));
       continue;
     }
+    const stdoutOperation = deterministicStdoutOperation(flow.root, flow.members);
+    if (stdoutOperation) {
+      facts.push(fact("output_flow", `${path}:${flow.caller}:${stdoutOperation}`, {
+        source: path,
+        caller: flow.caller,
+        channel: "stdout",
+        operation: stdoutOperation,
+        extractionMethod: "ast" as const,
+        confidence: "high" as AstConfidence,
+      }, path));
+      continue;
+    }
     const binding = allImportBindings.get(flow.root);
     if (!binding || !isKnownStatePackage(binding.target)) continue;
     facts.push(fact("state_access", `${path}:${flow.caller}:${binding.target}:${flow.members.join(".")}`, {
@@ -1877,6 +1889,17 @@ function factsFromAstResult(
   }
 
   return facts;
+}
+
+function deterministicStdoutOperation(root: string, members: string[]): string | undefined {
+  const method = members.at(-1);
+  if (root === "console" && method && ["dir", "info", "log", "table"].includes(method)) {
+    return `console.${method}`;
+  }
+  if (root === "process" && members.length === 2 && members[0] === "stdout" && method === "write") {
+    return "process.stdout.write";
+  }
+  return undefined;
 }
 
 function isKnownStatePackage(target: string): boolean {

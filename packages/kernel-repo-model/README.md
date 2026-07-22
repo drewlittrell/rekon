@@ -86,6 +86,10 @@ digests so later edits cannot reuse it.
 `FlowContract` handoffs may declare accepted proof methods, an acceptance
 policy, and exact checks for their dependency edge. These declarations do not
 collapse payload, guarantee, ordering, or failure semantics into edge proof.
+`ContractCandidateReport.evidenceInventory` distinguishes successful inventory
+of supported evidence from actual runtime and isolated-coverage availability.
+It is optional when reading earlier v1 reports; current discovery producers
+emit it and mark validation gaps as partial.
 `TaskContextItem` may also carry a `routeRole`, `necessity`, and
 `necessityReason`. These fields distinguish task targets, repository law,
 implementation, handoff, verification, dependency, compatibility, and

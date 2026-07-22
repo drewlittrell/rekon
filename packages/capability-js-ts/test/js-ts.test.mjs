@@ -2051,7 +2051,14 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
       "export function main() { serve(); }",
       "export async function lazy() { return import('./lazy.js'); }",
     ].join("\n"), "utf8");
-    await writeFile(join(root, "src", "cli.ts"), "#!/usr/bin/env node\nimport { main } from './index.js'; main();\n", "utf8");
+    await writeFile(join(root, "src", "cli.ts"), [
+      "#!/usr/bin/env node",
+      "import { main } from './index.js';",
+      "main();",
+      "console.log('ready');",
+      "process.stdout.write('done\\n');",
+      "console.error('not a successful output');",
+    ].join("\n"), "utf8");
     await writeFile(join(root, "src", "service.ts"), [
       "import * as prisma from '@prisma/client';",
       "export function serve() { events.emit('user.loaded'); return prisma.user.findMany(); }",
@@ -2071,6 +2078,7 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
     const facts = await jsTsProvider.extract({ repoRoot: root, includeTests: true });
     const calls = facts.filter((fact) => fact.kind === "call");
     const entries = facts.filter((fact) => fact.kind === "entry_point");
+    const outputs = facts.filter((fact) => fact.kind === "output_flow");
     const dynamicImport = facts.find((fact) => fact.kind === "import" && fact.value.importKind === "dynamic");
 
     assert.ok(calls.some((fact) => fact.value.caller === "main" && fact.value.targetFile === "src/service.ts" && fact.value.targetSymbol === "serve"));
@@ -2080,6 +2088,11 @@ test("JS/TS provider emits resolved calls, dynamic imports, and explicit entry p
     assert.ok(facts.some((fact) => fact.kind === "event_flow" && fact.value.eventName === "user.loaded" && fact.value.action === "emit"));
     assert.ok(facts.some((fact) => fact.kind === "state_access" && fact.value.package === "@prisma/client" && fact.value.operation === "user.findMany"));
     assert.ok(facts.some((fact) => fact.kind === "error_flow" && fact.value.caller === "guarded" && fact.value.action === "rethrow"));
+    assert.deepEqual(
+      outputs.map((fact) => fact.value.operation).sort(),
+      ["console.log", "process.stdout.write"],
+    );
+    assert.ok(outputs.every((fact) => fact.value.channel === "stdout" && fact.value.source === "src/cli.ts"));
     assert.ok(entries.some((fact) => fact.value.entryKind === "package" && fact.value.path === "src/index.ts"));
     assert.ok(entries.some((fact) => fact.value.entryKind === "cli" && fact.value.path === "src/cli.ts"));
     assert.ok(entries.some((fact) => fact.value.entryKind === "route" && fact.value.path === "app/api/users/route.ts"));

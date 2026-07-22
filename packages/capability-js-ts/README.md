@@ -51,7 +51,7 @@ Ordinary unused locals and public declarations remain outside this signal.
 - `test` for test files and recognized test frameworks
 - `call` for syntactically resolved local and imported calls
 - `entry_point` for manifest, route, screen, test, CLI, worker, and framework roots
-- `event_flow`, `state_access`, `cache_flow`, `cleanup_flow`, `dependency_flow`, `error_flow`,
+- `event_flow`, `state_access`, `output_flow`, `cache_flow`, `cleanup_flow`, `dependency_flow`, `error_flow`,
   `option_flow`, `resource_flow`, and `scope_model` for narrow
   deterministic behavior signals; option-flow facts preserve spread sources,
   overrides, fallbacks, callback context, and same-property boolean defaults
@@ -64,6 +64,10 @@ Ordinary unused locals and public declarations remain outside this signal.
   lexical boundaries, plus binding transforms that resolve reference names from
   one scope anchor rather than tracking individual occurrences. They remain
   evidence rather than defects.
+  Output-flow facts record AST-observed `console.log`/`info`/`dir`/`table` and
+  `process.stdout.write` calls by source callable. They model successful
+  standard output for CLI flow projection; stderr and output correctness are
+  not inferred.
   Resource-flow facts identify request/reply objects stored on connection-owned
   state, request-scoped closures attached to connection sockets, and matching
   explicit releases. They also identify named XHR `readystatechange` listeners

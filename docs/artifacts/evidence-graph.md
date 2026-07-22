@@ -49,6 +49,7 @@ they may collide with built-ins.
 | `entry_point` | manifest or convention-backed repository root |
 | `event_flow` | literal event emission or subscription |
 | `state_access` | direct call through a recognized imported state SDK |
+| `output_flow` | AST-observed successful stdout call and its containing callable |
 | `cache_flow` | cache contracts, including omitted result parameters in memoization keys and lazy Promise caches without visible rejection eviction |
 | `cleanup_flow` | lifecycle function with multiple visible cleanup obligations and a fail-fast wait shape, or a dependency-bearing React effect whose Promise aggregate continuation updates state without returned cleanup |
 | `dependency_flow` | dependency selection control flow, including conditional overwrite, a generic lookup that bypasses the current provider candidate, or first-match selection across multiple reference namespaces despite a visible ambiguity contract |

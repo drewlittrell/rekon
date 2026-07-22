@@ -6,7 +6,7 @@ import {
   assertRepositoryContractSourceDocument,
 } from "@rekon/kernel-repo-model";
 
-export const REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION = "repository-contract-judge-v2";
+export const REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION = "repository-contract-judge-v3";
 
 export type RepositoryContractJudgmentDraftCitation = {
   path: string;
@@ -73,12 +73,14 @@ export function buildRepositoryContractJudgmentPrompt(report: ContractCandidateR
   return [
     "Judge inferred Rekon repository-contract candidates against the current repository source and tests.",
     "These drafts are not repository law. Do not accept a candidate merely because its topology is plausible.",
+    "The evidence inventory describes which supported sources discovery actually checked. A complete inventory means indexed sources were read successfully; it does not mean runtime or isolated coverage evidence existed.",
     "For each candidate:",
     "- inspect the source that owns the behavior and any focused tests or configuration that establish intent;",
     "- accept only when purpose, outcomes, invariants, boundaries, and required checks are supported;",
     "- replace generic discovery wording with concise repository-native wording in proposed;",
     "- preserve an explicit verification policy for every proposed flow handoff;",
     "- prefer the smallest repeatable test that exercises both sides of a handoff, use runtime only when current runtime evidence observes the edge, and use model-judgment only when no deterministic verifier is supported;",
+    "- when runtime or isolated coverage evidence was absent, treat a discovered model-judgment verifier as provisional and inspect current focused tests and configuration before retaining it;",
     "- keep exact requiredChecks only when the cited test or configuration supports the command; do not invent command names;",
     "- preserve the candidate target id and contract kind;",
     "- cite repository-relative source paths and tight line ranges;",
@@ -87,6 +89,11 @@ export function buildRepositoryContractJudgmentPrompt(report: ContractCandidateR
     "Accepted judgments require at least one current source citation and a complete proposed contract.",
     "Return only JSON matching the supplied schema.",
     `Prompt version: ${REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION}`,
+    "Discovery evidence inventory:",
+    JSON.stringify(report.evidenceInventory ?? {
+      status: "partial",
+      issues: ["This compatibility report predates evidence inventory metadata."],
+    }, null, 2),
     "Candidates:",
     JSON.stringify(candidates, null, 2),
   ].join("\n");

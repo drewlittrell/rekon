@@ -89,6 +89,15 @@ verification recording, reconciliation planning, and artifact validation.
   handoff an explicit policy from validated isolated coverage, runtime
   observation, or model judgment. Historical coverage nominates the check; a
   current digest-bound run still supplies proof.
+- JavaScript and TypeScript CLI discovery now connects executable module scope
+  to successful stdout, excludes test roots from product-flow starts, and
+  preserves source paths across callable stages so isolated coverage can bind
+  to exact handoffs.
+- Contract candidate reports now expose evidence inventory separately from
+  evidence availability. Discovery checks every indexed runtime-observation
+  report, cites valid reports even when they contain no edge coverage, and
+  marks malformed evidence partial rather than silently treating a
+  structural-only fallback as conclusive.
 - A source-free repository-law gate covers compositional system semantics,
   cross-system baton preservation, and unrelated-law isolation. It raises
   required-path recall from 72.22% to 100% at 100% precision, with a 282-token

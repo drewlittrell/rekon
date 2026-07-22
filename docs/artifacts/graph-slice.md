@@ -41,8 +41,11 @@ transitive imports and delegates test dependency context to the application
 graph. Entry-node `metadata.reachabilityProjection` and header provenance make
 truncation explicit, while `header.inputRefs` cites the complete import graph.
 The behavior graph records
-literal events, directly imported state-SDK calls, and explicit throws. These
-edges explain impact; they do not alter severity by themselves.
+literal events, directly imported state-SDK calls, successful stdout calls, and
+explicit throws. CLI roots connect to module-scope execution; stdout calls
+produce source-scoped `cli_output` nodes. Test roots remain graph context and
+are not product-flow starts. These edges explain impact; they do not alter
+severity or prove output correctness by themselves.
 
 `related_to` and `observed` are context, not assertion coverage. Rekon does not
 emit a `covers` edge from imports, shared dependencies, or execution alone.

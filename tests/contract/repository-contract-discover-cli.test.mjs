@@ -46,12 +46,19 @@ test("CLI discovers, judges, and permission-gates adoption of repository contrac
   assert.equal(output.artifact.type, "ContractCandidateReport");
   assert.equal(output.authority, "inferred");
   assert.equal(output.adopted, false);
+  assert.equal(output.evidenceInventory.status, "complete");
+  assert.equal(output.evidenceInventory.topologyBasis, "structural");
+  assert.deepEqual(output.evidenceInventory.verification.runtimeObservationReports, {
+    indexed: 0,
+    validated: 0,
+  });
   assert.ok(output.summary.total >= 1);
   assert.ok(output.summary.systems >= 1);
   assert.ok(output.summary.flows >= 1);
 
   const report = JSON.parse(await readFile(resolve(root, output.artifact.path), "utf8"));
   assert.equal(report.header.artifactType, "ContractCandidateReport");
+  assert.deepEqual(report.evidenceInventory, output.evidenceInventory);
   assert.ok(report.header.inputRefs.some((ref) => ref.type === "ObservedRepo"));
   assert.ok(report.candidates.every((candidate) => candidate.kind === "system" || candidate.kind === "flow"));
   const flow = report.candidates.find((candidate) => candidate.kind === "flow");

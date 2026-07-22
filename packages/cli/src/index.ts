@@ -85,6 +85,7 @@ import modelCapability, {
   coerceRepositoryContractJudgmentDrafts,
   discoverRepositoryContractCandidates,
   type RepositoryContractVerificationEvidence,
+  type RepositoryContractVerificationInventory,
   REPOSITORY_CONTRACT_JUDGMENT_JSON_SCHEMA,
   REPOSITORY_CONTRACT_JUDGMENT_PROMPT_VERSION,
   buildStepCapabilityGraph,
@@ -833,6 +834,7 @@ export async function main(argv: string[]): Promise<void> {
       effectiveRegistry,
       existingFlowContracts,
       verificationEvidence,
+      verificationInventory,
     } = await loadRepositoryContractIntelligence(store, root);
     const report = discoverRepositoryContractCandidates({
       repoId: root,
@@ -843,6 +845,7 @@ export async function main(argv: string[]): Promise<void> {
       effectiveRegistry,
       existingFlowContracts,
       verificationEvidence,
+      verificationInventory,
       maxFlows: positiveIntegerFlag(parsed.flags["max-flows"], 50),
       maxDepth: positiveIntegerFlag(parsed.flags["max-depth"], 8),
     });
@@ -851,6 +854,7 @@ export async function main(argv: string[]): Promise<void> {
       command: "contracts discover",
       artifact,
       summary: report.summary,
+      evidenceInventory: report.evidenceInventory,
       unresolved: report.unresolved.length,
       graphWarnings: graph.warnings,
       authority: "inferred",
@@ -14681,6 +14685,7 @@ async function bootstrapRepositoryContracts(input: {
     effectiveRegistry: intelligence.effectiveRegistry,
     existingFlowContracts: intelligence.existingFlowContracts,
     verificationEvidence: intelligence.verificationEvidence,
+    verificationInventory: intelligence.verificationInventory,
     maxFlows: input.maxFlows,
     maxDepth: input.maxDepth,
   });
@@ -14711,6 +14716,7 @@ async function bootstrapRepositoryContracts(input: {
       snapshot: snapshotRef,
     },
     summary: candidates.summary,
+    evidenceInventory: candidates.evidenceInventory,
     unresolved: candidates.unresolved,
     graphWarnings: intelligence.graph.warnings,
     agentInstructions,
@@ -14818,19 +14824,25 @@ async function loadRepositoryContractIntelligence(
     effectiveRegistry,
     existingFlowContracts,
     verificationEvidence: verification.evidence,
+    verificationInventory: verification.inventory,
   };
 }
 
 async function loadRepositoryContractVerificationEvidence(
   store: ReturnType<typeof createLocalArtifactStore>,
   root: string,
-): Promise<{ evidence: RepositoryContractVerificationEvidence[]; warnings: string[] }> {
+): Promise<{
+  evidence: RepositoryContractVerificationEvidence[];
+  warnings: string[];
+  inventory: RepositoryContractVerificationInventory;
+}> {
   const warnings: string[] = [];
   const collected = new Map<string, RepositoryContractVerificationEvidence>();
+  const inputRefs: ArtifactRef[] = [];
+  let validatedRuntimeObservationReports = 0;
   const entries = (await store.list("RuntimeGraphObservationReport"))
     .slice()
-    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))
-    .slice(0, 12);
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
 
   for (const entry of entries) {
     let report: RuntimeGraphObservationReport;
@@ -14846,6 +14858,8 @@ async function loadRepositoryContractVerificationEvidence(
       }
       report = validation.value;
       assertProofArtifactRepository(root, report.header, `RuntimeGraphObservationReport:${entry.id}`);
+      validatedRuntimeObservationReports += 1;
+      inputRefs.push(artifactIndexRef(entry));
     } catch (error) {
       warnings.push(
         `contract-verifier-observation-unavailable: RuntimeGraphObservationReport:${entry.id} ${error instanceof Error ? error.message : String(error)}`,
@@ -14907,6 +14921,13 @@ async function loadRepositoryContractVerificationEvidence(
       left.command.localeCompare(right.command)
       || left.coveredPaths.join("\0").localeCompare(right.coveredPaths.join("\0"))),
     warnings: [...new Set(warnings)].sort(),
+    inventory: {
+      indexedRuntimeObservationReports: entries.length,
+      validatedRuntimeObservationReports,
+      isolatedCoverageRecords: collected.size,
+      inputRefs: dedupeArtifactRefs(inputRefs),
+      warnings: [...new Set(warnings)].sort(),
+    },
   };
 }
 
@@ -14961,6 +14982,7 @@ async function reconcileRepositoryContracts(input: {
     existingFlowContracts: contracts.filter((contract): contract is FlowContract =>
       contract.header.artifactType === "FlowContract"),
     verificationEvidence: intelligence.verificationEvidence,
+    verificationInventory: intelligence.verificationInventory,
     reconsiderContractIds,
     maxFlows: input.maxFlows,
     maxDepth: input.maxDepth,
@@ -14969,7 +14991,11 @@ async function reconcileRepositoryContracts(input: {
   return {
     status: drift.summary.drifted > 0 ? "drifted" as const : drift.summary.unverified > 0 ? "unverified" as const : "current" as const,
     drift: { artifact: driftRef, summary: drift.summary, entries: drift.entries },
-    candidates: { artifact: candidateRef, summary: candidates.summary },
+    candidates: {
+      artifact: candidateRef,
+      summary: candidates.summary,
+      evidenceInventory: candidates.evidenceInventory,
+    },
     next: candidates.summary.total > 0
       ? `rekon contracts maintain --candidate-report ${candidateRef.id} --input <judgment.json> --root . --json`
       : undefined,

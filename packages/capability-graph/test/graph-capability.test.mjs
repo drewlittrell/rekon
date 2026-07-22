@@ -26,6 +26,7 @@ test("graph capability projects structural and application-context slices", asyn
       },
       facts: [
         { kind: "file", subject: "src/index.ts", value: {}, confidence: 1 },
+        { kind: "file", subject: "src/cli.ts", value: { path: "src/cli.ts" }, confidence: 1 },
         { kind: "file", subject: "src/user-service.ts", value: { path: "src/user-service.ts" }, confidence: 1 },
         { kind: "file", subject: "app/api/users/route.ts", value: { path: "app/api/users/route.ts" }, confidence: 1 },
         { kind: "file", subject: "app/users/page.tsx", value: { path: "app/users/page.tsx" }, confidence: 1 },
@@ -43,10 +44,13 @@ test("graph capability projects structural and application-context slices", asyn
         { kind: "test", subject: "tests/user.test.ts", value: { path: "tests/user.test.ts", framework: "node-test", testKind: "unit" }, confidence: 1 },
         { kind: "capability_hint", subject: "src/user-service.ts", value: { path: "src/user-service.ts", capability: "users" }, confidence: 0.9 },
         { kind: "call", subject: "app/api/users/route.ts:GET->src/user-service.ts:listUsers", value: { source: "app/api/users/route.ts", caller: "GET", targetFile: "src/user-service.ts", targetSymbol: "listUsers", resolution: "import-binding", callKind: "call" }, confidence: 1 },
+        { kind: "call", subject: "src/cli.ts:__module__->src/cli.ts:main", value: { source: "src/cli.ts", caller: "__module__", targetFile: "src/cli.ts", targetSymbol: "main", resolution: "local-binding", callKind: "call" }, confidence: 1 },
         { kind: "entry_point", subject: "route:app/api/users/route.ts", value: { path: "app/api/users/route.ts", entryKind: "route", source: "framework-convention", routePath: "/api/users", handlers: ["GET"] }, confidence: 1 },
+        { kind: "entry_point", subject: "cli:src/cli.ts", value: { path: "src/cli.ts", entryKind: "cli", source: "cli-convention" }, confidence: 1 },
         { kind: "entry_point", subject: "test:tests/user.test.ts", value: { path: "tests/user.test.ts", entryKind: "test", source: "framework-convention" }, confidence: 1 },
         { kind: "event_flow", subject: "src/user-service.ts:listUsers:emit:user.loaded", value: { source: "src/user-service.ts", caller: "listUsers", action: "emit", eventName: "user.loaded", receiver: "events" }, confidence: 1 },
         { kind: "state_access", subject: "src/user-service.ts:listUsers:@prisma/client:user.findMany", value: { source: "src/user-service.ts", caller: "listUsers", package: "@prisma/client", binding: "prisma", operation: "user.findMany" }, confidence: 1 },
+        { kind: "output_flow", subject: "src/cli.ts:main:process.stdout.write", value: { source: "src/cli.ts", caller: "main", channel: "stdout", operation: "process.stdout.write" }, confidence: 1 },
         { kind: "error_flow", subject: "src/user-service.ts:listUsers:rethrow:20:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "rethrow", errorName: "error", errorIdentity: "error", line: 20 }, confidence: 1 },
         { kind: "error_flow", subject: "src/user-service.ts:listUsers:throw:24:3", value: { source: "src/user-service.ts", caller: "listUsers", action: "throw", errorIdentity: "AbortError", line: 24 }, confidence: 1 },
       ],
@@ -115,11 +119,20 @@ test("graph capability projects structural and application-context slices", asyn
       edge.source === "callable:app/api/users/route.ts#GET"
       && edge.target === "callable:src/user-service.ts#listUsers"
       && edge.kind === "calls"));
+    assert.ok(callGraph.edges.some((edge) =>
+      edge.source === "callable:src/cli.ts#__module__"
+      && edge.target === "callable:src/cli.ts#main"
+      && edge.kind === "calls"));
     const reachabilityGraph = await runtime.artifacts.read(refs[5]);
     assert.ok(reachabilityGraph.edges.some((edge) =>
       edge.source === "entry:route:app/api/users/route.ts"
       && edge.target === "callable:app/api/users/route.ts#GET"
       && edge.kind === "handles"));
+    assert.ok(reachabilityGraph.edges.some((edge) =>
+      edge.source === "entry:cli:src/cli.ts"
+      && edge.target === "callable:src/cli.ts#__module__"
+      && edge.kind === "handles"
+      && edge.metadata.relationship === "module-entry"));
     assert.ok(reachabilityGraph.edges.some((edge) =>
       edge.source === "entry:route:app/api/users/route.ts"
       && edge.target === "src/user-service.ts"
@@ -128,6 +141,10 @@ test("graph capability projects structural and application-context slices", asyn
     const behaviorGraph = await runtime.artifacts.read(refs[6]);
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "emits" && edge.target === "event:user.loaded"));
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "accesses" && edge.target === "state:@prisma/client"));
+    assert.ok(behaviorGraph.edges.some((edge) =>
+      edge.source === "callable:src/cli.ts#main"
+      && edge.target === "cli-output:src/cli.ts#main:stdout"
+      && edge.kind === "produces"));
     assert.ok(behaviorGraph.edges.some((edge) => edge.kind === "propagates_error" && edge.metadata.action === "rethrow"));
     assert.deepEqual(
       behaviorGraph.nodes

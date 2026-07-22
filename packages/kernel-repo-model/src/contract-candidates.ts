@@ -23,8 +23,30 @@ export type ContractCandidate = {
   proposed: SystemContractSource | FlowContractSource;
 };
 
+export type ContractDiscoveryEvidenceInventory = {
+  status: "complete" | "partial";
+  topologyBasis: "structural" | "structural-and-runtime";
+  structural: {
+    artifactTypes: string[];
+    graphClaims: number;
+    runtimeClaims: number;
+  };
+  verification: {
+    adoptedFlowContracts: number;
+    runtimeObservationReports: {
+      indexed: number;
+      validated: number;
+    };
+    isolatedCoverageRecords: number;
+  };
+  issues: string[];
+  notes: string[];
+};
+
 export type ContractCandidateReport = {
   header: ArtifactHeader;
+  /** Present on reports produced by evidence-aware discovery. Optional for v1 compatibility. */
+  evidenceInventory?: ContractDiscoveryEvidenceInventory;
   candidates: ContractCandidate[];
   unresolved: Array<{
     id: string;
@@ -114,6 +136,7 @@ export function createContractCandidateReport(
   const unresolved = dedupeById(input.unresolved).sort((left, right) => left.id.localeCompare(right.id));
   return assertContractCandidateReport({
     header: input.header,
+    ...(input.evidenceInventory ? { evidenceInventory: input.evidenceInventory } : {}),
     candidates,
     unresolved,
     summary: {
@@ -129,6 +152,9 @@ export function validateContractCandidateReport(value: unknown): ValidationResul
   const issues: ValidationIssue[] = [];
   if (!isRecord(value)) return invalidRoot();
   validateTypedHeader(issues, value.header, "ContractCandidateReport");
+  if (value.evidenceInventory !== undefined) {
+    validateEvidenceInventory(issues, value.evidenceInventory, "$.evidenceInventory");
+  }
   validateUniqueArray(issues, value.candidates, "$.candidates", validateCandidate);
   validateUniqueArray(issues, value.unresolved, "$.unresolved", validateUnresolved);
   if (!isRecord(value.summary)) {
@@ -319,6 +345,45 @@ function validateUnresolved(issues: ValidationIssue[], value: unknown, path: str
   refArray(issues, value.evidenceRefs, `${path}.evidenceRefs`);
 }
 
+function validateEvidenceInventory(issues: ValidationIssue[], value: unknown, path: string): void {
+  if (!isRecord(value)) return void issues.push({ path, message: "Expected an object." });
+  if (value.status !== "complete" && value.status !== "partial") {
+    issues.push({ path: `${path}.status`, message: "Expected complete or partial." });
+  }
+  if (value.topologyBasis !== "structural" && value.topologyBasis !== "structural-and-runtime") {
+    issues.push({ path: `${path}.topologyBasis`, message: "Expected structural or structural-and-runtime." });
+  }
+  if (!isRecord(value.structural)) {
+    issues.push({ path: `${path}.structural`, message: "Expected an object." });
+  } else {
+    stringArray(issues, value.structural.artifactTypes, `${path}.structural.artifactTypes`);
+    nonNegativeInteger(issues, value.structural.graphClaims, `${path}.structural.graphClaims`);
+    nonNegativeInteger(issues, value.structural.runtimeClaims, `${path}.structural.runtimeClaims`);
+  }
+  if (!isRecord(value.verification)) {
+    issues.push({ path: `${path}.verification`, message: "Expected an object." });
+  } else {
+    nonNegativeInteger(issues, value.verification.adoptedFlowContracts, `${path}.verification.adoptedFlowContracts`);
+    nonNegativeInteger(issues, value.verification.isolatedCoverageRecords, `${path}.verification.isolatedCoverageRecords`);
+    if (!isRecord(value.verification.runtimeObservationReports)) {
+      issues.push({ path: `${path}.verification.runtimeObservationReports`, message: "Expected an object." });
+    } else {
+      nonNegativeInteger(issues, value.verification.runtimeObservationReports.indexed, `${path}.verification.runtimeObservationReports.indexed`);
+      nonNegativeInteger(issues, value.verification.runtimeObservationReports.validated, `${path}.verification.runtimeObservationReports.validated`);
+      if (typeof value.verification.runtimeObservationReports.indexed === "number"
+        && typeof value.verification.runtimeObservationReports.validated === "number"
+        && value.verification.runtimeObservationReports.validated > value.verification.runtimeObservationReports.indexed) {
+        issues.push({
+          path: `${path}.verification.runtimeObservationReports.validated`,
+          message: "Validated report count cannot exceed indexed report count.",
+        });
+      }
+    }
+  }
+  stringArray(issues, value.issues, `${path}.issues`);
+  stringArray(issues, value.notes, `${path}.notes`);
+}
+
 function validateJudgment(issues: ValidationIssue[], value: unknown, path: string): void {
   if (!isRecord(value)) return void issues.push({ path, message: "Expected an object." });
   requiredString(issues, value.candidateId, `${path}.candidateId`);
@@ -422,6 +487,17 @@ function requiredString(issues: ValidationIssue[], value: unknown, path: string)
 
 function optionalString(issues: ValidationIssue[], value: unknown, path: string): void {
   if (value !== undefined) requiredString(issues, value, path);
+}
+
+function stringArray(issues: ValidationIssue[], value: unknown, path: string): void {
+  if (!Array.isArray(value)) return void issues.push({ path, message: "Expected an array." });
+  value.forEach((entry, index) => requiredString(issues, entry, `${path}[${index}]`));
+}
+
+function nonNegativeInteger(issues: ValidationIssue[], value: unknown, path: string): void {
+  if (!Number.isInteger(value) || Number(value) < 0) {
+    issues.push({ path, message: "Expected a non-negative integer." });
+  }
 }
 
 function confidence(issues: ValidationIssue[], value: unknown, path: string): void {

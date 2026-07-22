@@ -358,7 +358,7 @@ test("provider extraction does not produce CapabilityMap facts (CapabilityMap re
         "file", "import", "export", "symbol", "import_specifier", "reexport",
         "ownership_hint", "capability_hint", "debt_marker", "content_signal",
         "manifest", "build_target", "route", "screen", "test", "call", "entry_point",
-        "event_flow", "state_access", "error_flow",
+        "event_flow", "state_access", "output_flow", "error_flow",
         "typescript:diagnostic", "typescript:source-quality", "typescript:function-metrics",
       ]
         .includes(fact.kind),

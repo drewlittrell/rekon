@@ -88,6 +88,15 @@ test("contract discovery derives an exact handoff verifier from validated isolat
       edges: [],
     });
     const observationRef = await store.write(observation, { category: "graphs" });
+    for (let index = 0; index < 12; index += 1) {
+      await store.write(createRuntimeGraphObservationReport({
+        header: header(root, "RuntimeGraphObservationReport", `empty-observation-${index}`, [graphRef]),
+        source: {},
+        summary: { observedNodes: 0, observedEdges: 0, handoffEvents: 0, ignoredRows: 0, parseErrors: 0 },
+        nodes: [],
+        edges: [],
+      }), { category: "graphs" });
+    }
 
     const output = run(["contracts", "discover", "--root", root, "--json"]);
     const report = JSON.parse(await readFile(resolve(root, output.artifact.path), "utf8"));
@@ -107,6 +116,11 @@ test("contract discovery derives an exact handoff verifier from validated isolat
     });
     assert.ok(report.header.inputRefs.some((ref) => ref.id === runRef.id));
     assert.ok(report.header.inputRefs.some((ref) => ref.id === observationRef.id));
+    assert.deepEqual(report.evidenceInventory.verification.runtimeObservationReports, {
+      indexed: 13,
+      validated: 13,
+    });
+    assert.equal(report.evidenceInventory.verification.isolatedCoverageRecords, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

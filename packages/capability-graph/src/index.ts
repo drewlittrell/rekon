@@ -674,6 +674,22 @@ function entryPointReachabilityProjection(
       metadata: { entryKind },
       evidence: [edgeEvidence(fact, computedAt)],
     });
+    if (entryKind === "cli") {
+      const moduleId = callableId(path, "__module__");
+      nodes.push({
+        id: moduleId,
+        kind: BUILT_IN_NODE_KINDS.callable,
+        metadata: { path, symbol: "__module__", moduleScope: true },
+      });
+      edges.push({
+        source: entryId,
+        target: moduleId,
+        kind: BUILT_IN_EDGE_KINDS.handles,
+        weight: fact.confidence,
+        metadata: { entryKind, handler: "__module__", relationship: "module-entry" },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    }
     for (const [target, record] of projection.records) {
       nodes.push({ id: target, kind: BUILT_IN_NODE_KINDS.file, metadata: { path: target } });
       edges.push({
@@ -746,6 +762,24 @@ function behaviorGraphProjection(
         kind: BUILT_IN_EDGE_KINDS.accesses,
         weight: fact.confidence,
         metadata: { operation, binding: stringField(fact.value, "binding") ?? "unknown" },
+        evidence: [edgeEvidence(fact, computedAt)],
+      });
+    } else if (fact.kind === "output_flow") {
+      const channel = stringField(fact.value, "channel");
+      const operation = stringField(fact.value, "operation");
+      if (channel !== "stdout" || !operation) continue;
+      const outputId = `cli-output:${source}#${caller}:${channel}`;
+      nodes.push({
+        id: outputId,
+        kind: BUILT_IN_NODE_KINDS.cliOutput,
+        metadata: { path: source, caller, channel },
+      });
+      edges.push({
+        source: sourceId,
+        target: outputId,
+        kind: BUILT_IN_EDGE_KINDS.produces,
+        weight: fact.confidence,
+        metadata: { channel, operation },
         evidence: [edgeEvidence(fact, computedAt)],
       });
     } else if (fact.kind === "error_flow") {

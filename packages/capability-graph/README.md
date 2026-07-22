@@ -35,8 +35,12 @@ resolved import distance. Non-test roots retain at most 100 transitive imports;
 test roots retain their entry relationship and delegate dependency context to
 the bounded application graph. Entry metadata and header provenance report
 truncation, and the slice cites the complete import graph instead of copying
-path evidence into every reachability edge. The behavior graph records literal event flow,
-directly imported state-SDK access, and explicit throw/rethrow syntax.
+path evidence into every reachability edge. CLI roots also connect to their
+module-scope callable because loading the executable deterministically runs
+that scope. The behavior graph records literal event flow, directly imported
+state-SDK access, successful stdout calls, and explicit throw/rethrow syntax.
+Stdout becomes a `cli_output` node through a `produces` edge; it is an observed
+boundary, not proof that the response is correct.
 
 ## Lifecycle Fit
 

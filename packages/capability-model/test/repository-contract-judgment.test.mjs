@@ -16,6 +16,18 @@ const report = {
     producer: { id: "@rekon/capability-model", version: "1.0.0" },
     inputRefs: [],
   },
+  evidenceInventory: {
+    status: "complete",
+    topologyBasis: "structural",
+    structural: { artifactTypes: ["GraphSlice"], graphClaims: 4, runtimeClaims: 0 },
+    verification: {
+      adoptedFlowContracts: 0,
+      runtimeObservationReports: { indexed: 0, validated: 0 },
+      isolatedCoverageRecords: 0,
+    },
+    issues: [],
+    notes: ["No validated isolated coverage records were available."],
+  },
   candidates: [{
     id: "candidate:system:intelligence",
     kind: "system",
@@ -93,6 +105,10 @@ test("judgment prompt makes source inspection and repository-native rewriting ex
   assert.match(prompt, /inspect the source/);
   assert.match(prompt, /replace generic discovery wording/);
   assert.match(prompt, /explicit verification policy/);
+  assert.match(prompt, /complete inventory means indexed sources were read successfully/);
+  assert.match(prompt, /model-judgment verifier as provisional/);
+  assert.match(prompt, /Discovery evidence inventory/);
+  assert.match(prompt, /No validated isolated coverage records were available/);
   assert.match(prompt, /do not invent command names/);
   assert.match(prompt, /do not silently invent product intent/);
   assert.match(prompt, /candidate:system:intelligence/);

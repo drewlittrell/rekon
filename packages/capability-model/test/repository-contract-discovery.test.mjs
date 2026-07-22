@@ -83,6 +83,55 @@ test("cold-start discovery drafts system law and a bounded end-to-end flow", () 
     acceptancePolicy: "all-required",
   });
   assert.equal(flow.proposed.criticality, "high");
+  assert.equal(report.evidenceInventory.status, "complete");
+  assert.equal(report.evidenceInventory.topologyBasis, "structural-and-runtime");
+  assert.equal(report.evidenceInventory.structural.runtimeClaims, 1);
+  assert.equal(report.evidenceInventory.verification.isolatedCoverageRecords, 0);
+  assert.ok(report.evidenceInventory.notes.some((note) => note.includes("No validated isolated coverage")));
+});
+
+test("discovery marks the report partial when indexed verifier evidence could not be validated", () => {
+  const graph = buildRepositoryIntelligenceGraph({
+    graphSlices: [{
+      header: header("GraphSlice", "partial-flow"),
+      nodes: [
+        { kind: "route", id: "GET /partial" },
+        { kind: "response", id: "partial-response" },
+      ],
+      edges: [{
+        source: "GET /partial",
+        target: "partial-response",
+        kind: "produces",
+        evidence: [{ source: "ast", confidence: 0.9 }],
+      }],
+    }],
+  });
+  const observationRef = {
+    type: "RuntimeGraphObservationReport",
+    id: "usable-observation",
+    schemaVersion: "1.0.0",
+  };
+  const report = discoverRepositoryContractCandidates({
+    repoId: "example",
+    generatedAt: "2026-07-20T22:00:00.000Z",
+    graph,
+    verificationInventory: {
+      indexedRuntimeObservationReports: 2,
+      validatedRuntimeObservationReports: 1,
+      isolatedCoverageRecords: 0,
+      inputRefs: [observationRef],
+      warnings: ["RuntimeGraphObservationReport:invalid could not be validated."],
+    },
+  });
+
+  assert.equal(report.evidenceInventory.status, "partial");
+  assert.deepEqual(report.evidenceInventory.verification.runtimeObservationReports, {
+    indexed: 2,
+    validated: 1,
+  });
+  assert.ok(report.evidenceInventory.issues.some((issue) => issue.includes("could not be validated")));
+  assert.equal(report.header.freshness.status, "partial");
+  assert.ok(report.header.inputRefs.some((ref) => ref.id === observationRef.id));
 });
 
 test("flow discovery chooses an exact edge test and preserves adopted verifier policy during reconsideration", () => {
@@ -167,6 +216,63 @@ test("flow discovery chooses an exact edge test and preserves adopted verifier p
     acceptedMethods: ["runtime"],
     acceptancePolicy: "all-required",
   });
+});
+
+test("CLI flow discovery connects module execution to stdout and binds exact tests across callable stages", () => {
+  const ownershipMap = {
+    header: header("OwnershipMap", "owners"),
+    entries: [
+      { path: "src/cli.ts", ownerSystem: "cli", basis: "inferred", confidence: 0.9, evidence: [] },
+      { path: "tests/cli.test.ts", ownerSystem: "tests", basis: "inferred", confidence: 0.9, evidence: [] },
+    ],
+  };
+  const graph = buildRepositoryIntelligenceGraph({
+    graphSlices: [{
+      header: header("GraphSlice", "cli-flow"),
+      sliceType: "behavior-graph",
+      nodes: [
+        { kind: "entry_point", id: "entry:cli:src/cli.ts" },
+        { kind: "callable", id: "callable:src/cli.ts#__module__" },
+        { kind: "callable", id: "callable:src/cli.ts#main" },
+        { kind: "cli_output", id: "cli-output:src/cli.ts#main:stdout" },
+        { kind: "entry_point", id: "entry:test:tests/cli.test.ts" },
+        { kind: "callable", id: "callable:tests/cli.test.ts#__module__" },
+        { kind: "cli_output", id: "cli-output:tests/cli.test.ts#__module__:stdout" },
+      ],
+      edges: [
+        { source: "entry:cli:src/cli.ts", target: "callable:src/cli.ts#__module__", kind: "handles", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "callable:src/cli.ts#__module__", target: "callable:src/cli.ts#main", kind: "calls", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "callable:src/cli.ts#main", target: "cli-output:src/cli.ts#main:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "entry:test:tests/cli.test.ts", target: "callable:tests/cli.test.ts#__module__", kind: "handles", evidence: [{ source: "ast", confidence: 0.9 }] },
+        { source: "callable:tests/cli.test.ts#__module__", target: "cli-output:tests/cli.test.ts#__module__:stdout", kind: "produces", evidence: [{ source: "ast", confidence: 0.9 }] },
+      ],
+    }],
+    ownershipMap,
+  });
+  const report = discoverRepositoryContractCandidates({
+    repoId: "example",
+    generatedAt: "2026-07-20T22:00:00.000Z",
+    graph,
+    ownershipMap,
+    verificationEvidence: [{
+      method: "test",
+      command: "npm test -- cli.test.ts",
+      coveredPaths: ["src/cli.ts"],
+      testPath: "tests/cli.test.ts",
+      evidenceRefs: [{ type: "VerificationRun", id: "cli-run", schemaVersion: "1.0.0" }],
+    }],
+  });
+
+  const flow = report.candidates.find((candidate) => candidate.kind === "flow");
+  assert.ok(flow);
+  assert.match(flow.targetId, /cli-output/);
+  assert.deepEqual(flow.proposed.systems, ["cli"]);
+  assert.ok(flow.proposed.stages.every((stage) => stage.paths.includes("src/cli.ts")));
+  assert.ok(flow.proposed.handoffs.every((handoff) => (
+    handoff.verification.acceptedMethods[0] === "test"
+    && handoff.verification.requiredChecks[0] === "npm test -- cli.test.ts"
+  )));
+  assert.equal(report.unresolved.some((entry) => entry.id.includes("tests-cli.test.ts")), false);
 });
 
 test("discovery does not duplicate adopted contracts and reports uncovered entries", () => {

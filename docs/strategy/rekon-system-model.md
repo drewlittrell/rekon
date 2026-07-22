@@ -27,10 +27,22 @@ to the edges they exercise; one handoff's check cannot prove a sibling edge.
 The acting model judges semantic obligations against cited source.
 Counterevidence blocks completion.
 Contract discovery assigns an explicit policy to every proposed handoff. It
-preserves adopted policy, then prefers a validated isolated test covering both
+first inventories the current structural graph, adopted flow contracts,
+runtime observations, and isolated coverage known to the artifact registry.
+Inventory completeness and evidence availability are separate: a successful
+inventory can still produce structural-only, provisional flows when runtime
+evidence does not exist. Invalid evidence marks the candidate report partial.
+Cold-start topology identifies which additional observations are worth
+gathering; later passes refine it rather than treating the first proposal as
+final. After inventory, discovery preserves adopted policy, then prefers a
+validated isolated test covering both
 stage endpoints, current runtime observation, and finally model judgment.
 Historical observations nominate the verifier to rerun; they are not
 present-state proof.
+Cold-start JavaScript and TypeScript CLI discovery connects executable module
+scope to successful stdout and excludes test roots from product-flow starts.
+Source paths survive entry, callable, and output graph identities so exact
+coverage can nominate a handoff verifier before model judgment is required.
 Executed checks capture their bounded source state before and after execution;
 only an unchanged post-run digest can satisfy the matching current change.
 Declared checks remain authoritative. When they leave changed source without a

@@ -4,6 +4,17 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- `ContractCandidateReport` now carries an optional, backward-compatible
+  evidence inventory. Current discovery records structural and runtime graph
+  use, adopted flows, every indexed runtime-observation report checked, and
+  validated isolated coverage. CLI output and the judgment prompt distinguish
+  complete inventory from absent evidence, and malformed evidence makes the
+  result partial instead of silently strengthening model-judgment fallback.
+- Cold-start flow discovery now connects CLI entry points to module execution
+  and deterministic stdout outcomes. Test roots no longer become product-flow
+  candidates, and callable, CLI-entry, and CLI-output stages retain their
+  source paths so isolated coverage can bind to exact handoffs instead of
+  falling back to model judgment solely because graph IDs hid file identity.
 - Repository-contract discovery now assigns every proposed flow handoff an
   explicit verifier policy. It preserves adopted policy, may nominate an exact
   passed isolated test that covers both stage endpoints, then falls back to

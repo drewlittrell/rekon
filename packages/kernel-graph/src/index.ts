@@ -12,6 +12,7 @@ export const BUILT_IN_NODE_KINDS = {
   buildTarget: "build_target",
   callable: "callable",
   entryPoint: "entry_point",
+  cliOutput: "cli_output",
   event: "event",
   stateResource: "state_resource",
 } as const;
@@ -31,6 +32,7 @@ export const BUILT_IN_EDGE_KINDS = {
   emits: "emits",
   subscribes: "subscribes",
   accesses: "accesses",
+  produces: "produces",
   propagatesError: "propagates_error",
 } as const;
 

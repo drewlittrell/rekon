@@ -5,6 +5,7 @@ import {
   createContractAdoptionReport,
   createContractCandidateReport,
   createContractJudgmentReport,
+  validateContractCandidateReport,
   validateContractJudgmentReport,
 } from "../dist/index.js";
 
@@ -46,6 +47,31 @@ test("candidate report retains inferred system proposals without adopting them",
   assert.equal(report.summary.systems, 1);
   assert.equal(report.candidates[0].kind, "system");
   assert.equal("authority" in report.candidates[0], false);
+});
+
+test("candidate report validates an evidence inventory without requiring it on older reports", () => {
+  const report = createContractCandidateReport({
+    header: header("ContractCandidateReport"),
+    evidenceInventory: {
+      status: "complete",
+      topologyBasis: "structural",
+      structural: { artifactTypes: ["GraphSlice"], graphClaims: 4, runtimeClaims: 0 },
+      verification: {
+        adoptedFlowContracts: 0,
+        runtimeObservationReports: { indexed: 0, validated: 0 },
+        isolatedCoverageRecords: 0,
+      },
+      issues: [],
+      notes: ["No runtime evidence was available."],
+    },
+    candidates: [],
+    unresolved: [],
+  });
+
+  assert.equal(validateContractCandidateReport(report).ok, true);
+  const invalid = structuredClone(report);
+  invalid.evidenceInventory.verification.runtimeObservationReports.validated = 2;
+  assert.equal(validateContractCandidateReport(invalid).ok, false);
 });
 
 test("accepted agent judgments require current source citations or artifact evidence", () => {

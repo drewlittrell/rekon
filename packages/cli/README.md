@@ -62,6 +62,15 @@ edge; otherwise it uses current runtime evidence or asks the agent to judge the
 semantic edge. Prior coverage chooses what must run and is not accepted as
 current proof. No stage calls a model provider or executes the nominated
 command.
+CLI flow candidates follow module execution and AST-observed successful stdout.
+Test roots remain verification context rather than product-flow candidates.
+Callable stages retain source paths, allowing an isolated coverage observation
+to nominate its exact command for a handoff.
+Before producing candidates, the CLI reads every indexed runtime-observation
+report instead of sampling a recent subset. JSON output exposes the resulting
+`evidenceInventory`; invalid or unavailable reports make discovery partial,
+while an empty but successfully checked runtime inventory remains complete and
+explicitly structural-only.
 
 ## Model Interface
 

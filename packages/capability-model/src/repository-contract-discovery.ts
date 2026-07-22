@@ -2,6 +2,7 @@ import type { ArtifactHeader, ArtifactRef } from "@rekon/kernel-artifacts";
 import {
   type ContractCandidate,
   type ContractCandidateReport,
+  type ContractDiscoveryEvidenceInventory,
   type EffectiveContractRegistry,
   type FlowContract,
   type FlowContractHandoffSource,
@@ -28,6 +29,7 @@ export type DiscoverRepositoryContractCandidatesInput = {
   effectiveRegistry?: EffectiveContractRegistry;
   existingFlowContracts?: FlowContract[];
   verificationEvidence?: RepositoryContractVerificationEvidence[];
+  verificationInventory?: RepositoryContractVerificationInventory;
   maxFlows?: number;
   maxDepth?: number;
   reconsiderContractIds?: string[];
@@ -39,6 +41,14 @@ export type RepositoryContractVerificationEvidence = {
   coveredPaths: string[];
   testPath?: string;
   evidenceRefs: ArtifactRef[];
+};
+
+export type RepositoryContractVerificationInventory = {
+  indexedRuntimeObservationReports: number;
+  validatedRuntimeObservationReports: number;
+  isolatedCoverageRecords: number;
+  inputRefs: ArtifactRef[];
+  warnings: string[];
 };
 
 const PRODUCER_ID = "@rekon/capability-model";
@@ -57,7 +67,7 @@ const FLOW_PREDICATES = new Set([
   "consumes",
 ]);
 const ENTRY_KINDS = new Set(["entry_point", "route", "screen", "api", "command", "event"]);
-const TERMINAL_KINDS = new Set(["state_resource", "db_table", "event", "screen", "api", "publication", "response"]);
+const TERMINAL_KINDS = new Set(["state_resource", "db_table", "event", "screen", "api", "publication", "response", "cli_output"]);
 
 /** Produce inferred contract candidates without adopting or writing source law. */
 export function discoverRepositoryContractCandidates(
@@ -65,6 +75,7 @@ export function discoverRepositoryContractCandidates(
 ): ContractCandidateReport {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const inputRefs = collectInputRefs(input);
+  const evidenceInventory = buildEvidenceInventory(input);
   const existing = existingContractIds(input.effectiveRegistry);
   const reconsider = new Set(input.reconsiderContractIds ?? []);
   const candidates: ContractCandidate[] = [];
@@ -114,12 +125,23 @@ export function discoverRepositoryContractCandidates(
       producer: { id: PRODUCER_ID, version: PRODUCER_VERSION },
       inputRefs,
       supersession: { key: "repository-contract-candidates" },
-      freshness: { status: inputRefs.length > 0 ? "fresh" : "unknown" },
+      freshness: {
+        status: inputRefs.length === 0
+          ? "unknown"
+          : evidenceInventory.status === "partial"
+            ? "partial"
+            : "fresh",
+        ...(evidenceInventory.issues.length > 0 ? { invalidatedBy: evidenceInventory.issues } : {}),
+      },
       provenance: {
         confidence: candidates.length > 0 ? Math.max(...candidates.map((candidate) => candidate.confidence)) : 0,
-        notes: ["deterministic cold-start contract discovery; candidates are not adopted law"],
+        notes: [
+          "deterministic cold-start contract discovery; candidates are not adopted law",
+          ...evidenceInventory.notes,
+        ],
       },
     },
+    evidenceInventory,
     candidates,
     unresolved,
   });
@@ -211,7 +233,7 @@ function discoverFlows(
   }
   for (const values of adjacency.values()) values.sort((left, right) => left.id.localeCompare(right.id));
 
-  const entries = graph.nodes.filter((node) => ENTRY_KINDS.has(node.kind)).sort(refCompare);
+  const entries = graph.nodes.filter(isContractFlowEntry).sort(refCompare);
   const candidates: ContractCandidate[] = [];
   const unresolved: ContractCandidateReport["unresolved"] = [];
   const flowKeys = new Set<string>();
@@ -313,7 +335,7 @@ function shortestOutcomePath(
   const seen = new Set([refKey(entry)]);
   while (queue.length > 0) {
     const current = queue.shift()!;
-    if (current.path.length > 0 && TERMINAL_KINDS.has(current.ref.kind)) return current.path;
+    if (current.path.length > 0 && isTerminalForEntry(entry, current.ref)) return current.path;
     if (current.path.length >= maxDepth) continue;
     for (const claim of adjacency.get(refKey(current.ref)) ?? []) {
       if (typeof claim.object === "string") continue;
@@ -326,10 +348,25 @@ function shortestOutcomePath(
   return undefined;
 }
 
+function isContractFlowEntry(ref: RepositoryIntelligenceGraphRef): boolean {
+  if (!ENTRY_KINDS.has(ref.kind)) return false;
+  return ref.kind !== "entry_point" || !ref.id.startsWith("entry:test:");
+}
+
+function isTerminalForEntry(
+  entry: RepositoryIntelligenceGraphRef,
+  terminal: RepositoryIntelligenceGraphRef,
+): boolean {
+  if (!TERMINAL_KINDS.has(terminal.kind)) return false;
+  if (terminal.kind !== "cli_output") return true;
+  return entry.kind === "entry_point" && entry.id.startsWith("entry:cli:");
+}
+
 function collectInputRefs(input: DiscoverRepositoryContractCandidatesInput): ArtifactRef[] {
   return uniqueRefs([
     ...input.graph.inputRefs,
     ...(input.verificationEvidence ?? []).flatMap((entry) => entry.evidenceRefs),
+    ...(input.verificationInventory?.inputRefs ?? []),
     ...[input.observedRepo?.header, input.ownershipMap?.header, input.capabilityMap?.header, input.effectiveRegistry?.header]
       .filter((header): header is ArtifactHeader => Boolean(header))
       .map((header) => ({ type: header.artifactType, id: header.artifactId, schemaVersion: header.schemaVersion })),
@@ -339,6 +376,57 @@ function collectInputRefs(input: DiscoverRepositoryContractCandidatesInput): Art
       schemaVersion: flow.header.schemaVersion,
     })),
   ]);
+}
+
+function buildEvidenceInventory(
+  input: DiscoverRepositoryContractCandidatesInput,
+): ContractDiscoveryEvidenceInventory {
+  const evidence = input.verificationEvidence ?? [];
+  const inferredReportRefs = uniqueRefs(evidence
+    .flatMap((entry) => entry.evidenceRefs)
+    .filter((ref) => ref.type === "RuntimeGraphObservationReport"));
+  const verification = input.verificationInventory ?? {
+    indexedRuntimeObservationReports: inferredReportRefs.length,
+    validatedRuntimeObservationReports: inferredReportRefs.length,
+    isolatedCoverageRecords: evidence.length,
+    inputRefs: inferredReportRefs,
+    warnings: [],
+  };
+  const runtimeClaims = input.graph.claims.filter((claim) =>
+    claim.status === "accepted" && claim.source === "runtime").length;
+  const issues = unique([
+    ...input.graph.warnings,
+    ...verification.warnings,
+    ...(input.graph.inputRefs.length === 0 ? ["No structural graph artifacts were available for contract discovery."] : []),
+  ]);
+  const notes: string[] = [];
+  if (runtimeClaims === 0) {
+    notes.push("No accepted runtime graph claims were available; proposed flow topology is structural.");
+  }
+  if (verification.isolatedCoverageRecords === 0) {
+    notes.push(
+      "No validated isolated coverage records were available; newly inferred structural handoffs without adopted or runtime policy use model judgment provisionally.",
+    );
+  }
+  return {
+    status: issues.length > 0 ? "partial" : "complete",
+    topologyBasis: runtimeClaims > 0 ? "structural-and-runtime" : "structural",
+    structural: {
+      artifactTypes: unique(input.graph.inputRefs.map((ref) => ref.type)),
+      graphClaims: input.graph.claims.length,
+      runtimeClaims,
+    },
+    verification: {
+      adoptedFlowContracts: input.existingFlowContracts?.length ?? 0,
+      runtimeObservationReports: {
+        indexed: verification.indexedRuntimeObservationReports,
+        validated: verification.validatedRuntimeObservationReports,
+      },
+      isolatedCoverageRecords: verification.isolatedCoverageRecords,
+    },
+    issues,
+    notes: unique(notes),
+  };
 }
 
 function discoverHandoffVerification(input: {
@@ -403,15 +491,31 @@ function ownershipByPath(map: OwnershipMap | undefined): Map<string, string> {
 }
 
 function ownerForRef(ref: RepositoryIntelligenceGraphRef, owners: Map<string, string>): string | undefined {
-  const path = ref.kind === "symbol" ? ref.id.split("#")[0] : ref.kind === "file" ? ref.id : undefined;
+  const path = pathForRef(ref);
   if (!path) return undefined;
   return owners.get(path);
 }
 
 function pathsForRef(ref: RepositoryIntelligenceGraphRef): string[] {
-  if (ref.kind === "file") return [ref.id];
-  if (ref.kind === "symbol") return [ref.id.split("#")[0]!];
-  return [];
+  const path = pathForRef(ref);
+  return path ? [path] : [];
+}
+
+function pathForRef(ref: RepositoryIntelligenceGraphRef): string | undefined {
+  if (ref.kind === "file") return ref.id;
+  if (ref.kind === "symbol") return ref.id.split("#")[0];
+  if (ref.kind === "callable" && ref.id.startsWith("callable:")) {
+    return ref.id.slice("callable:".length).split("#")[0];
+  }
+  if (ref.kind === "cli_output" && ref.id.startsWith("cli-output:")) {
+    return ref.id.slice("cli-output:".length).split("#")[0];
+  }
+  if (ref.kind === "entry_point" && ref.id.startsWith("entry:")) {
+    const remainder = ref.id.slice("entry:".length);
+    const separator = remainder.indexOf(":");
+    return separator >= 0 ? remainder.slice(separator + 1) : undefined;
+  }
+  return undefined;
 }
 
 function compactScopes(paths: string[]): string[] {

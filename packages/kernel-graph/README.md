@@ -34,7 +34,9 @@ The built-in vocabulary includes `capability` nodes, `depends_on` and
 `related_to` edges for static test context, and `observed` edges for explicit
 runtime observations. It also includes callable and entry-point nodes plus
 `calls`, `enters`, `reaches`, `handles`, `emits`, `subscribes`, `accesses`, and
-`propagates_error` edges. It intentionally does not define a `covers` edge:
+`propagates_error` edges. `cli_output` nodes and `produces` edges represent
+AST-observed successful standard output without claiming that the output is
+correct. The vocabulary intentionally does not define a `covers` edge:
 neither static relationships nor observed execution prove assertion coverage.
 
 ## Import Boundary
