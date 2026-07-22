@@ -9911,7 +9911,7 @@ export async function main(argv: string[]): Promise<void> {
     const providerValue = parsed.flags.provider;
     const configValue = parsed.flags.config;
     if (typeof frameworkValue !== "string" || frameworkValue.trim().length === 0) {
-      throw new Error(`${commandName} requires --framework vitest|jest.`);
+      throw new Error(`${commandName} requires --framework node|vitest|jest.`);
     }
     if (typeof testPathValue !== "string" || testPathValue.trim().length === 0) {
       throw new Error(`${commandName} requires --test-path <test-file>.`);
@@ -9926,8 +9926,11 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error(`${commandName} requires exactly one value after --config.`);
     }
     const framework = frameworkValue.trim();
-    if (framework !== "vitest" && framework !== "jest") {
-      throw new Error(`${commandName} supports --framework vitest or --framework jest.`);
+    if (framework !== "node" && framework !== "vitest" && framework !== "jest") {
+      throw new Error(`${commandName} supports --framework node, --framework vitest, or --framework jest.`);
+    }
+    if (framework === "node" && configValue !== undefined) {
+      throw new Error(`${commandName} does not accept --config with --framework node.`);
     }
     const testFile = await resolveReadableRepoFile(root, testPathValue.trim(), commandName, "test file");
     const configFile = typeof configValue === "string"
@@ -9936,7 +9939,9 @@ export async function main(argv: string[]): Promise<void> {
     const targetFiles = await Promise.all(sourcePathValues.map((sourcePath) =>
       resolveReadableRepoFile(root, sourcePath.trim(), commandName, "source target")));
     const targetPaths = [...new Set(targetFiles.map((targetFile) => targetFile.relativePath))].sort();
-    const binaryPath = await resolveInstalledTestFrameworkBinary(root, framework);
+    const binaryPath = framework === "node"
+      ? "node"
+      : await resolveInstalledTestFrameworkBinary(root, framework);
     const provider = await resolveIsolatedCoverageProvider(
       root,
       framework,
@@ -9961,7 +9966,9 @@ export async function main(argv: string[]): Promise<void> {
         provenance: {
           confidence: 1,
           notes: [
-            `Resolved installed ${framework} binary at ${binaryPath}.`,
+            framework === "node"
+              ? "Uses the Node.js test runner from the current execution environment."
+              : `Resolved installed ${framework} binary at ${binaryPath}.`,
             "Planning does not execute tests or install packages.",
           ],
         },
@@ -10077,7 +10084,7 @@ export async function main(argv: string[]): Promise<void> {
       );
     }
     if (dryRunFlag && explicitCoverageFlag.length > 0) {
-      throw new Error("rekon verify run cannot observe Istanbul coverage during --dry-run because no test executes.");
+      throw new Error("rekon verify run cannot observe coverage during --dry-run because no test executes.");
     }
 
     const artifactRoot = resolveFlagPath(root, artifactRootFlag) ?? root;
@@ -10090,6 +10097,11 @@ export async function main(argv: string[]): Promise<void> {
       : await readRegisteredVerificationPlan(store, planFlag);
     const { planArtifact, planRef, planFile, warnings: resolveWarnings } = planResolution;
     const planCoverage = parseVerificationPlanCoverage(planArtifact.coverage);
+    if (planCoverage?.format === "lcov" && explicitCoverageFlag.length > 0) {
+      throw new Error(
+        "rekon verify run reads LCOV paths from VerificationPlan metadata; --istanbul-coverage is not accepted for this plan.",
+      );
+    }
     let coverageFlag = explicitCoverageFlag;
     let testPathFlag = explicitTestPathFlag;
     if (executeFlag && planCoverage) {
@@ -10106,7 +10118,7 @@ export async function main(argv: string[]): Promise<void> {
     }
     if (coverageFlag.length > 0 && resolve(artifactRoot) !== resolve(execRoot)) {
       throw new Error(
-        "rekon verify run requires --artifact-root and --exec-root to match when observing Istanbul coverage.",
+        "rekon verify run requires --artifact-root and --exec-root to match when observing coverage.",
       );
     }
     const workOrderRef = planArtifact.workOrderRef;
@@ -10245,8 +10257,8 @@ export async function main(argv: string[]): Promise<void> {
         summary: RuntimeGraphObservationReport["summary"];
         source: RuntimeGraphObservationReport["source"];
         coverage: {
-          summary: ReturnType<typeof parseIstanbulCoverage>["summary"];
-          issues: ReturnType<typeof parseIstanbulCoverage>["issues"];
+          summary: CoverageParseResult["summary"];
+          issues: CoverageParseResult["issues"];
         };
       } | undefined;
       let runtimeObservationError: string | undefined;
@@ -10254,7 +10266,7 @@ export async function main(argv: string[]): Promise<void> {
         try {
           const parsedCoverage = await readCoverageObservation({
             root: execRoot,
-            format: "istanbul",
+            format: planCoverage?.format ?? "istanbul",
             coveragePath: coverageFlag,
             testPath: testPathFlag,
             targetPaths: planCoverage?.targetPaths,
@@ -10275,7 +10287,7 @@ export async function main(argv: string[]): Promise<void> {
             provenance: {
               confidence: 0.9,
               notes: [
-                "Istanbul coverage observed after an explicitly executed VerificationRun.",
+                `${planCoverage?.format === "lcov" ? "LCOV" : "Istanbul"} coverage observed after an explicitly executed VerificationRun.`,
                 "Observed execution is context, not assertion coverage.",
               ],
             },
@@ -12584,8 +12596,8 @@ function parseStringArray(value: unknown): string[] {
 function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage | undefined {
   if (value === undefined) return undefined;
   if (!isRecordValue(value)
-    || value.format !== "istanbul"
-    || (value.framework !== "vitest" && value.framework !== "jest")
+    || (value.format !== "istanbul" && value.format !== "lcov")
+    || (value.framework !== "node" && value.framework !== "vitest" && value.framework !== "jest")
     || (value.provider !== "v8" && value.provider !== "istanbul" && value.provider !== "babel")
     || typeof value.testPath !== "string"
     || value.testPath.length === 0
@@ -12599,6 +12611,13 @@ function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage
   }
   if (value.framework === "jest" && value.provider === "istanbul") {
     throw new Error("Selected VerificationPlan uses an unsupported Jest coverage provider.");
+  }
+  if (value.framework === "node"
+    && (value.format !== "lcov" || value.provider !== "v8" || value.configPath !== undefined)) {
+    throw new Error("Selected VerificationPlan uses malformed Node coverage metadata.");
+  }
+  if (value.framework !== "node" && value.format !== "istanbul") {
+    throw new Error("Selected VerificationPlan uses an unsupported coverage format for its framework.");
   }
   let targetPaths: string[] | undefined;
   if (value.targetPaths !== undefined) {
@@ -12627,7 +12646,7 @@ function parseVerificationPlanCoverage(value: unknown): VerificationPlanCoverage
     configPath = value.configPath;
   }
   return {
-    format: "istanbul",
+    format: value.format,
     framework: value.framework,
     provider: value.provider,
     testPath: value.testPath,
@@ -12949,7 +12968,7 @@ async function readInstalledPackageManifest(
 
 async function resolveInstalledTestFrameworkBinary(
   root: string,
-  framework: IsolatedCoverageFramework,
+  framework: Exclude<IsolatedCoverageFramework, "node">,
 ): Promise<string> {
   const packageName = framework;
   let installed: { manifest: InstalledPackageManifest; manifestPath: string };
@@ -13002,6 +13021,12 @@ async function resolveIsolatedCoverageProvider(
   framework: IsolatedCoverageFramework,
   requested: string | undefined,
 ): Promise<IsolatedCoverageProvider> {
+  if (framework === "node") {
+    if (requested && requested !== "v8") {
+      throw new Error("rekon verify coverage plan supports only the v8 provider with Node.");
+    }
+    return "v8";
+  }
   if (framework === "jest") {
     const provider = requested || "babel";
     if (provider !== "babel" && provider !== "v8") {
@@ -13084,7 +13109,7 @@ async function readCoverageObservation(
     throw new Error(coverageResult.issues
       .filter((issue) => issue.severity === "error")
       .map((issue) => issue.message)
-      .join(" ") || "Istanbul coverage could not be normalized.");
+      .join(" ") || "Coverage could not be normalized.");
   }
 
   let coverageSource = coverageResult.coverageSource;
@@ -19109,7 +19134,7 @@ function usage(): string {
     "rekon issues merge candidate <candidate-id> [--root <path>] [--json]",
     "rekon issues merge decide <candidate-id> --decision accepted|rejected --note <note> [--reason <reason>] [--decided-by <name>] [--root <path>] [--json]",
     "rekon issues merge decisions [--root <path>] [--json]",
-    "rekon verify coverage plan --framework vitest|jest --test-path <test-file> --source-path <source-file> [--source-path <source-file> ...] [--config <runner-config>] [--provider v8|istanbul|babel] [--root <path>] [--json]",
+    "rekon verify coverage plan --framework node|vitest|jest --test-path <test-file> --source-path <source-file> [--source-path <source-file> ...] [--config <runner-config>] [--provider v8|istanbul|babel] [--root <path>] [--json]",
     "rekon verify record [--plan <id|type:id>] --result-json <json> [--root <path>] [--json]",
     "rekon verify run --plan <id|type:id>|--plan-file <path> --dry-run|--preview [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",
     "rekon verify run --plan <id|type:id>|--plan-file <path> --execute [--istanbul-coverage <coverage-final.json> --test-path <test-file>] [--command-timeout-ms <n>] [--timeout-ms <n>] [--max-log-bytes <n>] [--root <path>] [--artifact-root <path>] [--exec-root <path>] [--json]",

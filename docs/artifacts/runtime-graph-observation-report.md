@@ -75,7 +75,17 @@ This uses the existing verification runner and its command-safety policy. It
 does not introduce a separate test runner. Coverage observation is unavailable
 in dry-run mode.
 
-Vitest and Jest users can generate the plan instead of assembling flags:
+Node users can generate an LCOV plan without installing a coverage package:
+
+```sh
+rekon verify coverage plan \
+  --framework node \
+  --test-path tests/user.test.mjs \
+  --source-path src/user.mjs
+rekon verify run --plan <VerificationPlan-id> --execute
+```
+
+Vitest and Jest users can generate an Istanbul plan the same way:
 
 ```sh
 rekon verify coverage plan \
@@ -86,11 +96,11 @@ rekon verify coverage plan \
 rekon verify run --plan <VerificationPlan-id> --execute
 ```
 
-The planner uses an already-installed local binary and writes no files outside
-`.rekon/`. It never downloads a runner or coverage provider. Vitest collection
-is bounded to declared source targets and excludes nested repository
-worktrees. `--config` selects an existing repository-local runner config when
-the default config is insufficient.
+The Node plan uses the current runtime's native test runner and V8 coverage.
+Vitest and Jest plans use an already-installed local binary. The planner writes
+no files outside `.rekon/` and never downloads a runner or provider. Vitest
+collection is bounded to declared source targets and excludes nested repository
+worktrees. `--config` is available only for Vitest and Jest.
 
 Positive statement, function, or branch counters count as observed execution.
 Zero-count files, files outside the repository, malformed entries, and the test

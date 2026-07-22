@@ -48,10 +48,12 @@ For a failed result, change validation reads the linked run through the
 hardened artifact store, reapplies secret redaction, and caps the selected
 stderr, stdout, or note excerpt before returning it as corrective context.
 
-Framework coverage plans carry the test, intended source targets, and output
-path on the `VerificationPlan`. The runner consumes that metadata only during
-explicit `--execute`; preview remains non-executing. Target declarations allow
-policy to distinguish a scoped missed target from an unrelated zero counter.
+Coverage plans carry the test, intended source targets, output format, and
+output path on the `VerificationPlan`. Node plans use native V8 coverage and
+LCOV; Vitest and Jest plans use Istanbul JSON. The runner consumes that
+metadata only during explicit `--execute`; preview remains non-executing.
+Target declarations allow policy to distinguish a scoped missed target from an
+unrelated zero counter.
 
 ## Related Artifacts
 

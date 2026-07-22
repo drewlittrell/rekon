@@ -56,7 +56,7 @@ import {
  *   `failed`; carries `stdoutDigest` / `stderrDigest` but not
  *   the redacted excerpts.
  * - `createIsolatedCoverageVerificationPlan` — builds a shell-free,
- *   single-test Vitest or Jest plan using a caller-resolved local binary.
+ *   single-test Node, Vitest, or Jest plan using a caller-resolved binary.
  * - The capability default-exported runner handler still
  *   throws when invoked through generic dispatch — the
  *   public execute path is the CLI command
@@ -145,6 +145,12 @@ export function createIsolatedCoverageVerificationPlan(
   if (input.framework === "jest" && input.provider !== "v8" && input.provider !== "babel") {
     throw new Error("Jest coverage provider must be v8 or babel.");
   }
+  if (input.framework === "node" && input.provider !== "v8") {
+    throw new Error("Node coverage provider must be v8.");
+  }
+  if (input.framework === "node" && input.configPath !== undefined) {
+    throw new Error("Node isolated coverage does not accept a runner config.");
+  }
 
   const testPath = assertSafeCoveragePlanPath(input.testPath, "testPath");
   const configPath = input.configPath === undefined
@@ -162,8 +168,12 @@ export function createIsolatedCoverageVerificationPlan(
     .update(`${input.framework}\u0000${input.provider}\u0000${testPath}\u0000${configPath ?? ""}\u0000${targetPaths.join("\u0000")}`)
     .digest("hex")
     .slice(0, 16);
-  const coverageDirectory = `.rekon/cache/coverage/${input.framework}/${identity}`;
-  const coveragePath = `${coverageDirectory}/coverage-final.json`;
+  const coverageDirectory = input.framework === "node"
+    ? ".rekon/cache"
+    : `.rekon/cache/coverage/${input.framework}/${identity}`;
+  const coveragePath = input.framework === "node"
+    ? `${coverageDirectory}/coverage-node-${identity}.lcov`
+    : `${coverageDirectory}/coverage-final.json`;
   const quotedBinary = quoteVerificationArgument(binaryPath);
   const quotedTest = quoteVerificationArgument(testPath);
   const configArgs = configPath ? ["--config", quoteVerificationArgument(configPath)] : [];
@@ -174,7 +184,17 @@ export function createIsolatedCoverageVerificationPlan(
     "**/.rekon/**",
     "**/.claude/worktrees/**",
   ].map((pattern) => quoteVerificationArgument(`--exclude=${pattern}`));
-  const command = input.framework === "vitest"
+  const command = input.framework === "node"
+    ? [
+        quotedBinary,
+        "--enable-source-maps",
+        "--test",
+        "--experimental-test-coverage",
+        "--test-reporter=lcov",
+        `--test-reporter-destination=${coveragePath}`,
+        quotedTest,
+      ].join(" ")
+    : input.framework === "vitest"
     ? [
         "node",
         quotedBinary,
@@ -208,7 +228,7 @@ export function createIsolatedCoverageVerificationPlan(
   }
 
   const coverage: VerificationPlanCoverage = {
-    format: "istanbul",
+    format: input.framework === "node" ? "lcov" : "istanbul",
     framework: input.framework,
     provider: input.provider,
     testPath,
@@ -225,7 +245,7 @@ export function createIsolatedCoverageVerificationPlan(
       ...(targetPaths.length > 0
         ? [`Measure whether the run exercises the declared source targets: ${targetPaths.join(", ")}.`]
         : []),
-      `Write Istanbul JSON coverage to ${coveragePath}.`,
+      `Write ${input.framework === "node" ? "LCOV" : "Istanbul JSON"} coverage to ${coveragePath}.`,
       "Record the VerificationRun command and coverage digest as observation provenance.",
     ],
     source: "isolated-coverage",

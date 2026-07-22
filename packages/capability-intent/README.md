@@ -28,11 +28,12 @@ The default export is a Rekon capability definition with an actuator handler for
 work-order generation.
 
 `VerificationPlanLike` includes optional `VerificationPlanCoverage` metadata
-for isolated Vitest and Jest plans, including source paths the test intends to
-exercise and an optional repository-local runner config. Execution remains
-owned by `@rekon/capability-verify`. Plans may pin a `baseRef` for source-state
-capture. Executed runs can carry before/after `SourceStateBinding` values, and
-derived results retain the exact stable post-run binding.
+for isolated Node, Vitest, and Jest plans, including source paths the test
+intends to exercise. Vitest and Jest plans may name a repository-local runner
+config. Execution remains owned by `@rekon/capability-verify`. Plans may pin a
+`baseRef` for source-state capture. Executed runs can carry before/after
+`SourceStateBinding` values, and derived results retain the exact stable
+post-run binding.
 
 Plans created by post-edit validation may also carry `checkSelection`. This
 records declared versus evidence-backed origin, covered paths, provenance, and

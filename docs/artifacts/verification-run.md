@@ -39,10 +39,12 @@ projection over the run artifact.
 
 ## Coverage Binding
 
-`rekon verify run --execute` can attach isolated Istanbul coverage when given
-both `--istanbul-coverage` and `--test-path`. The executed command must name the
-test path explicitly. Rekon then writes a `RuntimeGraphObservationReport` that
-cites this run and command; the `VerificationRun` itself remains unchanged.
+`rekon verify run --execute` can attach isolated coverage from plan metadata.
+Node plans produce LCOV; Vitest and Jest plans produce Istanbul JSON. Manual
+Istanbul binding remains available with both `--istanbul-coverage` and
+`--test-path`. The executed command must name the test path explicitly. Rekon
+then writes a `RuntimeGraphObservationReport` that cites this run and command;
+the `VerificationRun` itself remains unchanged.
 
 Coverage records observed execution context, not assertion coverage. Dry runs,
 timed-out commands, killed commands, and commands that do not name the test

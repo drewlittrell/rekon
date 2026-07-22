@@ -148,11 +148,11 @@ export type VerificationPlanIntentHandoff = {
 };
 
 export type VerificationPlanCoverage = {
-  format: "istanbul";
-  framework: "vitest" | "jest";
+  format: "istanbul" | "lcov";
+  framework: "vitest" | "jest" | "node";
   provider: "v8" | "istanbul" | "babel";
   testPath: string;
-  /** Optional repository-local test-runner configuration used by the plan. */
+  /** Optional repository-local Vitest or Jest configuration used by the plan. */
   configPath?: string;
   /** Source files this isolated run is intended to exercise. */
   targetPaths?: string[];

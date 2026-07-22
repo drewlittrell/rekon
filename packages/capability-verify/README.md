@@ -18,16 +18,17 @@ scoped to a named plan and is recorded as artifacts.
   that changes those bytes makes the run non-proof even when it exits zero.
 - Copies an unchanged post-run source-state digest into the derived result so
   post-edit validation can compare exact bytes instead of timestamps.
-- Can bind isolated Istanbul coverage to the exact passed or failed command
+- Can bind isolated Istanbul or LCOV coverage to the exact passed or failed command
   that named the test, producing a linked `RuntimeGraphObservationReport`.
 - Allows later post-edit validation to reuse an exact command from a passed
   isolated observation as test-selection evidence. The old run is never
   accepted as current proof; the command must run again.
-- Exposes `createIsolatedCoverageVerificationPlan()` for deterministic Vitest
-  and Jest plan construction. Plans can declare intended source targets. The
-  helper does not resolve packages or execute. Vitest plans scope collection
-  to those targets and exclude nested repository worktrees. Callers can bind a
-  repository-local runner config explicitly.
+- Exposes `createIsolatedCoverageVerificationPlan()` for deterministic Node,
+  Vitest, and Jest plan construction. Node plans use the native test runner and
+  LCOV; Vitest and Jest plans use Istanbul JSON. Plans declare intended source
+  targets. The helper does not resolve packages or execute. Vitest plans scope
+  collection to those targets and exclude nested repository worktrees. Vitest
+  and Jest callers can bind a repository-local runner config explicitly.
 - Does not write source files.
 - Does not auto-resolve findings.
 - Makes bounded redacted run excerpts available to proof-local corrective

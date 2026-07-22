@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added native Node isolated-coverage plans. `VerificationPlanCoverage` now
+  supports `framework: "node"` with V8-backed LCOV output, and `rekon verify
+  run --execute` binds that output to the existing runtime-observation and
+  verifier-discovery pipeline. Node plans require no runner package, execute
+  one named test file, and retain exact command and source-state provenance.
 - `ContractCandidateReport` now carries an optional, backward-compatible
   evidence inventory. Current discovery records structural and runtime graph
   use, adopted flows, every indexed runtime-observation report checked, and

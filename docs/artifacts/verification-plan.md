@@ -39,18 +39,24 @@ Generated intent plans also record `intentHandoff.requestKind`, including the
 
 ```sh
 rekon verify coverage plan \
+  --framework node \
+  --test-path tests/user.test.mjs \
+  --source-path src/user.mjs
+
+rekon verify coverage plan \
   --framework vitest \
   --config tests/vitest.config.ts \
   --test-path tests/user.test.ts \
   --source-path src/user.ts
 ```
 
-This writes a plan for one installed test framework, one exact test file, and
-one or more source files the test is intended to exercise. Repeat
-`--source-path` for multiple targets. These plans add:
+This writes a plan for one test framework, one exact test file, and one or more
+source files the test is intended to exercise. Node uses the current runtime;
+Vitest and Jest use installed repository packages. Repeat `--source-path` for
+multiple targets. These plans add:
 
 - `source: "isolated-coverage"`
-- `coverage.format: "istanbul"`
+- `coverage.format: "lcov"` for Node or `"istanbul"` for Vitest and Jest
 - `coverage.framework` and `coverage.provider`
 - `coverage.testPath`, optional `coverage.configPath`,
   `coverage.targetPaths`, and `coverage.coveragePath`
@@ -60,9 +66,10 @@ The planner does not execute or install anything. `rekon verify run --execute`
 reads this metadata, runs the named plan through the normal safety policy, and
 binds the resulting coverage to the recorded command automatically.
 
-Vitest plans limit collection to the declared targets and exclude nested
-repository worktrees. `configPath` is optional, repository-relative, and
-validated before it is passed to the installed runner.
+Node plans use native V8 coverage and do not accept `configPath`. Vitest plans
+limit collection to the declared targets and exclude nested repository
+worktrees. Vitest and Jest `configPath` values are repository-relative and
+validated before use.
 
 Target paths express verification intent. If a passing isolated run includes a
 target function in its coverage data with an execution count of zero, policy

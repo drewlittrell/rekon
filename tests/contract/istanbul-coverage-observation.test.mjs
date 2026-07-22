@@ -464,7 +464,7 @@ test("verify run refuses coverage observation in dry-run mode", async () => {
       "--json",
     ], true);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /cannot observe Istanbul coverage during --dry-run/);
+    assert.match(result.stderr, /cannot observe coverage during --dry-run/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -567,6 +567,63 @@ test("Jest coverage planner runs one exact path and binds its coverage", async (
   }
 });
 
+test("Node coverage planner executes one test and binds native LCOV", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-node-coverage-plan-"));
+  try {
+    await writeNodeCoverageFixture(root);
+    runCli(root, ["init"]);
+
+    const invalidConfig = runCli(root, [
+      "verify", "coverage", "plan",
+      "--framework", "node",
+      "--test-path", "tests/service.test.mjs",
+      "--source-path", "src/service.mjs",
+      "--config", "node.test.config.mjs",
+      "--json",
+    ], true);
+    assert.notEqual(invalidConfig.status, 0);
+    assert.match(invalidConfig.stderr, /does not accept --config with --framework node/);
+
+    const plan = JSON.parse(runCli(root, [
+      "verify", "coverage", "plan",
+      "--framework", "node",
+      "--test-path", "tests/service.test.mjs",
+      "--source-path", "src/service.mjs",
+      "--json",
+    ]).stdout);
+    assert.equal(plan.framework, "node");
+    assert.equal(plan.provider, "v8");
+    assert.equal(plan.binaryPath, "node");
+    assert.deepEqual(plan.targetPaths, ["src/service.mjs"]);
+    assert.match(plan.command, /^node --enable-source-maps --test --experimental-test-coverage /);
+    assert.match(plan.coveragePath, /^\.rekon\/cache\/coverage-node-[a-f0-9]{16}\.lcov$/);
+
+    const execution = JSON.parse(runCli(root, [
+      "verify", "run",
+      "--plan", plan.artifact.id,
+      "--execute",
+      "--json",
+    ]).stdout);
+    assert.equal(execution.verificationRun.status, "passed");
+    assert.equal(execution.runtimeObservation.source.coverageSources[0].format, "lcov");
+    assert.equal(execution.runtimeObservation.source.coverageSources[0].testPath, "tests/service.test.mjs");
+    assert.equal(execution.runtimeObservation.source.coverageSources[0].isolated, true);
+    assert.deepEqual(execution.runtimeObservation.source.coverageSources[0].targetPaths, ["src/service.mjs"]);
+    const sourceCoverage = execution.runtimeObservation.source.coverageSources[0].fileCoverage
+      .find((entry) => entry.path === "src/service.mjs");
+    assert.ok(sourceCoverage, JSON.stringify(execution.runtimeObservation));
+    assert.ok(
+      sourceCoverage.statements.covered + sourceCoverage.functions.covered + sourceCoverage.branches.covered > 0,
+      JSON.stringify(sourceCoverage),
+    );
+
+    const validation = JSON.parse(runCli(root, ["artifacts", "validate", "--json"]).stdout);
+    assert.equal(validation.valid, true, JSON.stringify(validation.issues));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("coverage planner refuses missing runners and missing Vitest coverage providers", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-coverage-plan-missing-"));
   try {
@@ -618,7 +675,7 @@ test("CLI help documents supported coverage formats and explicit test attributio
   assert.match(result.stdout, /--lcov-coverage <lcov\.info>/);
   assert.match(result.stdout, /--test-path <test-file>/);
   assert.match(result.stdout, /--verification-run <VerificationRun:id>/);
-  assert.match(result.stdout, /verify coverage plan --framework vitest\|jest/);
+  assert.match(result.stdout, /verify coverage plan --framework node\|vitest\|jest/);
   assert.match(result.stdout, /--source-path <source-file>/);
 });
 
@@ -631,6 +688,24 @@ async function writeFrameworkCoverageFixture(root, framework) {
     await writeFile(join(root, "vitest.config.ts"), "export default {};\n", "utf8");
   }
   await writeFakeFrameworkPackage(root, framework, true);
+}
+
+async function writeNodeCoverageFixture(root) {
+  await mkdir(join(root, "tests"), { recursive: true });
+  await mkdir(join(root, "src"), { recursive: true });
+  await writeFile(
+    join(root, "src/service.mjs"),
+    "export function service(value) { return value + 1; }\n",
+    "utf8",
+  );
+  await writeFile(
+    join(root, "tests/service.test.mjs"),
+    `import assert from "node:assert/strict";\n`
+      + `import test from "node:test";\n`
+      + `import { service } from "../src/service.mjs";\n`
+      + `test("service", () => { assert.equal(service(1), 2); });\n`,
+    "utf8",
+  );
 }
 
 async function writeFakeFrameworkPackage(root, framework, includeProvider) {

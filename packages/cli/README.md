@@ -317,7 +317,17 @@ explicitly named the test. Alternatively, pass the coverage flags to
 `rekon verify run --execute` to execute and bind in one flow. Dry-run coverage
 binding is refused.
 
-For an installed Vitest or Jest project, Rekon can build the isolated plan:
+Rekon can build an isolated plan for the native Node test runner:
+
+```sh
+rekon verify coverage plan \
+  --framework node \
+  --test-path tests/user.test.mjs \
+  --source-path src/user.mjs
+rekon verify run --plan <VerificationPlan-id> --execute
+```
+
+Vitest and Jest use the same command with their framework name:
 
 ```sh
 rekon verify coverage plan \
@@ -328,15 +338,15 @@ rekon verify coverage plan \
 rekon verify run --plan <VerificationPlan-id> --execute
 ```
 
-The planner resolves the framework's local package binary, writes no source,
-downloads nothing, and stores coverage under `.rekon/cache/coverage/`. Vitest
-also requires an installed `@vitest/coverage-v8` or
+The Node plan uses the current runtime's native V8 coverage and writes LCOV
+under `.rekon/cache/`; it requires no runner package and does not accept
+`--config`. The Vitest and Jest planner resolves an installed package binary,
+writes Istanbul JSON under `.rekon/cache/coverage/`, and downloads nothing.
+Vitest also requires an installed `@vitest/coverage-v8` or
 `@vitest/coverage-istanbul` package. Jest supports `babel` and `v8` providers.
 Repeat `--source-path` when the test is intended to exercise multiple source
-files. Pass `--config` when the repository's tests depend on a non-default
-Vitest or Jest config. Rekon records the config and targets, limits Vitest
-collection to those targets, and excludes nested worktrees so zero execution
-can be distinguished from an unrelated coverage counter.
+files. Rekon records the targets as scope intent. Vitest additionally bounds
+collection to those targets and excludes nested worktrees.
 
 ## Semantic debt profiles
 

@@ -134,6 +134,27 @@ test("isolated Jest coverage plan runs one exact test path", () => {
   assert.match(result.command, /--coverageReporters=json/);
 });
 
+test("isolated Node coverage plan writes LCOV through the native test runner", () => {
+  const result = createIsolatedCoverageVerificationPlan({
+    header: coveragePlanHeader("verification-plan-node"),
+    framework: "node",
+    provider: "v8",
+    testPath: "tests/service.test.mjs",
+    targetPaths: ["src/service.mjs"],
+    binaryPath: "node",
+  });
+
+  assert.match(result.command, /^node --enable-source-maps --test --experimental-test-coverage /);
+  assert.match(result.command, /--test-reporter=lcov/);
+  assert.match(result.command, /--test-reporter-destination=\.rekon\/cache\/coverage-node-[a-f0-9]{16}\.lcov/);
+  assert.match(result.command, / tests\/service\.test\.mjs$/);
+  assert.equal(result.verificationPlan.coverage.format, "lcov");
+  assert.equal(result.verificationPlan.coverage.framework, "node");
+  assert.equal(result.verificationPlan.coverage.provider, "v8");
+  assert.deepEqual(result.verificationPlan.coverage.targetPaths, ["src/service.mjs"]);
+  assert.match(result.coveragePath, /^\.rekon\/cache\/coverage-node-[a-f0-9]{16}\.lcov$/);
+});
+
 test("isolated coverage plans preserve and quote repository paths with spaces", () => {
   const result = createIsolatedCoverageVerificationPlan({
     header: coveragePlanHeader("verification-plan-spaces"),
@@ -200,4 +221,19 @@ test("isolated coverage plans reject unsafe paths and framework/provider mismatc
     testPath: "tests/service.test.ts",
     binaryPath: "node_modules/jest/bin/jest.js",
   }), /Jest coverage provider must be v8 or babel/);
+  assert.throws(() => createIsolatedCoverageVerificationPlan({
+    header: coveragePlanHeader("verification-plan-node-provider"),
+    framework: "node",
+    provider: "babel",
+    testPath: "tests/service.test.mjs",
+    binaryPath: "node",
+  }), /Node coverage provider must be v8/);
+  assert.throws(() => createIsolatedCoverageVerificationPlan({
+    header: coveragePlanHeader("verification-plan-node-config"),
+    framework: "node",
+    provider: "v8",
+    testPath: "tests/service.test.mjs",
+    configPath: "node.test.config.mjs",
+    binaryPath: "node",
+  }), /does not accept a runner config/);
 });
