@@ -4,6 +4,10 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Coverage attribution now retains an explicitly targeted standalone executable
+  when it is also the isolated run's test path. Ordinary attributed test files
+  remain excluded, while executable smoke flows can provide source-backed
+  handoff evidence through the existing LCOV or Istanbul pipeline.
 - Added native Node isolated-coverage plans. `VerificationPlanCoverage` now
   supports `framework: "node"` with V8-backed LCOV output, and `rekon verify
   run --execute` binds that output to the existing runtime-observation and

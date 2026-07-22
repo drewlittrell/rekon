@@ -94,10 +94,11 @@ export function parseLcovCoverage(input: ParseLcovCoverageInput): ParseLcovCover
   flush();
 
   const fileCoverage: RuntimeGraphObservationFileCoverage[] = [];
+  const targetPathSet = new Set(targetPaths);
   let ignoredFiles = 0;
   for (const record of records) {
     const path = normalizeRepoPath(input.repoRoot, record.path, true);
-    if (!path || path === testPath) {
+    if (!path || (path === testPath && !targetPathSet.has(path))) {
       ignoredFiles += 1;
       if (record.path && path !== testPath) issues.push({ code: "lcov.file.outside_repo", severity: "warning", message: "Ignored an LCOV source path outside the repository.", path: record.path });
       continue;

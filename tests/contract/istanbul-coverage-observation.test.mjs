@@ -95,6 +95,30 @@ test("coverage parser excludes outside paths, malformed entries, and the attribu
   assert.equal(result.issues.some((issue) => issue.code === "istanbul.file.counters_missing"), true);
 });
 
+test("coverage retains an attributed executable when it is also an explicit source target", () => {
+  const istanbul = parse({
+    coverage: {
+      "scripts/smoke.mjs": coverageEntry("scripts/smoke.mjs", { statements: { 0: 1 } }),
+    },
+    testPath: "scripts/smoke.mjs",
+    targetPaths: ["scripts/smoke.mjs"],
+  });
+  assert.deepEqual(istanbul.observation.sourcePaths, ["scripts/smoke.mjs"]);
+  assert.equal(istanbul.summary.ignoredFiles, 0);
+
+  const lcov = parseLcovCoverage({
+    lcov: "SF:/repo/scripts/smoke.mjs\nDA:1,1\nend_of_record\n",
+    repoRoot: "/repo",
+    coveragePath: "coverage/lcov.info",
+    coverageDigest: "b".repeat(64),
+    testPath: "scripts/smoke.mjs",
+    targetPaths: ["scripts/smoke.mjs"],
+    isolated: true,
+  });
+  assert.deepEqual(lcov.observation.sourcePaths, ["scripts/smoke.mjs"]);
+  assert.equal(lcov.summary.ignoredFiles, 0);
+});
+
 test("coverage parser rejects missing or unsafe test attribution", () => {
   assert.equal(parse({ testPath: "../outside.test.ts" }).valid, false);
   assert.equal(parse({ testPath: "/repo/tests/service.test.ts" }).valid, false);
@@ -619,6 +643,43 @@ test("Node coverage planner executes one test and binds native LCOV", async () =
 
     const validation = JSON.parse(runCli(root, ["artifacts", "validate", "--json"]).stdout);
     assert.equal(validation.valid, true, JSON.stringify(validation.issues));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Node coverage planner observes a standalone executable target", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-node-executable-coverage-"));
+  try {
+    await mkdir(join(root, "scripts"), { recursive: true });
+    await writeFile(
+      join(root, "scripts/smoke.mjs"),
+      "export function main() { return 1; }\nif (main() !== 1) process.exit(1);\n",
+      "utf8",
+    );
+    runCli(root, ["init"]);
+
+    const plan = JSON.parse(runCli(root, [
+      "verify", "coverage", "plan",
+      "--framework", "node",
+      "--test-path", "scripts/smoke.mjs",
+      "--source-path", "scripts/smoke.mjs",
+      "--json",
+    ]).stdout);
+    const execution = JSON.parse(runCli(root, [
+      "verify", "run",
+      "--plan", plan.artifact.id,
+      "--execute",
+      "--json",
+    ]).stdout);
+
+    const source = execution.runtimeObservation.source.coverageSources[0];
+    assert.equal(execution.verificationRun.status, "passed");
+    assert.equal(source.testPath, "scripts/smoke.mjs");
+    assert.deepEqual(source.targetPaths, ["scripts/smoke.mjs"]);
+    assert.equal(source.observedFiles, 1);
+    assert.equal(source.ignoredFiles, 0);
+    assert.equal(source.fileCoverage[0].path, "scripts/smoke.mjs");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -99,6 +99,7 @@ export function parseIstanbulCoverage(
   const entries = Object.entries(input.coverage);
   const observedPaths = new Set<string>();
   const fileCoverage = new Map<string, NonNullable<RuntimeGraphObservationCoverageSource["fileCoverage"]>[number]>();
+  const targetPathSet = new Set(targetPaths);
   let uncoveredFiles = 0;
   let ignoredFiles = 0;
 
@@ -127,7 +128,7 @@ export function parseIstanbulCoverage(
       });
       continue;
     }
-    if (sourcePath === testPath) {
+    if (sourcePath === testPath && !targetPathSet.has(sourcePath)) {
       ignoredFiles += 1;
       continue;
     }

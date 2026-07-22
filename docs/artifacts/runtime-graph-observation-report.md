@@ -103,9 +103,12 @@ collection is bounded to declared source targets and excludes nested repository
 worktrees. `--config` is available only for Vitest and Jest.
 
 Positive statement, function, or branch counters count as observed execution.
-Zero-count files, files outside the repository, malformed entries, and the test
-file itself do not produce observed source edges. Coverage does not infer route
-execution and does not prove assertion coverage.
+Zero-count files, files outside the repository, and malformed entries do not
+produce observed source edges. The attributed test file is excluded unless the
+coverage plan also declares that exact path as a source target. This explicit
+exception supports standalone executable smoke checks without treating ordinary
+test implementation as product coverage. Coverage does not infer route execution
+and does not prove assertion coverage.
 
 Policy may attach fresh isolated function coverage to an existing complexity
 risk. A positive count proves that the named test executed the function. A zero

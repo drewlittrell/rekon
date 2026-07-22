@@ -183,8 +183,12 @@ packet, not a required round trip for routes the compiler already knows.
 The package also exports the semantic-debt judgment prompt, strict response
 schema, versioned eligibility decision, deterministic concern coercion,
 runtime observation builder, bounded embedding-neighbor search, and pure
-Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime coverage
-sources can cite the exact `VerificationRun` command that produced them.
+Istanbul and LCOV coverage parsers used by the CLI and model evaluator. Runtime
+coverage sources can cite the exact `VerificationRun` command that produced
+them. An attributed test path is excluded from observed source by default, but
+is retained when the plan explicitly names that same path as a source target;
+this supports standalone executable smoke flows without admitting ordinary test
+implementation as product coverage.
 `findEmbeddingNeighbors()` keeps small groups exact and uses deterministic
 candidate generation for large groups before exact cosine ranking. Callers must
 group vectors by provider, model, dimensions, and representation kind.
