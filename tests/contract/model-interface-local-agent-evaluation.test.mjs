@@ -7,10 +7,12 @@ import test from "node:test";
 
 import {
   assessRekonContextUse,
+  classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
   compareManagedLocalAgentPair,
   compareLocalAgentPair,
   estimateVisibleTokenUsage,
+  mergeAgentCommands,
   parseCodexJsonl,
   parseGitStatusPaths,
   scoreLocalAgentOutcome,
@@ -20,6 +22,7 @@ import {
   summarizeCodexTokenUsage,
   summarizeLocalAgentRuns,
   summarizeRekonAdoption,
+  summarizeRekonProductLoop,
 } from "../../scripts/lib/model-interface-local-agent-eval.mjs";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -73,6 +76,45 @@ function successfulRun(overrides = {}) {
   };
   run.score = scoreLocalAgentOutcome(run, oracle);
   return run;
+}
+
+function completeProductLoopArtifactEvidence() {
+  return {
+    newArtifactCounts: {
+      ContextUsageEvent: 2,
+      VerificationPlan: 1,
+      VerificationRun: 1,
+      VerificationResult: 1,
+      ProofGateReport: 1,
+      OutcomeEvent: 2,
+      EvidenceGraph: 1,
+    },
+    deliveryRecorded: true,
+    contextClaimReceiptRecorded: true,
+    contextClaimCoverage: 1,
+    verificationPlanRecorded: true,
+    verificationRunPassed: true,
+    verificationSourceStable: true,
+    verificationResultPassed: true,
+    verificationLineageComplete: true,
+    proofGateSatisfied: true,
+    proofGateLinkedVerification: true,
+    validationOutcomeVerified: true,
+    proofLineageComplete: true,
+    refreshOutcomeAccepted: true,
+    refreshOutcomeLinkedProof: true,
+    refreshedEvidenceLinkedProof: true,
+    refreshLineageComplete: true,
+    refreshCompleted: true,
+    managedInstructionsCurrent: true,
+    refs: {
+      proofGate: {
+        type: "ProofGateReport",
+        id: "proof",
+        schemaVersion: "0.1.0",
+      },
+    },
+  };
 }
 
 test("Codex JSONL parsing ignores runner diagnostics and summarizes bounded exploration", () => {
@@ -192,6 +234,284 @@ test("managed-interface adoption requires successful context before exploration 
   ]);
   assert.equal(JSON.stringify(adopted).includes("secret"), false);
   assert.equal(JSON.stringify(adopted).includes("source"), false);
+});
+
+test("managed product-loop scoring requires ordered proof-gated maintenance and linked artifacts", () => {
+  const artifactEvidence = completeProductLoopArtifactEvidence();
+  const events = [
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "context_for_task",
+        status: "completed",
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "sed -n 1,120p src/domain/user-service.ts tests/user-service.test.ts",
+        aggregated_output: "",
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: { type: "file_change", changes: [{ path: "src/domain/user-service.ts" }] },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "validate_change",
+        status: "completed",
+        arguments: {
+          task: "deactivate user",
+          changedPaths: ["src/domain/user-service.ts"],
+          contextUsageRef: "ContextUsageEvent:usage",
+          contextClaims: { "src/domain/user-service.ts": "applied" },
+        },
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon context validate-change --task change --changed-path src/domain/user-service.ts --prepare-verification --json",
+        aggregated_output: "{}",
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon verify run --plan VerificationPlan:plan --execute --json",
+        aggregated_output: "{}",
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon verify result from-run --run VerificationRun:run --json",
+        aggregated_output: "{}",
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "validate_change",
+        status: "completed",
+        arguments: {
+          task: "deactivate user",
+          changedPaths: ["src/domain/user-service.ts"],
+          verificationResults: ["VerificationResult:result"],
+          judgments: [],
+        },
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon context validate-change --task change --changed-path src/domain/user-service.ts --verification-result VerificationResult:result --record-proof --json",
+        aggregated_output: "{}",
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon refresh --proof-gate ProofGateReport:proof --json",
+        aggregated_output: JSON.stringify({
+          status: "passed",
+          freshness: {
+            latestMajor: [
+              { type: "EvidenceGraph", id: "evidence", status: "fresh" },
+              { type: "IntelligenceSnapshot", id: "snapshot", status: "fresh" },
+            ],
+          },
+          steps: [
+            { id: "agent-instructions.sync", status: "passed" },
+            { id: "proof-gate.preaccept", status: "passed" },
+            { id: "outcome.record", status: "passed" },
+            { id: "artifacts.freshness", status: "passed" },
+            { id: "proof-gate.revalidate", status: "passed" },
+          ],
+        }),
+        exit_code: 0,
+      },
+    },
+  ];
+
+  const loop = summarizeRekonProductLoop(events, artifactEvidence, { required: true });
+  assert.equal(loop.required, true);
+  assert.equal(loop.passed, true);
+  assert.deepEqual(loop.missing, []);
+  assert.equal(loop.validationCalls, 4);
+  assert.equal(loop.checks.contextBeforeEdit, true);
+  assert.equal(loop.checks.verificationOrderValid, true);
+  assert.equal(loop.checks.proofOrderValid, true);
+  assert.equal(loop.checks.refreshOrderValid, true);
+  assert.ok(loop.phaseMetrics.context.events > 0);
+  assert.ok(loop.phaseMetrics.verification.commandCount > 0);
+  assert.ok(loop.phaseMetrics.maintenance.visibleTokens > 0);
+  assert.equal(JSON.stringify(loop).includes("src/domain/user-service.ts"), false);
+});
+
+test("managed product-loop scoring exposes missing proof and refresh without weakening outcome scoring", () => {
+  const events = [
+    { type: "item.completed", item: { type: "mcp_tool_call", server: "rekon", tool: "context_for_task", status: "completed" } },
+    { type: "item.completed", item: { type: "file_change", changes: [] } },
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "validate_change",
+        status: "completed",
+        arguments: {
+          contextUsageRef: "ContextUsageEvent:usage",
+          contextClaims: { item: "applied" },
+        },
+      },
+    },
+  ];
+  const incomplete = summarizeRekonProductLoop(events, {
+    deliveryRecorded: true,
+    contextClaimReceiptRecorded: true,
+  }, { required: true });
+  assert.equal(incomplete.passed, false);
+  assert.ok(incomplete.missing.includes("verificationPrepared"));
+  assert.ok(incomplete.missing.includes("proofGateSatisfied"));
+  assert.ok(incomplete.missing.includes("refreshOutcomeAccepted"));
+
+  const correctDiff = successfulRun({
+    productLoop: incomplete,
+  });
+  assert.equal(correctDiff.score.passed, true, "independent correctness remains separate");
+  const baseline = successfulRun({ condition: "baseline" });
+  const comparison = compareManagedLocalAgentPair(baseline, correctDiff);
+  assert.equal(comparison.decision, "discard");
+  assert.match(comparison.reasons.join("\n"), /did not complete the required product loop/u);
+});
+
+test("managed product-loop scoring recognizes typed lifecycle output behind shell aliases", () => {
+  const artifactEvidence = completeProductLoopArtifactEvidence();
+  const events = [
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "context_for_task",
+        status: "completed",
+      },
+    },
+    { type: "item.completed", item: { type: "file_change", changes: [] } },
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "validate_change",
+        status: "completed",
+        arguments: {
+          contextUsageRef: "ContextUsageEvent:usage",
+          contextClaims: { item: "applied" },
+        },
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "$CLI --prepare-verification",
+        aggregated_output: JSON.stringify({
+          status: "needs-judgment",
+          proofGate: { evaluation: { status: "incomplete" } },
+          verificationPlan: { type: "VerificationPlan", id: "plan" },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "$CLI_RUN",
+        aggregated_output: JSON.stringify({
+          verificationRun: {
+            header: { artifactType: "VerificationRun" },
+            status: "passed",
+          },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "$CLI_RESULT",
+        aggregated_output: JSON.stringify({
+          verificationResult: {
+            header: { artifactType: "VerificationResult" },
+            status: "passed",
+          },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "$CLI_RECORD",
+        aggregated_output: JSON.stringify({
+          status: "passed",
+          proofGate: { evaluation: { status: "satisfied" } },
+          proofArtifact: { type: "ProofGateReport", id: "proof" },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "$CLI_REFRESH",
+        aggregated_output: JSON.stringify({
+          status: "passed",
+          freshness: {
+            latestMajor: [{ type: "EvidenceGraph", id: "evidence", status: "fresh" }],
+          },
+          steps: [
+            { id: "agent-instructions.sync", status: "passed" },
+            { id: "proof-gate.preaccept", status: "passed" },
+            { id: "outcome.record", status: "passed" },
+            { id: "artifacts.freshness", status: "passed" },
+            { id: "proof-gate.revalidate", status: "passed" },
+          ],
+        }),
+        exit_code: 0,
+      },
+    },
+  ];
+
+  const loop = summarizeRekonProductLoop(events, artifactEvidence, { required: true });
+  assert.equal(loop.passed, true);
+  assert.equal(loop.checks.verificationOrderValid, true);
+  assert.equal(loop.checks.refreshRequiredStepsPassed, true);
 });
 
 test("managed-interface adoption reports exploration before context and missing preflight", () => {
@@ -421,6 +741,35 @@ test("git status parsing preserves the first path character", () => {
   ]);
 });
 
+test("benchmark source scope excludes Rekon-generated workspace changes without hiding source", () => {
+  const classified = classifyBenchmarkModifiedPaths([
+    ".rekon/registry/artifacts.index.json",
+    ".rekon-dev/evals/run.json",
+    "src/domain/user-service.ts",
+    "tests/user-service.test.ts",
+  ]);
+  assert.deepEqual(classified, {
+    sourcePaths: ["src/domain/user-service.ts", "tests/user-service.test.ts"],
+    generatedPaths: [
+      ".rekon-dev/evals/run.json",
+      ".rekon/registry/artifacts.index.json",
+    ],
+  });
+
+  const run = successfulRun({
+    modifiedPaths: [
+      ".rekon/registry/artifacts.index.json",
+      "src/domain/user-service.ts",
+      "tests/user-service.test.ts",
+    ],
+    sourceModifiedPaths: classified.sourcePaths,
+    generatedModifiedPaths: [".rekon/registry/artifacts.index.json"],
+  });
+  run.score = scoreLocalAgentOutcome(run, oracle);
+  assert.equal(run.score.passed, true);
+  assert.deepEqual(run.score.unexpectedModifiedPaths, []);
+});
+
 test("local-agent outcome scoring requires behavior, exact scope, and agent verification", () => {
   const run = successfulRun();
   assert.equal(run.score.passed, true);
@@ -434,6 +783,15 @@ test("local-agent outcome scoring requires behavior, exact scope, and agent veri
 
 test("local-agent scoring treats npm test and npm run test as equivalent", () => {
   const run = successfulRun({ agentCommands: ["/bin/zsh -lc 'npm run test'"] });
+  run.score = scoreLocalAgentOutcome(run, oracle);
+  assert.equal(run.score.agentCheckRecall, 1);
+  assert.equal(run.score.passed, true);
+});
+
+test("local-agent scoring accepts a passed typed verification command behind a shell alias", () => {
+  const run = successfulRun({
+    agentCommands: mergeAgentCommands(["$CHECK"], ["npm test"]),
+  });
   run.score = scoreLocalAgentOutcome(run, oracle);
   assert.equal(run.score.agentCheckRecall, 1);
   assert.equal(run.score.passed, true);
@@ -950,6 +1308,41 @@ test("managed local-agent dry run can isolate the Rekon adoption condition", () 
   assert.match(output.rekonInterface, /no prompt-injected context/u);
 });
 
+test("product-loop dry run records a reproducible campaign without invoking a model", () => {
+  const result = spawnSync(process.execPath, [
+    "scripts/eval-model-interface-local-agent.mjs",
+    "--delivery",
+    "managed",
+    "--product-loop",
+    "--condition",
+    "rekon",
+    "--dry-run",
+    "--case",
+    "implementation-user-deactivation",
+    "--model",
+    "gpt-5.6-sol",
+    "--reasoning-effort",
+    "xhigh",
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "" },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.schemaVersion, "1.1.0");
+  assert.equal(output.productLoop.required, true);
+  assert.equal(output.productLoop.condition, "rekon");
+  assert.equal(output.campaign.model, "gpt-5.6-sol");
+  assert.equal(output.campaign.reasoningEffort, "xhigh");
+  assert.match(output.campaign.corpusDigest, /^[a-f0-9]{64}$/u);
+  assert.match(output.campaign.interface.digest, /^[a-f0-9]{64}$/u);
+  assert.equal(output.campaign.interface.managedInstructionsVersion, "2.0.4");
+  assert.equal(output.campaign.environment.node, process.version);
+  assert.equal(output.isolatedRuns, 1);
+  assert.equal(output.productLoop.timeoutMs, 900_000);
+});
+
 test("mixed-layout dry runs keep direct and managed context selections complete and precise", () => {
   for (const delivery of ["direct", "managed"]) {
     const result = spawnSync(process.execPath, [
@@ -1182,6 +1575,41 @@ test("Sol subscription token calibration records exploration gain without claimi
     2,
   );
   const encoded = JSON.stringify(calibration);
+  for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
+    assert.equal(encoded.includes(`\"${forbidden}\"`), false);
+  }
+});
+
+test("Sol product-loop canary records complete proof-gated execution without making benchmark claims", () => {
+  const fixture = JSON.parse(readFileSync(
+    resolve(repoRoot, "tests/evals/model-interface-contracts/cases.json"),
+    "utf8",
+  ));
+  const canary = JSON.parse(readFileSync(
+    resolve(repoRoot, "tests/evals/model-interface-contracts/sol-product-loop-canary.json"),
+    "utf8",
+  ));
+
+  assert.equal(canary.status, "canary");
+  assert.equal(canary.runner.model, "gpt-5.6-sol");
+  assert.equal(canary.campaign.managedInstructionsVersion, "2.0.4");
+  assert.equal(
+    canary.campaign.corpusDigest,
+    createHash("sha256").update(JSON.stringify(fixture)).digest("hex"),
+  );
+  assert.equal(canary.outcome.passed, true);
+  assert.equal(canary.outcome.hiddenOraclePassed, true);
+  assert.equal(canary.outcome.qualityScore, 1);
+  assert.equal(canary.adoption.passed, true);
+  assert.equal(canary.productLoop.passed, true);
+  assert.equal(canary.productLoop.verificationSourceStable, true);
+  assert.equal(canary.productLoop.proofGateSatisfied, true);
+  assert.equal(canary.productLoop.refreshOutcomeAccepted, true);
+  assert.equal(canary.observerCorrection.postCorrectionPassed, true);
+  assert.ok(canary.limitations.some((entry) => /one managed run/iu.test(entry)));
+  assert.ok(canary.limitations.some((entry) => /reliability is not established/iu.test(entry)));
+  assert.ok(canary.limitations.some((entry) => /does not support token/iu.test(entry)));
+  const encoded = JSON.stringify(canary);
   for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
     assert.equal(encoded.includes(`\"${forbidden}\"`), false);
   }

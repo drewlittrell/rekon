@@ -161,6 +161,67 @@ test("unowned non-documentation paths still require ownership proof", () => {
     entry.id === "ownership-unresolved:scripts/release.mjs"));
 });
 
+test("new files inherit a uniquely observed top-level owner", () => {
+  const result = validateChange({
+    task: "add benchmark canary",
+    changedPaths: ["tests/evals/new-canary.json"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: { text: "add benchmark canary", paths: ["tests/evals/new-canary.json"] },
+    }),
+    ownershipMap: {
+      header: header("OwnershipMap", "tests-ownership"),
+      entries: [{
+        path: "tests/contract/existing.test.mjs",
+        ownerSystem: "tests",
+        confidence: 1,
+        evidence: [],
+      }],
+    },
+    files: [{ path: "tests/evals/new-canary.json", status: "added", afterSha256: "b" }],
+  });
+
+  assert.equal(result.status, "passed");
+  assert.deepEqual(result.affectedSystems, ["tests"]);
+  assert.ok(!result.unresolvedSemanticObligations.some((entry) =>
+    entry.id.startsWith("ownership-unresolved:")));
+});
+
+test("new files keep ownership unresolved when top-level evidence is ambiguous", () => {
+  const result = validateChange({
+    task: "add shared source",
+    changedPaths: ["src/new.ts"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: { text: "add shared source", paths: ["src/new.ts"] },
+    }),
+    ownershipMap,
+    files: [{ path: "src/new.ts", status: "added", afterSha256: "b" }],
+  });
+
+  assert.equal(result.status, "needs-judgment");
+  assert.ok(result.unresolvedSemanticObligations.some((entry) =>
+    entry.id === "ownership-unresolved:src/new.ts"));
+});
+
+test("root-level metadata resolves to the repository root owner", () => {
+  const result = validateChange({
+    task: "add benchmark command",
+    changedPaths: ["package.json"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: { text: "add benchmark command", paths: ["package.json"] },
+    }),
+    ownershipMap,
+    files: [{ path: "package.json", status: "modified", beforeSha256: "a", afterSha256: "b" }],
+  });
+
+  assert.equal(result.status, "passed");
+  assert.deepEqual(result.affectedSystems, ["root"]);
+  assert.ok(!result.unresolvedSemanticObligations.some((entry) =>
+    entry.id.startsWith("ownership-unresolved:")));
+});
+
 test("flow and baton clauses become agent-owned semantic obligations", () => {
   const flowRef = ref("FlowContract", "bootstrap-flow");
   const taskPact = pact({

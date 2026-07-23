@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-07-23T04:22:16.629Z",
+  "status": "canary",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "campaign": {
+    "id": "model-interface-9c10cc898f84e60f",
+    "gitCommit": "3d2d4e2af429ecec0d8a1446cc50e4a10010f3e7",
+    "dirty": true,
+    "corpus": "contracts",
+    "corpusDigest": "e0d991dd3117c236fe98109d19c8560ed1ac024edf7616eeae508df424e63047",
+    "interfaceDigest": "7402b533545a699b920c490d68c7361c553dd62d895b43f4ab79a28a441199d0",
+    "managedInstructionsVersion": "2.0.4",
+    "mcpServerVersion": "1.4.2"
+  },
+  "caseId": "atomic-experience-composition",
+  "delivery": "managed",
+  "contextPolicy": "full",
+  "sourceRetention": "aggregate counts, paths, scores, artifact-type counts, and interface digests only; no source, prompts, diffs, raw shell commands, MCP payloads, or free-form model text",
+  "outcome": {
+    "passed": true,
+    "qualityScore": 1,
+    "hiddenOraclePassed": true,
+    "repositoryChecksPassed": true,
+    "requiredModifyRecall": 1,
+    "unexpectedModifiedPaths": 0,
+    "protectedPathViolations": 0,
+    "modifiedPaths": [
+      "src/nlu/tokenize.ts",
+      "tests/experience-interpreter.test.ts"
+    ]
+  },
+  "adoption": {
+    "passed": true,
+    "contextBeforeExploration": true,
+    "contextBeforeEdit": true,
+    "readFirstRecall": 1,
+    "refinementRecall": 1
+  },
+  "productLoop": {
+    "passed": true,
+    "validationCalls": 5,
+    "contextClaimCoverage": 1,
+    "verificationPlanRecorded": true,
+    "verificationRunPassed": true,
+    "verificationSourceStable": true,
+    "verificationResultPassed": true,
+    "proofGateSatisfied": true,
+    "validationOutcomeVerified": true,
+    "refreshOutcomeAccepted": true,
+    "refreshedEvidenceLinkedProof": true,
+    "refreshLatestMajorFresh": true,
+    "managedInstructionsCurrent": true
+  },
+  "metrics": {
+    "elapsedMs": 589565,
+    "exploredPaths": 15,
+    "commands": 57,
+    "failedCommands": 6,
+    "subscriptionTokens": {
+      "input": 6341462,
+      "cachedInput": 6161152,
+      "nonCachedInput": 180310,
+      "output": 23730,
+      "reasoningOutput": 9918,
+      "total": 6365192
+    },
+    "visibleEstimatedTokens": 117540
+  },
+  "observerCorrection": {
+    "reason": "The original shell-text command recall missed the exact passed command retained by VerificationResult.",
+    "method": "Merged passed typed verification commands into agent check recall and re-ran the unchanged independent scorer.",
+    "preCorrectionQualityScore": 0.8571,
+    "postCorrectionQualityScore": 1,
+    "postCorrectionPassed": true
+  },
+  "limitations": [
+    "One managed run and no baseline comparison.",
+    "The evaluator worktree was dirty while the benchmark observer was under development.",
+    "An earlier post-shim run reached a satisfied proof gate but failed the refresh project step, so completion reliability is not established.",
+    "This canary supports product-loop executability only; it does not support token, time, cost, lower-model-lift, or cross-repository claims."
+  ]
+}

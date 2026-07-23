@@ -2,7 +2,7 @@
 
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFile, cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,15 +19,18 @@ import {
   selectLexicalGraphContextPaths,
   selectTaskContractGuidance,
 } from "@rekon/capability-model";
+import { MCP_SERVER_VERSION, REKON_AGENT_MCP_STEPS } from "@rekon/mcp";
 import { createLocalArtifactStore } from "@rekon/runtime";
 
 import {
   assessRekonContextUse,
+  classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
   compareManagedLocalAgentPair,
   compareLocalAgentPair,
   estimateVisibleTokenUsage,
   LOCAL_AGENT_RESPONSE_SCHEMA,
+  mergeAgentCommands,
   normalizeLocalAgentResponse,
   parseCodexJsonl,
   parseGitStatusPaths,
@@ -38,6 +41,7 @@ import {
   summarizeCodexTokenUsage,
   summarizeLocalAgentRuns,
   summarizeRekonAdoption,
+  summarizeRekonProductLoop,
 } from "./lib/model-interface-local-agent-eval.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -49,6 +53,8 @@ const fixtureRepoRoot = resolve(dirname(fixturePath), fixture.repository.root);
 const cliEntry = join(root, "packages/cli/dist/index.js");
 const cases = selectCases(fixture.cases, options.cases);
 const generatedAt = new Date().toISOString();
+const managedInstructionsVersion = await readManagedInstructionsVersion();
+const campaign = buildCampaignManifest();
 const repositoryLaw = buildFixtureRepositoryLaw(fixture, generatedAt);
 const preparedCases = cases.map(prepareCase);
 const contextDeliveryDigests = preparedCases.map(({ entry, contextPacket }) => ({
@@ -63,7 +69,8 @@ const contextDeliveryMetrics = preparedCases.map(({ entry, contextPacket }) => (
 
 if (options.dryRun) {
   process.stdout.write(`${JSON.stringify({
-    schemaVersion: fixture.schemaVersion,
+    schemaVersion: "1.1.0",
+    campaign,
     runner: "codex-subscription",
     corpus: options.corpus,
     delivery: options.delivery,
@@ -80,6 +87,23 @@ if (options.dryRun) {
       status: "available-after-executed-runs",
       subscriptionReported: "Codex turn.completed aggregate counts",
       visibleEstimate: "UTF-8 bytes divided by four; excludes hidden and system context",
+    },
+    productLoop: {
+      required: options.productLoop,
+      condition: options.productLoop ? "rekon" : "not-gated",
+      timeoutMs: options.timeoutMs,
+      sequence: [
+        "context_for_task",
+        "source edit",
+        "validate_change",
+        "prepare verification",
+        "execute verification",
+        "record VerificationResult",
+        "final validation",
+        "record ProofGateReport",
+        "proof-gated refresh",
+      ],
+      outcomeOracle: "independent hidden behavior, scope, and repository checks",
     },
     contextSelections: preparedCases.map(({ entry, contextSelection }) => ({
       caseId: entry.id,
@@ -120,8 +144,9 @@ const pairs = pairRuns(runs).map(({ baseline, rekon }) => ({
 }));
 const conditionSummary = summarizeLocalAgentRuns(runs);
 const report = {
-  schemaVersion: "1.0.0",
+  schemaVersion: "1.1.0",
   generatedAt,
+  campaign,
   git: gitState(),
   runner: {
     id: "codex-subscription",
@@ -133,7 +158,9 @@ const report = {
   delivery: options.delivery,
   contextPolicy: options.contextPolicy,
   hypothesis: options.delivery === "managed"
-    ? "Agents follow Rekon-managed repository instructions and obtain bounded context before broad exploration or editing"
+    ? options.productLoop
+      ? "Agents use Rekon to obtain bounded context, prove the resulting change, and refresh maintained knowledge without reducing independently measured correctness"
+      : "Agents follow Rekon-managed repository instructions and obtain bounded context before broad exploration or editing"
     : "Rekon context improves or preserves change correctness while reducing repository exploration",
   sourceRetention: "no source, prompts, diffs, free-form model text, or raw commands",
   tokenUsage: {
@@ -159,6 +186,7 @@ const report = {
     profile: options.profile ?? "fixture-default",
     timeoutMs: options.timeoutMs,
     reasoningEffort: options.reasoningEffort ?? "default",
+    productLoop: options.productLoop,
   },
   summary: {
     pairedRuns: pairs.length,
@@ -202,6 +230,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
   const worktree = join(tempRoot, "repo");
   const schemaPath = join(tempRoot, "response.schema.json");
   const finalPath = join(tempRoot, "final.json");
+  const cliShimDir = join(tempRoot, "bin");
   let error;
   try {
     await cp(fixtureRepoRoot, worktree, { recursive: true });
@@ -212,9 +241,13 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     }
     if (options.delivery === "managed" && condition === "rekon") {
       await prepareManagedRekonWorktree(worktree);
+      await prepareBenchmarkCliShim(cliShimDir);
     }
     await writeFile(schemaPath, `${JSON.stringify(LOCAL_AGENT_RESPONSE_SCHEMA, null, 2)}\n`);
     await initializeGit(worktree);
+    const initialArtifactKeys = options.delivery === "managed" && condition === "rekon"
+      ? await captureArtifactKeys(worktree)
+      : new Set();
     const started = performance.now();
     const prompt = buildPrompt(caseEntry.task, condition, contextPacket);
     const result = await runCodex({
@@ -223,6 +256,9 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       finalPath,
       prompt,
       enableMcp: options.delivery === "managed" && condition === "rekon",
+      cliShimDir: options.delivery === "managed" && condition === "rekon"
+        ? cliShimDir
+        : undefined,
     });
     const elapsedMs = Math.round(performance.now() - started);
     const parsed = parseCodexJsonl(result.stdout);
@@ -232,15 +268,41 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     const finalValue = await readJson(finalPath);
     const normalizedFinal = normalizeLocalAgentResponse(finalValue, fixture.repository.files);
     if (!normalizedFinal.ok) error = normalizedFinal.error;
-    const modifiedPaths = parseGitStatusPaths(rawCommandOutput("git", ["status", "--short"], worktree));
-    const agentCommands = parsed.events
+    const modifiedPaths = parseGitStatusPaths(rawCommandOutput(
+      "git",
+      ["status", "--short", "--untracked-files=all"],
+      worktree,
+    ));
+    const {
+      sourcePaths: sourceModifiedPaths,
+      generatedPaths: generatedModifiedPaths,
+    } = classifyBenchmarkModifiedPaths(modifiedPaths);
+    const inspectedProductLoopArtifacts = options.delivery === "managed" && condition === "rekon"
+      ? await inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys)
+      : undefined;
+    let verifiedCommands = [];
+    let productLoopArtifacts;
+    if (inspectedProductLoopArtifacts) {
+      const {
+        verifiedCommands: inspectedVerifiedCommands = [],
+        ...publicArtifactEvidence
+      } = inspectedProductLoopArtifacts;
+      verifiedCommands = inspectedVerifiedCommands;
+      productLoopArtifacts = publicArtifactEvidence;
+    }
+    const productLoop = productLoopArtifacts
+      ? summarizeRekonProductLoop(parsed.events, productLoopArtifacts, {
+        required: options.productLoop,
+      })
+      : undefined;
+    const agentCommands = mergeAgentCommands(parsed.events
       .filter((event) => event.type === "item.completed" && event.item?.type === "command_execution")
       .map((event) => event.item.command)
-      .filter((command) => typeof command === "string");
+      .filter((command) => typeof command === "string"), verifiedCommands);
     const requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
     const oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
     const contextUse = condition === "rekon"
-      ? summarizeContextUse(contextSelection, exploration, normalizedFinal.response, modifiedPaths)
+      ? summarizeContextUse(contextSelection, exploration, normalizedFinal.response, sourceModifiedPaths)
       : undefined;
     const interfaceAdoption = options.delivery === "managed" && condition === "rekon"
       ? summarizeRekonAdoption(parsed.events, {
@@ -260,6 +322,8 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       status: result.exitCode === 0 && normalizedFinal.ok ? "ok" : "error",
       final: normalizedFinal.ok ? normalizedFinal.response : undefined,
       modifiedPaths,
+      sourceModifiedPaths,
+      generatedModifiedPaths,
       agentCommands,
       requiredChecks,
       oracleChecks,
@@ -268,9 +332,15 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       visibleTokenEstimate,
       ...(contextUse ? { contextUse } : {}),
       ...(adoption ? { adoption } : {}),
+      ...(productLoop ? { productLoop } : {}),
       elapsedMs,
-      ...(result.exitCode !== 0 ? { error: `codex-exit-${result.exitCode}` } : {}),
-      ...(error ? { error } : {}),
+      ...(result.timedOut
+        ? { error: `codex-timeout-${options.timeoutMs}` }
+        : result.exitCode !== 0
+          ? { error: `codex-exit-${result.exitCode}` }
+          : error
+            ? { error }
+            : {}),
     };
     run.score = scoreLocalAgentOutcome(run, caseEntry.oracle);
     return run;
@@ -383,7 +453,7 @@ function buildPrompt(task, condition, contextPacket) {
   ].join("\n\n");
 }
 
-async function runCodex({ worktree, schemaPath, finalPath, prompt, enableMcp }) {
+async function runCodex({ worktree, schemaPath, finalPath, prompt, enableMcp, cliShimDir }) {
   const args = [
     "exec",
     "--ephemeral",
@@ -408,7 +478,11 @@ async function runCodex({ worktree, schemaPath, finalPath, prompt, enableMcp }) 
       cwd: root,
       env: {
         ...process.env,
-        PATH: `${join(root, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}`,
+        PATH: [
+          cliShimDir,
+          join(root, "node_modules", ".bin"),
+          process.env.PATH ?? "",
+        ].filter(Boolean).join(delimiter),
         ...(enableMcp
           ? { REKON_EXPERIMENTAL_CONTEXT_DELIVERY_POLICY: options.contextPolicy }
           : {}),
@@ -417,11 +491,13 @@ async function runCodex({ worktree, schemaPath, finalPath, prompt, enableMcp }) 
     });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     const timeout = setTimeout(() => {
+      timedOut = true;
       child.kill("SIGTERM");
       setTimeout(() => child.kill("SIGKILL"), 2_000).unref();
     }, options.timeoutMs);
@@ -431,11 +507,32 @@ async function runCodex({ worktree, schemaPath, finalPath, prompt, enableMcp }) 
       resolvePromise({
         exitCode: typeof code === "number" ? code : 1,
         signal,
+        timedOut,
         stdout,
         stderrSummary: stderr.split(/\r?\n/u).filter(Boolean).slice(-5),
       });
     });
   });
+}
+
+async function prepareBenchmarkCliShim(binDir) {
+  await mkdir(binDir, { recursive: true });
+  const shim = join(binDir, "rekon");
+  await writeFile(
+    shim,
+    `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(cliEntry)} "$@"\n`,
+    "utf8",
+  );
+  await chmod(shim, 0o755);
+  await execFileAsync(shim, ["--help"], {
+    cwd: root,
+    timeout: Math.min(options.timeoutMs, 30_000),
+    maxBuffer: 1_000_000,
+  });
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/gu, "'\\''")}'`;
 }
 
 async function prepareManagedRekonWorktree(worktree) {
@@ -539,6 +636,7 @@ function mcpConfig(worktree) {
 
 function summarizeAdoption(rekonRuns) {
   const entries = rekonRuns.map((run) => run.adoption).filter(Boolean);
+  const productLoops = rekonRuns.map((run) => run.productLoop).filter(Boolean);
   return {
     runs: entries.length,
     adopted: entries.filter((entry) => entry.status === "adopted").length,
@@ -561,6 +659,13 @@ function summarizeAdoption(rekonRuns) {
       name,
       entries.filter((entry) => entry.interface === name).length,
     ])),
+    ...(productLoops.length > 0 ? {
+      productLoop: {
+        runs: productLoops.length,
+        required: productLoops.filter((entry) => entry.required).length,
+        passed: productLoops.filter((entry) => entry.passed).length,
+      },
+    } : {}),
   };
 }
 
@@ -589,6 +694,186 @@ async function initializeGit(worktree) {
   await execFileAsync("git", ["init", "--quiet"], { cwd: worktree });
   await execFileAsync("git", ["add", "."], { cwd: worktree });
   await execFileAsync("git", ["-c", "user.name=Rekon Eval", "-c", "user.email=eval@localhost", "commit", "--quiet", "-m", "fixture"], { cwd: worktree });
+}
+
+async function captureArtifactKeys(worktree) {
+  const store = createLocalArtifactStore(worktree);
+  await store.init();
+  return new Set((await store.list()).map((entry) => `${entry.type}:${entry.id}`));
+}
+
+async function inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys) {
+  const store = createLocalArtifactStore(worktree);
+  await store.init();
+  const entries = (await store.list())
+    .filter((entry) => !initialArtifactKeys.has(`${entry.type}:${entry.id}`))
+    .sort((left, right) => left.writtenAt.localeCompare(right.writtenAt));
+  const records = [];
+  for (const entry of entries) {
+    try {
+      records.push({ entry, body: await store.read(entry) });
+    } catch {
+      records.push({ entry, body: undefined });
+    }
+  }
+  const proof = records.findLast((record) =>
+    record.entry.type === "ProofGateReport"
+    && record.body?.evaluation?.status === "satisfied");
+  const verificationResultRef = proof?.body?.header?.inputRefs?.find((ref) =>
+    ref?.type === "VerificationResult");
+  const verificationResult = findRecordByRef(records, verificationResultRef);
+  const verificationRunRef = verificationResult?.body?.header?.inputRefs?.find((ref) =>
+    ref?.type === "VerificationRun");
+  const verificationRun = findRecordByRef(records, verificationRunRef);
+  const verificationPlanRef = verificationRun?.body?.header?.inputRefs?.find((ref) =>
+    ref?.type === "VerificationPlan");
+  const verificationPlan = findRecordByRef(records, verificationPlanRef);
+  const validationOutcome = records.findLast((record) =>
+    record.entry.type === "OutcomeEvent"
+    && record.body?.phase === "validation-attempt"
+    && record.body?.status === "verified"
+    && sameArtifactRef(record.body?.proofGateRef, proof?.entry));
+  const refreshOutcome = records.findLast((record) =>
+    record.entry.type === "OutcomeEvent"
+    && record.body?.phase === "proof-gated-refresh"
+    && record.body?.status === "accepted"
+    && sameArtifactRef(record.body?.proofGateRef, proof?.entry));
+  const claimReceipt = records.findLast((record) =>
+    record.entry.type === "ContextUsageEvent"
+    && Array.isArray(record.body?.claims)
+    && record.body.claims.length > 0
+    && contextUsageMatchesProof(record.body, proof?.body));
+  const deliveryRef = claimReceipt?.body?.header?.inputRefs?.find((ref) =>
+    ref?.type === "ContextUsageEvent");
+  const delivery = findRecordByRef(records, deliveryRef)
+    ?? records.findLast((record) =>
+      record.entry.type === "ContextUsageEvent"
+      && record.body?.delivery?.channel === "mcp"
+      && (record.body?.claims?.length ?? 0) === 0);
+  const refreshedEvidence = records.findLast((record) =>
+    record.entry.type === "EvidenceGraph"
+    && (record.body?.header?.inputRefs ?? []).some((ref) =>
+      sameArtifactRef(ref, proof?.entry)));
+  const agents = await readFile(join(worktree, "AGENTS.md"), "utf8").catch(() => "");
+  const claimedItems = new Set((claimReceipt?.body?.claims ?? []).map((claim) => claim.itemId));
+  const deliveredItems = new Set(delivery?.body?.delivery?.itemIds ?? []);
+  const verificationLineageComplete = Boolean(
+    verificationRunRef
+    && verificationPlanRef
+    && verificationResultRef
+    && sameArtifactRef(verificationPlanRef, verificationPlan?.entry)
+    && sameArtifactRef(verificationRunRef, verificationRun?.entry)
+    && sameArtifactRef(verificationResultRef, verificationResult?.entry),
+  );
+  const proofLineageComplete = verificationLineageComplete && Boolean(validationOutcome);
+  const refreshLineageComplete = proofLineageComplete
+    && Boolean(refreshOutcome)
+    && Boolean(refreshedEvidence);
+  const refreshCompleted = refreshLineageComplete
+    && Boolean(refreshedEvidence)
+    && latestMajorArtifactsFresh(records);
+
+  return {
+    newArtifactCounts: countArtifactTypes(entries),
+    deliveryRecorded: Boolean(delivery),
+    contextClaimReceiptRecorded: Boolean(claimReceipt),
+    contextClaimCoverage: deliveredItems.size === 0
+      ? 0
+      : Number((claimedItems.size / deliveredItems.size).toFixed(4)),
+    verificationPlanRecorded: Boolean(verificationPlan),
+    verifiedCommands: (verificationResult?.body?.commandResults ?? [])
+      .filter((result) => result?.status === "passed" && result?.exitCode === 0)
+      .map((result) => result.command)
+      .filter((command) => typeof command === "string" && command.trim().length > 0),
+    verificationRunPassed: verificationRun?.body?.status === "passed",
+    verificationSourceStable: verificationRun?.body?.sourceState?.status === "stable"
+      && verificationRun.body.sourceState.beforeDigest === verificationRun.body.sourceState.afterDigest,
+    verificationResultPassed: verificationResult?.body?.status === "passed",
+    verificationLineageComplete,
+    proofGateSatisfied: proof?.body?.evaluation?.status === "satisfied",
+    proofGateLinkedVerification: Boolean(
+      proof
+      && verificationResult
+      && (proof.body?.header?.inputRefs ?? []).some((ref) =>
+        sameArtifactRef(ref, verificationResult.entry)),
+    ),
+    validationOutcomeVerified: Boolean(validationOutcome),
+    proofLineageComplete,
+    refreshOutcomeAccepted: Boolean(refreshOutcome),
+    refreshOutcomeLinkedProof: Boolean(
+      refreshOutcome
+      && proof
+      && sameArtifactRef(refreshOutcome.body?.proofGateRef, proof.entry),
+    ),
+    refreshedEvidenceLinkedProof: Boolean(refreshedEvidence),
+    refreshLineageComplete,
+    refreshCompleted,
+    managedInstructionsCurrent: agents.includes(
+      `<!-- rekon:agent-instructions:start version="${managedInstructionsVersion}" -->`,
+    ),
+    refs: {
+      ...(delivery ? { contextUsage: artifactRef(delivery.entry) } : {}),
+      ...(claimReceipt ? { contextClaimReceipt: artifactRef(claimReceipt.entry) } : {}),
+      ...(verificationPlan ? { verificationPlan: artifactRef(verificationPlan.entry) } : {}),
+      ...(verificationRun ? { verificationRun: artifactRef(verificationRun.entry) } : {}),
+      ...(verificationResult ? { verificationResult: artifactRef(verificationResult.entry) } : {}),
+      ...(proof ? { proofGate: artifactRef(proof.entry) } : {}),
+      ...(validationOutcome ? { validationOutcome: artifactRef(validationOutcome.entry) } : {}),
+      ...(refreshOutcome ? { refreshOutcome: artifactRef(refreshOutcome.entry) } : {}),
+    },
+  };
+}
+
+function contextUsageMatchesProof(usage, proof) {
+  if (!proof) return true;
+  const usageTask = usage?.task;
+  const proofTask = proof?.task;
+  if (typeof usageTask?.text !== "string" || typeof proofTask?.text !== "string") return false;
+  return usageTask.text.trim() === proofTask.text.trim();
+}
+
+function latestMajorArtifactsFresh(records) {
+  const majorTypes = [
+    "EvidenceGraph",
+    "CapabilityEvidenceGraph",
+    "ObservedRepo",
+    "OwnershipMap",
+    "CapabilityMap",
+    "IntelligenceSnapshot",
+    "FindingReport",
+    "Publication",
+  ];
+  const latest = new Map();
+  for (const record of records) {
+    if (majorTypes.includes(record.entry.type)) latest.set(record.entry.type, record);
+  }
+  return latest.has("EvidenceGraph")
+    && latest.has("IntelligenceSnapshot")
+    && [...latest.values()].every((record) =>
+      record.body?.header?.freshness?.status === "fresh");
+}
+
+function findRecordByRef(records, ref) {
+  if (!ref) return undefined;
+  return records.find((record) => sameArtifactRef(ref, record.entry));
+}
+
+function sameArtifactRef(ref, entry) {
+  return Boolean(ref && entry && ref.type === entry.type && ref.id === entry.id);
+}
+
+function artifactRef(entry) {
+  return {
+    type: entry.type,
+    id: entry.id,
+    schemaVersion: entry.schemaVersion,
+  };
+}
+
+function countArtifactTypes(entries) {
+  const counts = {};
+  for (const entry of entries) counts[entry.type] = (counts[entry.type] ?? 0) + 1;
+  return counts;
 }
 
 async function runChecks(worktree, commands) {
@@ -654,10 +939,12 @@ function parseArgs(args) {
     dryRun: false,
     json: false,
     keepWorkdirs: false,
+    productLoop: false,
     ledger: undefined,
     repeats: 1,
     timeoutMs: 300_000,
   };
+  let timeoutExplicit = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--case") parsed.cases.push(requiredValue(args, ++index, arg));
@@ -668,13 +955,17 @@ function parseArgs(args) {
     else if (arg === "--dry-run") parsed.dryRun = true;
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--keep-workdirs") parsed.keepWorkdirs = true;
+    else if (arg === "--product-loop") parsed.productLoop = true;
     else if (arg === "--ledger") parsed.ledger = requiredValue(args, ++index, arg);
     else if (arg === "--model") parsed.model = requiredValue(args, ++index, arg);
     else if (arg === "--output") parsed.output = requiredValue(args, ++index, arg);
     else if (arg === "--profile") parsed.profile = requiredValue(args, ++index, arg);
     else if (arg === "--reasoning-effort") parsed.reasoningEffort = requiredValue(args, ++index, arg);
     else if (arg === "--repeats") parsed.repeats = positiveInteger(requiredValue(args, ++index, arg), arg);
-    else if (arg === "--timeout-ms") parsed.timeoutMs = positiveInteger(requiredValue(args, ++index, arg), arg);
+    else if (arg === "--timeout-ms") {
+      parsed.timeoutMs = positiveInteger(requiredValue(args, ++index, arg), arg);
+      timeoutExplicit = true;
+    }
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (parsed.profile && !["compact", "standard", "deep"].includes(parsed.profile)) {
@@ -687,6 +978,10 @@ function parseArgs(args) {
   if (!["direct", "managed"].includes(parsed.delivery)) {
     throw new Error("--delivery must be direct or managed.");
   }
+  if (parsed.productLoop && parsed.delivery !== "managed") {
+    throw new Error("--product-loop requires --delivery managed.");
+  }
+  if (parsed.productLoop && !timeoutExplicit) parsed.timeoutMs = 900_000;
   if (!["full", "tiered", "role-aware", "summary-aware", "navigation-only"].includes(parsed.contextPolicy)) {
     throw new Error("--context-policy must be full, tiered, role-aware, summary-aware, or navigation-only.");
   }
@@ -700,7 +995,9 @@ function parseArgs(args) {
   const corpusSegment = parsed.corpus === "live" ? "" : `-${parsed.corpus}`;
   const policySegment = parsed.contextPolicy === "full" ? "" : `-${parsed.contextPolicy}`;
   parsed.ledger ??= parsed.delivery === "managed"
-    ? `.rekon-dev/evals/model-interface${corpusSegment}${policySegment}-adoption-ledger.jsonl`
+    ? parsed.productLoop
+      ? `.rekon-dev/evals/model-interface${corpusSegment}${policySegment}-product-loop-ledger.jsonl`
+      : `.rekon-dev/evals/model-interface${corpusSegment}${policySegment}-adoption-ledger.jsonl`
     : `.rekon-dev/evals/model-interface${corpusSegment}${policySegment}-local-agent-ledger.jsonl`;
   return parsed;
 }
@@ -754,6 +1051,52 @@ function buildFixtureRepositoryLaw(currentFixture, currentGeneratedAt) {
       schemaVersion: projection.registry.header.schemaVersion,
     },
   };
+}
+
+function buildCampaignManifest() {
+  const corpusDigest = createHash("sha256").update(JSON.stringify(fixture)).digest("hex");
+  const interfaceDigest = createHash("sha256").update(JSON.stringify({
+    managedInstructionsVersion,
+    mcpServerVersion: MCP_SERVER_VERSION,
+    steps: REKON_AGENT_MCP_STEPS,
+    delivery: options.delivery,
+    contextPolicy: options.contextPolicy,
+    productLoop: options.productLoop,
+  })).digest("hex");
+  return {
+    id: `model-interface-${createHash("sha256").update(JSON.stringify({
+      generatedAt,
+      corpusDigest,
+      interfaceDigest,
+      conditions: options.conditions,
+      repeats: options.repeats,
+    })).digest("hex").slice(0, 16)}`,
+    git: gitState(),
+    corpus: options.corpus,
+    corpusDigest,
+    interface: {
+      managedInstructionsVersion,
+      mcpServerVersion: MCP_SERVER_VERSION,
+      digest: interfaceDigest,
+    },
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      architecture: process.arch,
+    },
+    conditions: options.conditions,
+    repeats: options.repeats,
+    model: options.model ?? "default",
+    reasoningEffort: options.reasoningEffort ?? "default",
+    costAccounting: "subscription token counts; no provider pricing applied",
+  };
+}
+
+async function readManagedInstructionsVersion() {
+  const source = await readFile(join(root, "packages/cli/src/agent-instructions.ts"), "utf8");
+  const match = source.match(/AGENT_INSTRUCTIONS_VERSION\s*=\s*"([^"]+)"/u);
+  if (!match) throw new Error("Could not resolve the managed Rekon instruction version.");
+  return match[1];
 }
 
 function selectCases(allCases, ids) {
@@ -817,7 +1160,9 @@ function defaultOutputPath(value) {
   const corpusSegment = options.corpus === "live" ? "" : `-${options.corpus}`;
   const policySegment = options.contextPolicy === "full" ? "" : `-${options.contextPolicy}`;
   const name = options.delivery === "managed"
-    ? `model-interface${corpusSegment}${policySegment}-adoption`
+    ? options.productLoop
+      ? `model-interface${corpusSegment}${policySegment}-product-loop`
+      : `model-interface${corpusSegment}${policySegment}-adoption`
     : `model-interface${corpusSegment}${policySegment}-local-agent`;
   return join(".rekon-dev", "evals", `${name}-${value.replace(/[:.]/gu, "-")}.json`);
 }
@@ -835,6 +1180,11 @@ function printSummary(report, outputPath, ledgerPath) {
   process.stdout.write(`Visible estimated token reduction: ${formatPercent(tokenComparison.visibleEstimatedTotalReduction)}\n`);
   if (report.summary.adoption) {
     process.stdout.write(`Adoption: ${report.summary.adoption.adopted}/${report.summary.adoption.runs} runs\n`);
+    if (report.summary.adoption.productLoop) {
+      process.stdout.write(
+        `Product loop: ${report.summary.adoption.productLoop.passed}/${report.summary.adoption.productLoop.runs} runs\n`,
+      );
+    }
   }
   process.stdout.write(`Source retention: ${report.sourceRetention}\n`);
   process.stdout.write(`Report: ${outputPath}\nLedger: ${ledgerPath}\n`);

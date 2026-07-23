@@ -1463,10 +1463,23 @@ function flowPaths(flow: FlowContract): string[] {
 
 function resolveOwner(path: string, map: OwnershipMap | undefined): string | undefined {
   if (!map || !path) return undefined;
-  return map.entries
+  const direct = map.entries
     .filter((entry) => pathMatchesScope(path, entry.path))
     .sort((left, right) => right.path.length - left.path.length || right.confidence - left.confidence)[0]
     ?.ownerSystem;
+  if (direct) return direct;
+
+  const normalized = normalizePath(path);
+  if (!normalized) return undefined;
+  const segments = normalized.split("/");
+  if (segments.length === 1) return "root";
+
+  const topLevel = segments[0];
+  const candidateOwners = unique(map.entries.flatMap((entry) => {
+    const entryPath = normalizePath(entry.path);
+    return entryPath.split("/")[0] === topLevel ? [entry.ownerSystem] : [];
+  }));
+  return candidateOwners.length === 1 ? candidateOwners[0] : undefined;
 }
 
 function addObligation(output: ChangeValidationObligation[], obligation: ChangeValidationObligation): void {

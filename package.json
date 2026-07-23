@@ -23,6 +23,7 @@
     "bench:defect-pairs:existing": "node tests/bench/defect-pair-bench.mjs",
     "bench:defect-pairs": "node tests/bench/ephemeral-corpus-run.mjs --kind defect-pairs",
     "bench:retain-calibration": "node tests/bench/retain-public-calibration.mjs",
+    "bench:product-loop": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --delivery managed --product-loop",
     "test:install": "node scripts/install-smoke.mjs",
     "bench:incremental": "npm run build --workspaces && node scripts/benchmark-incremental.mjs",
     "build": "npm run build --workspaces",

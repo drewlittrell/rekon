@@ -159,6 +159,69 @@ The coding-agent tool list contains task context and exact source-target
 resolution. Orientation, placement, and preflight remain operator-facing CLI
 workflows and unadvertised compatibility calls, not mandatory agent ceremony.
 
+### Complete Product-Loop Gate
+
+Context adoption and change correctness do not prove that an agent used the
+current Rekon workflow. The complete product-loop benchmark adds that
+independent requirement:
+
+```sh
+npm run bench:product-loop -- --dry-run --corpus contracts
+npm run bench:product-loop -- \
+  --corpus contracts \
+  --model gpt-5.6-sol \
+  --reasoning-effort xhigh \
+  --repeats 1
+```
+
+Product-loop runs default to a 15-minute timeout because targeted verification
+and proof-gated maintenance are included in the measured work. Use
+`--timeout-ms` to override it for a deliberately bounded campaign.
+Managed disposable repositories receive an executable `rekon` shim backed by
+the current build, matching the command surface of a tarball installation
+without depending on monorepo workspace-link permissions.
+
+The Rekon condition must acquire task context before exploration, read the
+required context, edit source, validate the change, prepare and execute the
+selected verification plan, derive a `VerificationResult`, validate again,
+record a satisfied `ProofGateReport`, and run proof-gated refresh. The
+benchmark verifies those steps from both Codex event order and newly written
+artifact lineage. It also requires the accepted refresh outcome, proof-linked
+evidence, current managed instructions, successful refresh steps, and fresh
+latest-major artifacts.
+
+The product-loop score and the outcome score are separate. Hidden behavioral
+tests, repository checks, required-file coverage, protected paths, and exact
+source scope remain an independent oracle. Rekon's own proof cannot satisfy
+that oracle. Conversely, a behaviorally correct diff is not a successful
+managed Rekon run when validation, proof, or maintenance was skipped.
+
+`.rekon/` and `.rekon-dev/` changes are reported as generated maintenance and
+excluded from source-scope scoring. Other modified paths remain subject to the
+task oracle, so generated-path filtering cannot hide an unrelated source edit.
+
+Reports retain total elapsed time and subscription-reported token counts. They
+also retain source-free event, command, MCP-call, and visible-token counts for
+entry, context, implementation, validation, verification, proof, and
+maintenance phases. Per-phase wall time and provider-token attribution are not
+claimed because the Codex event stream does not expose a reliable clock or
+usage boundary for each phase.
+
+Every run records a campaign manifest containing the Git state, corpus digest,
+managed-instruction version, MCP version, interface digest, model profile,
+condition set, repetitions, and runtime environment. The report retains typed
+artifact refs and aggregate measurements, never source bodies, prompts, diffs,
+raw commands, MCP payloads, or free-form model text.
+
+A current Sol/xhigh canary completed the atomic-composition task with exact
+source scope, passing repository and hidden checks, full context adoption,
+stable typed verification, a satisfied proof gate, and accepted proof-gated
+refresh. The source-free record is
+`tests/evals/model-interface-contracts/sol-product-loop-canary.json`. It is one
+managed run without a baseline. An earlier post-shim run reached the proof gate
+but failed during refresh projection, so the canary proves executability, not
+completion reliability, time savings, token savings, or broader model lift.
+
 Instruction `1.6.0` introduced the distinction between direct reads and graph
 resolution. An exact
 repository path named by source should be read directly. Refinement is reserved

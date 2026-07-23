@@ -46,6 +46,13 @@ verification recording, reconciliation planning, and artifact validation.
 - A credential-free local-agent harness compares actual isolated changes with
   and without Rekon context. New runs retain source-free aggregate Codex usage
   and a separate visible-payload estimate before any API canary is needed.
+- An explicit product-loop mode extends that harness through post-edit
+  validation, targeted verification, `VerificationResult`, satisfied
+  `ProofGateReport`, and proof-gated refresh. Event order and artifact lineage
+  are scored separately from hidden behavior and source-scope correctness.
+  Generated `.rekon/` maintenance is measured without being mistaken for
+  source work, and campaign manifests bind results to the current corpus,
+  managed instructions, MCP interface, model profile, and Git state.
 - A managed-interface gate verifies that agents request task context through
   MCP or CLI before broad exploration instead of relying on prompt injection.
 - Task context selects path-matched `CapabilityContract` rules as declared,
@@ -224,6 +231,11 @@ verification recording, reconciliation planning, and artifact validation.
 
 ## Next Evaluation
 
+- The first current-interface product-loop canary is complete. It proved one
+  exact-scope, independently correct managed change through accepted refresh;
+  an earlier run failed during refresh projection. Run the next repository-law
+  campaign from a clean commit with both conditions and repeated cases, and
+  measure completion reliability before making time, token, or cost claims.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

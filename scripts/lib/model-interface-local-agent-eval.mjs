@@ -1,6 +1,16 @@
 const CONTENT_READ_PATTERN = /(?:^|\s|\/)(?:cat|sed|head|tail|nl|awk|grep|rg)(?:\s|$)/u;
 const DISCOVERY_PATTERN = /(?:rg\s+--files|\bfind\b|\bls\b|\btree\b|git\s+(?:status|ls-files))/u;
 const VERIFICATION_PATTERN = /(?:npm\s+(?:test|run\s+\S+)|node\s+--test|pytest|go\s+test|git\s+diff\s+--check)/u;
+const BENCHMARK_GENERATED_PREFIXES = [".rekon/", ".rekon-dev/"];
+const PRODUCT_LOOP_PHASES = [
+  "entry",
+  "context",
+  "implementation",
+  "validation",
+  "verification",
+  "proof",
+  "maintenance",
+];
 
 export const LOCAL_AGENT_RESPONSE_SCHEMA = Object.freeze({
   type: "object",
@@ -120,6 +130,27 @@ export function parseGitStatusPaths(text) {
     .sort();
 }
 
+export function classifyBenchmarkModifiedPaths(paths) {
+  const sourcePaths = [];
+  const generatedPaths = [];
+  for (const path of unique(strings(paths)).sort()) {
+    const normalized = path.replace(/^\.\//u, "");
+    if (BENCHMARK_GENERATED_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+      generatedPaths.push(normalized);
+    } else {
+      sourcePaths.push(normalized);
+    }
+  }
+  return { sourcePaths, generatedPaths };
+}
+
+export function mergeAgentCommands(eventCommands, verifiedCommands) {
+  return unique([
+    ...strings(eventCommands),
+    ...strings(verifiedCommands),
+  ]);
+}
+
 export function summarizeCodexExploration(events, repositoryFiles) {
   const completed = events
     .filter((event) => event.type === "item.completed")
@@ -161,6 +192,196 @@ export function summarizeCodexExploration(events, repositoryFiles) {
     discoveredPaths: [...discoveredPaths].sort(),
     inspectedPaths: [...inspectedPaths].sort(),
     searchedPaths: [...searchedPaths].sort(),
+  };
+}
+
+export function summarizeRekonProductLoop(events, artifactEvidence = {}, options = {}) {
+  const validations = [];
+  let contextIndex = null;
+  let editIndex = null;
+  let prepareVerificationIndex = null;
+  let verificationRunIndex = null;
+  let verificationResultIndex = null;
+  let proofRecordIndex = null;
+  let refreshIndex = null;
+  let refreshCommandPassed = false;
+  let refreshLatestMajorFresh = false;
+  let refreshRequiredStepsPassed = false;
+
+  for (const [index, event] of events.entries()) {
+    if (event?.type !== "item.completed" || !isRecord(event.item)) continue;
+    const item = event.item;
+
+    if (item.type === "mcp_tool_call" && item.server === "rekon") {
+      const tool = typeof item.tool === "string" ? item.tool : "";
+      const completed = item.status === "completed";
+      const args = isRecord(item.arguments) ? item.arguments : {};
+      if (tool === "context_for_task" && completed && contextIndex === null) {
+        contextIndex = index;
+      }
+      if (tool === "validate_change") {
+        validations.push({
+          index,
+          interface: "mcp",
+          completed,
+          hasContextUsage: typeof args.contextUsageRef === "string" && args.contextUsageRef.length > 0,
+          hasContextClaims: isRecord(args.contextClaims) && Object.keys(args.contextClaims).length > 0,
+          hasVerification: strings(args.verificationResults).length > 0,
+          preparesVerification: false,
+          recordsProof: false,
+        });
+      }
+      continue;
+    }
+
+    if (item.type === "command_execution") {
+      const command = typeof item.command === "string" ? item.command : "";
+      const completed = item.exit_code === 0;
+      const output = parseCommandJson(item.aggregated_output);
+      if (isContextCliCommand(command) && completed && contextIndex === null) {
+        contextIndex = index;
+      }
+      if (isValidationCliCommand(command) || isChangeValidationPayload(output)) {
+        const preparesVerification = hasCommandFlag(command, "--prepare-verification")
+          || output?.verificationPlan?.type === "VerificationPlan";
+        const recordsProof = hasCommandFlag(command, "--record-proof")
+          || output?.proofArtifact?.type === "ProofGateReport";
+        validations.push({
+          index,
+          interface: "cli",
+          completed,
+          hasContextUsage: hasCommandFlag(command, "--context-usage"),
+          hasContextClaims: hasCommandFlag(command, "--context-claims-json"),
+          hasVerification: hasCommandFlag(command, "--verification-result")
+            || output?.proofArtifact?.type === "ProofGateReport",
+          preparesVerification,
+          recordsProof,
+        });
+        if (preparesVerification && completed && prepareVerificationIndex === null) {
+          prepareVerificationIndex = index;
+        }
+        if (recordsProof && completed && proofRecordIndex === null) {
+          proofRecordIndex = index;
+        }
+      }
+      if (((isVerificationRunCliCommand(command) && hasCommandFlag(command, "--execute"))
+        || output?.verificationRun?.header?.artifactType === "VerificationRun")
+        && completed && verificationRunIndex === null) {
+        verificationRunIndex = index;
+      }
+      if ((isVerificationResultCliCommand(command)
+        || output?.verificationResult?.header?.artifactType === "VerificationResult")
+        && completed && verificationResultIndex === null) {
+        verificationResultIndex = index;
+      }
+      if ((isProofRefreshCliCommand(command) || isProofRefreshPayload(output))
+        && completed && refreshIndex === null) {
+        refreshIndex = index;
+        const refresh = output;
+        refreshCommandPassed = refresh?.status === "passed";
+        refreshLatestMajorFresh = Array.isArray(refresh?.freshness?.latestMajor)
+          && refresh.freshness.latestMajor.length > 0
+          && refresh.freshness.latestMajor.every((entry) => entry?.status === "fresh");
+        refreshRequiredStepsPassed = requiredRefreshStepsPassed(refresh?.steps);
+      }
+      if (editIndex === null && isShellEditCommand(command)) editIndex = index;
+      continue;
+    }
+
+    if (editIndex === null && ["file_change", "file_edit", "apply_patch"].includes(item.type)) {
+      editIndex = index;
+    }
+  }
+
+  const completedValidations = validations.filter((entry) => entry.completed);
+  const postEditValidations = completedValidations.filter((entry) =>
+    editIndex !== null && entry.index > editIndex);
+  const initialValidation = postEditValidations[0];
+  const finalValidation = postEditValidations.find((entry) =>
+    entry.hasVerification
+    && verificationResultIndex !== null
+    && entry.index > verificationResultIndex);
+  const validationBeforeVerification = initialValidation !== undefined
+    && prepareVerificationIndex !== null
+    && initialValidation.index < prepareVerificationIndex;
+  const verificationOrderValid = prepareVerificationIndex !== null
+    && verificationRunIndex !== null
+    && verificationResultIndex !== null
+    && prepareVerificationIndex < verificationRunIndex
+    && verificationRunIndex < verificationResultIndex;
+  const proofOrderValid = finalValidation !== undefined
+    && proofRecordIndex !== null
+    && finalValidation.index <= proofRecordIndex;
+  const refreshOrderValid = proofRecordIndex !== null
+    && refreshIndex !== null
+    && proofRecordIndex < refreshIndex;
+  const artifactVerificationOrderValid = artifactEvidence.verificationLineageComplete === true;
+  const artifactProofOrderValid = artifactEvidence.proofLineageComplete === true;
+  const artifactRefreshOrderValid = artifactEvidence.refreshLineageComplete === true;
+  const checks = {
+    contextAcquired: contextIndex !== null,
+    contextBeforeEdit: contextIndex !== null && editIndex !== null && contextIndex < editIndex,
+    postEditValidation: initialValidation !== undefined,
+    contextLineageSubmitted: postEditValidations.some((entry) => entry.hasContextUsage),
+    contextClaimsSubmitted: postEditValidations.some((entry) => entry.hasContextClaims)
+      || artifactEvidence.contextClaimReceiptRecorded === true,
+    verificationPrepared: prepareVerificationIndex !== null
+      || artifactEvidence.verificationPlanRecorded === true,
+    validationBeforeVerification: validationBeforeVerification
+      || (initialValidation !== undefined && artifactVerificationOrderValid),
+    verificationExecuted: verificationRunIndex !== null
+      || artifactEvidence.verificationRunPassed === true,
+    verificationResultRecorded: verificationResultIndex !== null
+      || artifactEvidence.verificationResultPassed === true,
+    verificationOrderValid: verificationOrderValid || artifactVerificationOrderValid,
+    finalValidation: finalValidation !== undefined
+      || artifactEvidence.validationOutcomeVerified === true,
+    proofRecorded: proofRecordIndex !== null || artifactEvidence.proofGateSatisfied === true,
+    proofOrderValid: proofOrderValid || artifactProofOrderValid,
+    refreshInvoked: refreshIndex !== null || artifactEvidence.refreshOutcomeAccepted === true,
+    refreshOrderValid: refreshOrderValid || artifactRefreshOrderValid,
+    refreshCommandPassed: refreshCommandPassed || artifactEvidence.refreshCompleted === true,
+    refreshLatestMajorFresh: refreshLatestMajorFresh
+      || artifactEvidence.refreshCompleted === true,
+    refreshRequiredStepsPassed: refreshRequiredStepsPassed
+      || artifactEvidence.refreshCompleted === true,
+    deliveryArtifactRecorded: artifactEvidence.deliveryRecorded === true,
+    contextClaimReceiptRecorded: artifactEvidence.contextClaimReceiptRecorded === true,
+    verificationPlanRecorded: artifactEvidence.verificationPlanRecorded === true,
+    verificationRunPassed: artifactEvidence.verificationRunPassed === true,
+    verificationSourceStable: artifactEvidence.verificationSourceStable === true,
+    verificationResultPassed: artifactEvidence.verificationResultPassed === true,
+    proofGateSatisfied: artifactEvidence.proofGateSatisfied === true,
+    proofGateLinkedVerification: artifactEvidence.proofGateLinkedVerification === true,
+    validationOutcomeVerified: artifactEvidence.validationOutcomeVerified === true,
+    refreshOutcomeAccepted: artifactEvidence.refreshOutcomeAccepted === true,
+    refreshOutcomeLinkedProof: artifactEvidence.refreshOutcomeLinkedProof === true,
+    refreshedEvidenceLinkedProof: artifactEvidence.refreshedEvidenceLinkedProof === true,
+    managedInstructionsCurrent: artifactEvidence.managedInstructionsCurrent === true,
+  };
+  const missing = Object.entries(checks)
+    .filter(([, passed]) => !passed)
+    .map(([name]) => name);
+  const milestones = {
+    context: contextIndex,
+    edit: editIndex,
+    initialValidation: initialValidation?.index ?? null,
+    verificationPrepared: prepareVerificationIndex,
+    verificationExecuted: verificationRunIndex,
+    verificationResult: verificationResultIndex,
+    finalValidation: finalValidation?.index ?? null,
+    proofRecorded: proofRecordIndex,
+    refresh: refreshIndex,
+  };
+
+  return {
+    required: options.required === true,
+    passed: missing.length === 0,
+    checks,
+    missing,
+    validationCalls: completedValidations.length,
+    phaseMetrics: summarizeProductLoopPhaseMetrics(events, milestones),
+    artifactEvidence,
   };
 }
 
@@ -387,6 +608,15 @@ export function compareManagedLocalAgentPair(baseline, rekon) {
   if (!baseline?.score || !rekon?.score || baseline.status !== "ok" || rekon.status !== "ok") {
     return { decision: "inconclusive", reasons: ["one or both isolated runs did not complete"] };
   }
+  if (rekon.productLoop?.required && !rekon.productLoop.passed) {
+    return {
+      decision: "discard",
+      reasons: [
+        "managed Rekon run did not complete the required product loop",
+        `missing lifecycle checks: ${rekon.productLoop.missing.join(", ") || "unknown"}`,
+      ],
+    };
+  }
   if ((baseline.score.passed && !rekon.score.passed)
     || (!baseline.score.hardFailure && rekon.score.hardFailure)) {
     return { decision: "discard", reasons: ["managed Rekon use reduced safety or correctness"] };
@@ -443,10 +673,11 @@ export function normalizeLocalAgentResponse(value, repositoryFiles) {
 }
 
 export function scoreLocalAgentOutcome(run, oracle) {
-  const requiredModifyRecall = recall(oracle.requiredModifyPaths ?? [], run.modifiedPaths ?? []);
+  const modifiedPaths = run.sourceModifiedPaths ?? run.modifiedPaths ?? [];
+  const requiredModifyRecall = recall(oracle.requiredModifyPaths ?? [], modifiedPaths);
   const allowedModifyPaths = oracle.allowedModifyPaths ?? oracle.requiredModifyPaths ?? [];
-  const unexpectedModifiedPaths = (run.modifiedPaths ?? []).filter((path) => !allowedModifyPaths.includes(path));
-  const protectedPathViolations = (run.modifiedPaths ?? []).filter((path) => (oracle.protectedPaths ?? []).includes(path));
+  const unexpectedModifiedPaths = modifiedPaths.filter((path) => !allowedModifyPaths.includes(path));
+  const protectedPathViolations = modifiedPaths.filter((path) => (oracle.protectedPaths ?? []).includes(path));
   const agentCheckRecall = commandRecall(oracle.commands ?? [], run.agentCommands ?? []);
   const requiredChecksPassed = (run.requiredChecks ?? []).length > 0
     && run.requiredChecks.every((check) => check.exitCode === 0);
@@ -546,6 +777,8 @@ export function compactLocalAgentRun(run) {
       confidence: run.final.confidence,
     } : undefined,
     modifiedPaths: run.modifiedPaths,
+    ...(run.sourceModifiedPaths ? { sourceModifiedPaths: run.sourceModifiedPaths } : {}),
+    ...(run.generatedModifiedPaths ? { generatedModifiedPaths: run.generatedModifiedPaths } : {}),
     requiredChecks: run.requiredChecks,
     oracleChecks: run.oracleChecks,
     exploration: run.exploration,
@@ -553,6 +786,7 @@ export function compactLocalAgentRun(run) {
     ...(run.visibleTokenEstimate ? { visibleTokenEstimate: run.visibleTokenEstimate } : {}),
     ...(run.contextUse ? { contextUse: run.contextUse } : {}),
     ...(run.adoption ? { adoption: run.adoption } : {}),
+    ...(run.productLoop ? { productLoop: run.productLoop } : {}),
     elapsedMs: run.elapsedMs,
     score: run.score,
     ...(run.error ? { error: run.error } : {}),
@@ -585,6 +819,7 @@ function isShellEditCommand(command) {
 export function summarizeLocalAgentRuns(runs) {
   return Object.fromEntries(["baseline", "rekon"].map((condition) => {
     const selected = runs.filter((run) => run.condition === condition);
+    const productLoopRuns = selected.filter((run) => run.productLoop);
     const optionalRoutesOffered = selected.reduce(
       (total, run) => total + (run.contextUse?.optionalPathsOffered?.length ?? 0),
       0,
@@ -612,6 +847,9 @@ export function summarizeLocalAgentRuns(runs) {
       averageElapsedMs: round(average(selected.map((run) => run.elapsedMs ?? 0))),
       tokenUsage: summarizeConditionTokenUsage(selected),
       visibleTokenEstimate: summarizeConditionVisibleTokens(selected),
+      ...(productLoopRuns.length > 0 ? {
+        productLoop: summarizeProductLoopRuns(productLoopRuns),
+      } : {}),
       ...(optionalRoutesOffered > 0 ? {
         optionalContext: {
           routesOffered: optionalRoutesOffered,
@@ -848,6 +1086,157 @@ function commandRecall(expected, commands) {
 
 function normalizeVerificationCommand(command) {
   return String(command).toLowerCase().replace(/\bnpm\s+run\s+test\b/gu, "npm test");
+}
+
+function summarizeProductLoopRuns(runs) {
+  const phases = Object.fromEntries(PRODUCT_LOOP_PHASES.map((phase) => [
+    phase,
+    {
+      averageEvents: round(average(runs.map((run) =>
+        run.productLoop?.phaseMetrics?.[phase]?.events ?? 0))),
+      averageCommands: round(average(runs.map((run) =>
+        run.productLoop?.phaseMetrics?.[phase]?.commandCount ?? 0))),
+      averageMcpCalls: round(average(runs.map((run) =>
+        run.productLoop?.phaseMetrics?.[phase]?.mcpCalls ?? 0))),
+      averageVisibleTokens: round(average(runs.map((run) =>
+        run.productLoop?.phaseMetrics?.[phase]?.visibleTokens ?? 0))),
+    },
+  ]));
+  const missingChecks = {};
+  for (const run of runs) {
+    for (const check of run.productLoop?.missing ?? []) {
+      missingChecks[check] = (missingChecks[check] ?? 0) + 1;
+    }
+  }
+  return {
+    runs: runs.length,
+    requiredRuns: runs.filter((run) => run.productLoop?.required).length,
+    passes: runs.filter((run) => run.productLoop?.passed).length,
+    missingChecks,
+    phases,
+  };
+}
+
+function summarizeProductLoopPhaseMetrics(events, milestones) {
+  const metrics = Object.fromEntries(PRODUCT_LOOP_PHASES.map((phase) => [
+    phase,
+    { events: 0, commandCount: 0, mcpCalls: 0, visibleTokens: 0 },
+  ]));
+  for (const [index, event] of events.entries()) {
+    if (event?.type !== "item.completed" || !isRecord(event.item)) continue;
+    const phase = productLoopPhaseForIndex(index, milestones);
+    const metric = metrics[phase];
+    metric.events += 1;
+    if (event.item.type === "command_execution") metric.commandCount += 1;
+    if (event.item.type === "mcp_tool_call") metric.mcpCalls += 1;
+    metric.visibleTokens += estimateItemVisibleTokens(event.item);
+  }
+  return metrics;
+}
+
+function productLoopPhaseForIndex(index, milestones) {
+  if (milestones.context === null || index < milestones.context) return "entry";
+  if (milestones.edit === null || index < milestones.edit) return "context";
+  if (milestones.initialValidation === null || index < milestones.initialValidation) {
+    return "implementation";
+  }
+  if (milestones.verificationExecuted === null || index < milestones.verificationExecuted) {
+    return "validation";
+  }
+  if (milestones.proofRecorded === null || index < milestones.proofRecorded) {
+    return "verification";
+  }
+  if (milestones.refresh === null || index < milestones.refresh) return "proof";
+  return "maintenance";
+}
+
+function estimateItemVisibleTokens(item) {
+  if (item.type === "command_execution") {
+    return estimateTextTokens(item.command) + estimateTextTokens(item.aggregated_output);
+  }
+  if (item.type === "mcp_tool_call") {
+    return estimateValueTokens(item.arguments)
+      + estimateValueTokens(item.result ?? item.content ?? item.error);
+  }
+  if (item.type === "agent_message") return estimateTextTokens(item.text);
+  if (["file_change", "file_edit", "apply_patch"].includes(item.type)) {
+    return estimateValueTokens(item.changes ?? item.patch ?? item.diff);
+  }
+  return 0;
+}
+
+function isValidationCliCommand(command) {
+  return /\b(?:rekon|\S*packages\/cli\/dist\/index\.js)\s+context\s+validate-change\b/u.test(
+    command.replace(/["']/gu, " "),
+  );
+}
+
+function isVerificationRunCliCommand(command) {
+  return /\b(?:rekon|\S*packages\/cli\/dist\/index\.js)\s+verify\s+run\b/u.test(
+    command.replace(/["']/gu, " "),
+  );
+}
+
+function isVerificationResultCliCommand(command) {
+  return /\b(?:rekon|\S*packages\/cli\/dist\/index\.js)\s+verify\s+result\s+from-run\b/u.test(
+    command.replace(/["']/gu, " "),
+  );
+}
+
+function isProofRefreshCliCommand(command) {
+  const normalized = command.replace(/["']/gu, " ");
+  return /\b(?:rekon|\S*packages\/cli\/dist\/index\.js)\s+refresh\b/u.test(normalized)
+    && hasCommandFlag(normalized, "--proof-gate");
+}
+
+function hasCommandFlag(command, flag) {
+  return String(command).includes(flag);
+}
+
+function parseCommandJson(output) {
+  if (typeof output !== "string" || output.trim().length === 0) return undefined;
+  const trimmed = output.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start < 0 || end <= start) return undefined;
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch {
+      return undefined;
+    }
+  }
+}
+
+function isChangeValidationPayload(value) {
+  if (!isRecord(value)) return false;
+  return isRecord(value.proofGate)
+    || value.verificationPlan?.type === "VerificationPlan"
+    || value.proofArtifact?.type === "ProofGateReport";
+}
+
+function isProofRefreshPayload(value) {
+  return isRecord(value)
+    && Array.isArray(value.steps)
+    && isRecord(value.freshness)
+    && Array.isArray(value.freshness.latestMajor);
+}
+
+function requiredRefreshStepsPassed(steps) {
+  if (!Array.isArray(steps)) return false;
+  const required = new Set([
+    "agent-instructions.sync",
+    "proof-gate.preaccept",
+    "outcome.record",
+    "artifacts.freshness",
+    "proof-gate.revalidate",
+  ]);
+  for (const step of steps) {
+    if (required.has(step?.id) && step?.status === "passed") required.delete(step.id);
+  }
+  return required.size === 0;
 }
 
 function recall(expected, actual) {

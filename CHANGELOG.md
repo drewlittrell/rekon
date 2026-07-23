@@ -4,6 +4,21 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added a complete product-loop benchmark mode for managed local-agent runs.
+  It independently scores context adoption, post-edit validation, targeted
+  verification, stable-source `VerificationResult`, satisfied proof gate, and
+  proof-gated refresh from event order and typed artifact lineage. Generated
+  Rekon workspace changes are separated from source scope, phase-level
+  source-free usage is retained, and each run carries a digest-bound campaign
+  manifest. Hidden behavior and repository checks remain an independent
+  correctness oracle. Managed runs use an install-equivalent executable CLI
+  shim, recognize typed lifecycle output behind shell aliases, report timeout
+  failures explicitly, and allow the full proof/maintenance loop 15 minutes by
+  default.
+- Change validation now resolves root-level metadata to the repository root and
+  lets newly added nested files inherit an observed top-level owner only when
+  that ownership is unambiguous. Mixed-owner areas still require explicit
+  ownership evidence.
 - Corrected proof-gated refresh ordering for lived-in repositories. Managed
   instructions are synchronized before observation; accepted outcomes and
   grounded curation now precede the new snapshot and publications; and
