@@ -11,7 +11,7 @@ const calibrationPath = resolve(
   "tests/evals/model-interface-contracts/tiered-delivery-calibration.json",
 );
 
-test("tiered delivery calibration is bound to current selection and delivery payloads", () => {
+test("tiered delivery calibration retains digest-bound historical evidence after interface changes", () => {
   const calibration = JSON.parse(readFileSync(calibrationPath, "utf8"));
   const fixtureBytes = readFileSync(resolve(
     repoRoot,
@@ -61,16 +61,20 @@ test("tiered delivery calibration is bound to current selection and delivery pay
   }));
 
   assert.equal(calibration.fixtureSha256, digest(fixtureBytes));
-  assert.equal(calibration.contextFixtureSha256, digest(contextFixtureBytes));
+  assert.equal(calibration.status, "historical");
+  assert.match(calibration.revalidationReason, /flow-stage responsibilities/iu);
+  assert.notEqual(calibration.contextFixtureSha256, digest(contextFixtureBytes));
   assert.equal(calibration.selectionSha256, digest(JSON.stringify(selection)));
-  assert.deepEqual(calibration.deliveryDigests, output.contextDeliveryDigests);
+  assert.notDeepEqual(calibration.deliveryDigests, output.contextDeliveryDigests);
+  assert.match(calibration.contextFixtureSha256, /^[a-f0-9]{64}$/u);
+  assert.match(calibration.selectionSha256, /^[a-f0-9]{64}$/u);
   assert.ok(calibration.batchReportSha256.every((value) => /^[a-f0-9]{64}$/u.test(value)));
 });
 
 test("tiered delivery remains non-default because it did not reduce source reads", () => {
   const calibration = JSON.parse(readFileSync(calibrationPath, "utf8"));
 
-  assert.equal(calibration.status, "experimental-not-promoted");
+  assert.equal(calibration.status, "historical");
   assert.equal(calibration.productionDefault, "full");
   assert.equal(calibration.summary.rekonPasses, calibration.summary.rekonRuns);
   assert.equal(calibration.summary.rekonAdoptionPasses, calibration.summary.rekonRuns);

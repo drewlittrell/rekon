@@ -57,7 +57,14 @@ test("repository contract source validates system and flow law", () => {
         id: "meaning-preserved",
         statement: "Composed meaning survives every stage.",
       }],
-      stages: [{ id: "normalize" }, { id: "select" }],
+      stages: [
+        {
+          id: "normalize",
+          responsibilities: ["Normalize reusable tokens without encoding complete phrases."],
+          paths: ["packages/intelligence/normalize.ts"],
+        },
+        { id: "select" },
+      ],
       handoffs: [{
         id: "normalized-meaning",
         fromStageId: "normalize",
@@ -67,6 +74,7 @@ test("repository contract source validates system and flow law", () => {
           acceptedMethods: ["test", "runtime"],
           acceptancePolicy: "all-required",
           requiredChecks: ["npm run test:experience-selection"],
+          requiredEvidencePaths: ["packages/intelligence/normalize.test.ts"],
         },
       }],
     }],
@@ -87,7 +95,10 @@ test("repository contract source rejects invalid handoff verification policy", (
       userOutcomes: ["Done."],
       completionConditions: ["Done."],
       invariants: [{ id: "stable", statement: "Stay stable." }],
-      stages: [{ id: "start" }, { id: "finish" }],
+      stages: [{
+        id: "start",
+        responsibilities: ["Start the flow."],
+      }, { id: "finish" }],
       handoffs: [{
         id: "edge",
         fromStageId: "start",
@@ -96,6 +107,15 @@ test("repository contract source rejects invalid handoff verification policy", (
           acceptedMethods: ["runtime", "unsupported"],
           acceptancePolicy: "sometimes",
           requiredChecks: ["npm run test:flow"],
+          requiredEvidencePaths: ["../tests/flow.test.ts"],
+        },
+      }, {
+        id: "edge-without-check",
+        fromStageId: "start",
+        toStageId: "finish",
+        verification: {
+          acceptedMethods: ["test"],
+          requiredEvidencePaths: ["tests/flow.test.ts"],
         },
       }],
     }],
@@ -106,6 +126,13 @@ test("repository contract source rejects invalid handoff verification policy", (
   assert.ok(result.issues.some((issue) => issue.path.endsWith("acceptancePolicy")));
   assert.ok(result.issues.some((issue) =>
     issue.path.endsWith("acceptedMethods") && /Expected test/u.test(issue.message)));
+  assert.ok(result.issues.some((issue) =>
+    issue.path.endsWith("stages[0].paths") && /stage responsibilities/u.test(issue.message)));
+  assert.ok(result.issues.some((issue) =>
+    issue.path.endsWith("requiredEvidencePaths[0]") && /repository-relative/u.test(issue.message)));
+  assert.ok(result.issues.some((issue) =>
+    issue.path.endsWith("handoffs[1].verification.requiredChecks")
+    && /at least one test check/u.test(issue.message)));
 });
 
 test("repository contract source rejects generated workspace scopes and broken flow refs", () => {
@@ -127,7 +154,11 @@ test("repository contract source rejects generated workspace scopes and broken f
       userOutcomes: ["Done."],
       completionConditions: ["Done."],
       invariants: [{ id: "known", statement: "Known." }],
-      stages: [{ id: "start" }],
+      stages: [{
+        id: "start",
+        responsibilities: ["Start the flow."],
+        paths: ["src/start.ts"],
+      }],
       handoffs: [{
         id: "bad-edge",
         fromStageId: "start",
@@ -141,6 +172,9 @@ test("repository contract source rejects generated workspace scopes and broken f
   assert.ok(result.issues.some((issue) => issue.path === "$.systems[0].scope.paths[0]"));
   assert.ok(result.issues.some((issue) => issue.path === "$.flows[0].handoffs[0].toStageId"));
   assert.ok(result.issues.some((issue) => issue.path === "$.flows[0].handoffs[0].carriedInvariantIds[0]"));
+  assert.ok(result.issues.some((issue) =>
+    issue.path === "$.flows[0].stages[0].responsibilities"
+    && /test check/u.test(issue.message)));
 });
 
 test("system and flow artifact factories normalize public contracts", () => {
@@ -182,7 +216,12 @@ test("system and flow artifact factories normalize public contracts", () => {
     paths: ["packages/intelligence/**"],
     invariants: [clause],
     stages: [
-      { id: "normalize", evidenceRefs: [evidenceRef] },
+      {
+        id: "normalize",
+        responsibilities: ["Normalize tokens.", "Normalize tokens."],
+        paths: ["packages/intelligence/normalize.ts"],
+        evidenceRefs: [evidenceRef],
+      },
       { id: "select", evidenceRefs: [evidenceRef] },
     ],
     handoffs: [{
@@ -194,6 +233,11 @@ test("system and flow artifact factories normalize public contracts", () => {
         acceptedMethods: ["runtime", "test", "runtime"],
         acceptancePolicy: "all-required",
         requiredChecks: ["npm run test:flow", "npm run test:flow"],
+        requiredEvidencePaths: [
+          "tests/selection.test.ts",
+          "tests/normalize.test.ts",
+          "tests/selection.test.ts",
+        ],
       },
       evidenceRefs: [evidenceRef],
     }],
@@ -203,10 +247,12 @@ test("system and flow artifact factories normalize public contracts", () => {
   assert.deepEqual(system.system.paths, ["packages/intelligence/**"]);
   assert.deepEqual(system.invariants[0].evidenceRefs, [evidenceRef]);
   assert.equal(validateFlowContract(flow).ok, true);
+  assert.deepEqual(flow.stages[0].responsibilities, ["Normalize tokens."]);
   assert.deepEqual(flow.handoffs[0].verification, {
     acceptedMethods: ["runtime", "test"],
     acceptancePolicy: "all-required",
     requiredChecks: ["npm run test:flow"],
+    requiredEvidencePaths: ["tests/normalize.test.ts", "tests/selection.test.ts"],
   });
 });
 

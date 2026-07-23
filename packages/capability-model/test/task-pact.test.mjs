@@ -69,7 +69,13 @@ const flowContract = {
   paths: ["src/api/route.ts", "src/domain/handler.ts"],
   invariants: [clause("request-id", "Preserve the request id across the flow.")],
   stages: [
-    { id: "route", paths: ["src/api/route.ts"], evidenceRefs: [] },
+    {
+      id: "route",
+      label: "Route",
+      responsibilities: ["Normalize the request once before domain dispatch."],
+      paths: ["src/api/route.ts"],
+      evidenceRefs: [],
+    },
     { id: "handle", paths: ["src/domain/handler.ts"], evidenceRefs: [] },
   ],
   handoffs: [{
@@ -82,6 +88,7 @@ const flowContract = {
       acceptedMethods: ["test", "runtime"],
       acceptancePolicy: "any-supported",
       requiredChecks: ["npm run test -- route-to-handler"],
+      requiredEvidencePaths: ["tests/request-route.test.ts"],
     },
     evidenceRefs: [],
   }],
@@ -147,8 +154,15 @@ test("task pact selects adopted system and whole-flow law for a scoped path", ()
   ]);
   assert.ok(pact.constraints.some((constraint) => constraint.statement === "Preserve normalized request meaning."));
   assert.ok(pact.constraints.some((constraint) => constraint.statement === "The normalized request reaches the handler."));
+  assert.ok(pact.constraints.some((constraint) =>
+    constraint.id === "request-flow.stage.route.responsibility.1"
+    && constraint.statement === "Stage Route responsibility: Normalize the request once before domain dispatch."));
   assert.ok(pact.requiredContextPaths.includes("src/domain/handler.ts"));
+  assert.ok(pact.requiredContextPaths.includes("tests/request-route.test.ts"));
   assert.ok(pact.impactObligations.some((obligation) => obligation.kind === "inspect"));
+  assert.ok(pact.impactObligations.some((obligation) =>
+    obligation.kind === "verify"
+    && obligation.paths.includes("tests/request-route.test.ts")));
   assert.deepEqual(pact.requiredChecks, [
     "npm run test -- route-to-handler",
     "npm test -- api",

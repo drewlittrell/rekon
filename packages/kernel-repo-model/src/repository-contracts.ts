@@ -44,6 +44,7 @@ export type FlowContractStageSource = {
   id: string;
   label?: string;
   systemId?: string;
+  responsibilities?: string[];
   capability?: {
     verb: string;
     noun: string;
@@ -68,6 +69,14 @@ export type FlowContractHandoffSource = {
     acceptedMethods: ProofMethod[];
     acceptancePolicy?: ProofAcceptancePolicy;
     requiredChecks?: string[];
+    /**
+     * Repository-relative paths that must participate in the current change
+     * before this handoff can be accepted. These normally identify focused
+     * regression tests. At least one declared path must be added or modified
+     * relative to the validation baseline, and a declared test check must still
+     * pass.
+     */
+    requiredEvidencePaths?: string[];
   };
 };
 
@@ -287,6 +296,9 @@ export function createFlowContract(input: FlowContract): FlowContract {
     invariants: normalizeClauses(input.invariants),
     stages: dedupeById(input.stages).map((stage) => ({
       ...stage,
+      ...(stage.responsibilities
+        ? { responsibilities: unique(stage.responsibilities) }
+        : {}),
       paths: stage.paths ? uniqueSorted(stage.paths) : undefined,
       evidenceRefs: uniqueRefs(stage.evidenceRefs),
     })),
@@ -304,6 +316,13 @@ export function createFlowContract(input: FlowContract): FlowContract {
           requiredChecks: handoff.verification.requiredChecks
             ? unique(handoff.verification.requiredChecks)
             : undefined,
+          ...(handoff.verification.requiredEvidencePaths
+            ? {
+              requiredEvidencePaths: uniqueSorted(
+                handoff.verification.requiredEvidencePaths,
+              ),
+            }
+            : {}),
         }
         : undefined,
       evidenceRefs: uniqueRefs(handoff.evidenceRefs),
@@ -445,7 +464,18 @@ function validateSourceStage(issues: ValidationIssue[], value: unknown, path: st
   requiredString(issues, value.id, `${path}.id`);
   optionalString(issues, value.label, `${path}.label`);
   optionalString(issues, value.systemId, `${path}.systemId`);
+  optionalStringArray(issues, value.responsibilities, `${path}.responsibilities`);
   optionalStringArray(issues, value.paths, `${path}.paths`, true);
+  if (
+    Array.isArray(value.responsibilities)
+    && value.responsibilities.length > 0
+    && (!Array.isArray(value.paths) || value.paths.length === 0)
+  ) {
+    issues.push({
+      path: `${path}.paths`,
+      message: "Expected at least one path when stage responsibilities are declared.",
+    });
+  }
   if (value.capability !== undefined) validateCapability(issues, value.capability, `${path}.capability`);
 }
 
@@ -543,6 +573,12 @@ function validateHandoffSemantics(issues: ValidationIssue[], value: Record<strin
         });
       }
       optionalStringArray(issues, value.verification.requiredChecks, `${path}.verification.requiredChecks`);
+      optionalStringArray(
+        issues,
+        value.verification.requiredEvidencePaths,
+        `${path}.verification.requiredEvidencePaths`,
+        true,
+      );
       if (
         Array.isArray(value.verification.requiredChecks)
         && value.verification.requiredChecks.length > 0
@@ -554,17 +590,39 @@ function validateHandoffSemantics(issues: ValidationIssue[], value: Record<strin
           message: "Expected test when requiredChecks declares checks that prove this handoff.",
         });
       }
+      if (
+        Array.isArray(value.verification.requiredEvidencePaths)
+        && value.verification.requiredEvidencePaths.length > 0
+      ) {
+        if (!Array.isArray(acceptedMethods) || !acceptedMethods.includes("test")) {
+          issues.push({
+            path: `${path}.verification.acceptedMethods`,
+            message: "Expected test when requiredEvidencePaths declares changed regression evidence.",
+          });
+        }
+        if (
+          !Array.isArray(value.verification.requiredChecks)
+          || value.verification.requiredChecks.length === 0
+        ) {
+          issues.push({
+            path: `${path}.verification.requiredChecks`,
+            message: "Expected at least one test check when requiredEvidencePaths is declared.",
+          });
+        }
+      }
     }
   }
 }
 
 function validateFlowReferences(issues: ValidationIssue[], value: Record<string, unknown>, path = "$"): void {
   if (!Array.isArray(value.stages) || !Array.isArray(value.handoffs)) return;
-  const stageIds = new Set(value.stages.filter(isRecord).map((stage) => String(stage.id ?? "")));
+  const stages = value.stages;
+  const handoffs = value.handoffs;
+  const stageIds = new Set(stages.filter(isRecord).map((stage) => String(stage.id ?? "")));
   const invariantIds = new Set(Array.isArray(value.invariants)
     ? value.invariants.filter(isRecord).map((clause) => String(clause.id ?? ""))
     : []);
-  value.handoffs.forEach((handoff, index) => {
+  handoffs.forEach((handoff, index) => {
     if (!isRecord(handoff)) return;
     for (const field of ["fromStageId", "toStageId"] as const) {
       if (typeof handoff[field] === "string" && !stageIds.has(handoff[field])) {
@@ -576,6 +634,27 @@ function validateFlowReferences(issues: ValidationIssue[], value: Record<string,
         if (typeof id === "string" && !invariantIds.has(id)) {
           issues.push({ path: `${path}.handoffs[${index}].carriedInvariantIds[${invariantIndex}]`, message: `Unknown invariant id ${id}.` });
         }
+      });
+    }
+  });
+  const flowHasChecks = Array.isArray(value.requiredChecks) && value.requiredChecks.length > 0;
+  stages.forEach((stage, stageIndex) => {
+    if (
+      !isRecord(stage)
+      || !Array.isArray(stage.responsibilities)
+      || stage.responsibilities.length === 0
+      || flowHasChecks
+    ) return;
+    const stageHasHandoffCheck = handoffs.some((handoff) =>
+      isRecord(handoff)
+      && (handoff.fromStageId === stage.id || handoff.toStageId === stage.id)
+      && isRecord(handoff.verification)
+      && Array.isArray(handoff.verification.requiredChecks)
+      && handoff.verification.requiredChecks.length > 0);
+    if (!stageHasHandoffCheck) {
+      issues.push({
+        path: `${path}.stages[${stageIndex}].responsibilities`,
+        message: "Stage responsibilities require a flow or adjacent handoff test check.",
       });
     }
   });

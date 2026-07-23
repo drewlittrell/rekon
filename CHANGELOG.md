@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added contract-derived verifier-on-edge requirements. Flow stages can declare
+  path-scoped responsibilities, and handoffs can require current-diff
+  regression evidence paths alongside exact tests. Task pacts deliver both
+  before editing. Change validation requires test and semantic proof for a
+  changed responsibility, rejects model self-approval of evidence-path
+  obligations, and keeps existing undeclared flows backward compatible.
+  Pre-change managed and tiered model calibrations are now explicitly
+  historical rather than rebound to the changed context fixture.
 - Added a complete product-loop benchmark mode for managed local-agent runs.
   It independently scores context adoption, post-edit validation, targeted
   verification, stable-source `VerificationResult`, satisfied proof gate, and

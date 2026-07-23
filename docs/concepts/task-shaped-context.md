@@ -106,6 +106,9 @@ the task paths against `SystemContract` scopes and complete `FlowContract`
 paths. A path inside one flow stage therefore brings the flow's end-to-end
 outcome, invariants, handoff guarantees, remaining stage paths, and required
 checks into the task packet. Unrelated system and flow law is excluded.
+Path-scoped stage responsibilities enter the same constraint surface. A
+handoff may also declare focused regression evidence paths; selected paths are
+read before editing and are included in the TaskPact's verification scope.
 
 TaskPact impact obligations are not a second instruction channel. Preserve and
 inspect obligations enter the existing declared-constraint and `readFirst`
@@ -152,6 +155,14 @@ Selected checks carry the exact edge obligation IDs they can satisfy, so one
 handoff's test cannot prove a sibling edge. A failed accepted verifier blocks
 the edge even if another verifier supports it. Missing, skipped, stale, and
 unrelated evidence remain unresolved rather than disappearing from the graph.
+
+When a changed stage declares a responsibility, completion requires both the
+handoff's matching test and an explicit semantic judgment that the edit still
+owns that responsibility. When the verifier policy declares
+`requiredEvidencePaths`, at least one of those paths must differ from the Git
+baseline and the exact test must still pass. The changed-path check is
+deterministic and cannot be satisfied by model judgment. It proves that current
+regression evidence participated in the edit, not that the test passed.
 
 The first call identifies required proof. The final call supplies explicit
 `VerificationResult` and runtime-observation refs plus model judgments. A

@@ -535,6 +535,16 @@ function proofSubject(
       ref: artifactRef(matchedHandoff.flow.header),
     };
   }
+  const matchedResponsibility = findFlowStageResponsibilityByObligationId(
+    input.flowContracts ?? [],
+    obligation.id,
+  );
+  if (matchedResponsibility) {
+    return {
+      id: `${matchedResponsibility.flow.contractId}:${matchedResponsibility.stage.id}`,
+      ref: artifactRef(matchedResponsibility.flow.header),
+    };
+  }
   return {
     id: obligation.id,
     ...(input.taskPactRef && obligation.kind === "repository-law" ? { ref: input.taskPactRef } : {}),
@@ -548,6 +558,11 @@ function proofSourceRefs(obligation: ChangeValidationObligation, input: Validate
   }
   const matchedHandoff = findFlowHandoffByObligationId(input.flowContracts ?? [], obligation.id);
   if (matchedHandoff) refs.push(artifactRef(matchedHandoff.flow.header));
+  const matchedResponsibility = findFlowStageResponsibilityByObligationId(
+    input.flowContracts ?? [],
+    obligation.id,
+  );
+  if (matchedResponsibility) refs.push(artifactRef(matchedResponsibility.flow.header));
   if (obligation.kind === "ownership" && input.ownershipMap) refs.push(artifactRef(input.ownershipMap.header));
   if (obligation.kind === "dependency" && input.capabilityContract) refs.push(artifactRef(input.capabilityContract.header));
   if (obligation.kind === "repository-law") refs.push(...(input.taskPact?.contracts.map((contract) => contract.ref) ?? []));
@@ -556,6 +571,8 @@ function proofSourceRefs(obligation: ChangeValidationObligation, input: Validate
 }
 
 function proofMethods(obligation: ChangeValidationObligation): ProofMethod[] {
+  if (isStageResponsibilityObligationId(obligation.id)) return ["test", "model-judgment"];
+  if (isHandoffEvidencePathObligationId(obligation.id)) return ["static"];
   if (/:edge$/u.test(obligation.id)) return ["test", "runtime", "model-judgment"];
   if (obligation.kind === "baseline" || obligation.kind === "ownership") {
     return ["static"];
@@ -627,6 +644,7 @@ function bindProofEvidence(input: {
 }): { results: ProofResult[]; warnings: string[] } {
   const warnings: string[] = [];
   const results = [
+    ...bindStaticEvidence(input, warnings),
     ...bindVerificationEvidence(input, warnings),
     ...bindRuntimeEvidence(input, warnings),
     ...bindModelJudgments(input, warnings),
@@ -635,6 +653,76 @@ function bindProofEvidence(input: {
     results: dedupe(results, proofResultKey),
     warnings: unique(warnings).sort(),
   };
+}
+
+function bindStaticEvidence(
+  input: {
+    input: ValidateChangeInput;
+    obligations: ProofObligation[];
+    checks: ChangeValidationSelectedCheck[];
+  },
+  warnings: string[],
+): ProofResult[] {
+  const results: ProofResult[] = [];
+  const files = (input.input.files ?? []).flatMap((file) => {
+    const path = normalizePath(file.path);
+    return path ? [{ ...file, path }] : [];
+  });
+
+  for (const obligation of input.obligations) {
+    if (!isHandoffEvidencePathObligationId(obligation.id)) continue;
+    const handoff = findFlowHandoffByObligationId(
+      input.input.flowContracts ?? [],
+      obligation.id,
+    )?.handoff;
+    const requiredPaths = handoff?.verification?.requiredEvidencePaths ?? [];
+    const changedEvidencePaths = unique(files
+      .filter((file) =>
+        (file.status === "added" || file.status === "modified")
+        && requiredPaths.some((scope) => pathMatchesScope(file.path, scope)))
+      .map((file) => file.path));
+    if (changedEvidencePaths.length === 0) {
+      const deletedEvidencePaths = unique(files
+        .filter((file) =>
+          file.status === "deleted"
+          && requiredPaths.some((scope) => pathMatchesScope(file.path, scope)))
+        .map((file) => file.path));
+      if (deletedEvidencePaths.length > 0) {
+        results.push({
+          obligationId: obligation.id,
+          method: "static",
+          verdict: "refuted",
+          evidenceRefs: [],
+          counterEvidenceRefs: [...obligation.sourceRefs],
+          explanation: `Required regression evidence was deleted: ${deletedEvidencePaths.join(", ")}.`,
+          verifier: {
+            kind: "deterministic",
+            id: "@rekon/capability-model.change-scope",
+            version: "1.0.0",
+          },
+        });
+        continue;
+      }
+      warnings.push(
+        `handoff-evidence-path-missing: ${obligation.id} requires a current change in ${requiredPaths.join(", ")}`,
+      );
+      continue;
+    }
+    results.push({
+      obligationId: obligation.id,
+      method: "static",
+      verdict: "supported",
+      evidenceRefs: [...obligation.sourceRefs],
+      counterEvidenceRefs: [],
+      explanation: `Current source-state evidence includes changed required path${changedEvidencePaths.length === 1 ? "" : "s"}: ${changedEvidencePaths.join(", ")}.`,
+      verifier: {
+        kind: "deterministic",
+        id: "@rekon/capability-model.change-scope",
+        version: "1.0.0",
+      },
+    });
+  }
+  return results;
 }
 
 function bindVerificationEvidence(
@@ -669,7 +757,13 @@ function bindVerificationEvidence(
 
       for (const obligationId of check.proofObligationIds) {
         const obligation = obligationsById.get(obligationId);
-        if (!obligation || obligation.subject.kind !== "flow-handoff") continue;
+        if (
+          !obligation
+          || (
+            obligation.subject.kind !== "flow-handoff"
+            && !isStageResponsibilityObligationId(obligation.id)
+          )
+        ) continue;
         if (!obligation.requiredEvidence.includes("test")) continue;
         results.push(verificationProofResult(obligation.id, verdict, evidence, commandResult.command));
       }
@@ -1011,11 +1105,14 @@ function selectRequiredChecks(input: {
     for (const handoff of contract.handoffs) {
       const paths = changedHandoffPaths(contract, handoff, input.changedPaths);
       if (paths.length === 0) continue;
+      const changedEvidencePaths = input.changedPaths.filter((path) =>
+        (handoff.verification?.requiredEvidencePaths ?? [])
+          .some((scope) => pathMatchesScope(path, scope)));
       for (const command of handoff.verification?.requiredChecks ?? []) add(command, {
         sourceType: "flow-handoff",
         sourceId: flowHandoffSourceId(contract.contractId, handoff.id),
         reason: `Changed source intersects handoff ${contract.contractId}:${handoff.id}.`,
-        paths,
+        paths: unique([...paths, ...changedEvidencePaths]),
         evidenceRefs: [`FlowContract:${contract.header.artifactId}`],
       });
     }
@@ -1134,12 +1231,28 @@ function proofObligationIdsForCheck(
   for (const requirement of check.requirements) {
     if (requirement.sourceType === "flow-handoff") {
       const matched = findFlowHandoffBySourceId(flows, requirement.sourceId);
-      if (matched) obligationIds.add(handoffEdgeObligationId(matched.flow.contractId, matched.handoff.id));
+      if (matched) {
+        obligationIds.add(handoffEdgeObligationId(matched.flow.contractId, matched.handoff.id));
+        for (const stage of changedHandoffStages(matched.flow, matched.handoff, changedPaths)) {
+          for (const [index] of (stage.responsibilities ?? []).entries()) {
+            obligationIds.add(stageResponsibilityObligationId(
+              matched.flow.contractId,
+              stage.id,
+              index,
+            ));
+          }
+        }
+      }
       continue;
     }
     if (requirement.sourceType !== "flow-contract") continue;
     const flow = flows.find((candidate) => candidate.contractId === requirement.sourceId);
     if (!flow) continue;
+    for (const stage of changedFlowStages(flow, changedPaths)) {
+      for (const [index] of (stage.responsibilities ?? []).entries()) {
+        obligationIds.add(stageResponsibilityObligationId(flow.contractId, stage.id, index));
+      }
+    }
     for (const handoff of flow.handoffs) {
       if ((handoff.verification?.requiredChecks?.length ?? 0) > 0) continue;
       if (changedHandoffPaths(flow, handoff, changedPaths).length === 0) continue;
@@ -1163,8 +1276,47 @@ function changedHandoffPaths(
   return changedPaths.filter((path) => effectiveScopes.some((scope) => pathMatchesScope(path, scope)));
 }
 
+function changedHandoffStages(
+  flow: FlowContract,
+  handoff: FlowContractHandoff,
+  changedPaths: string[],
+): FlowContract["stages"] {
+  const endpointIds = new Set([handoff.fromStageId, handoff.toStageId]);
+  return changedFlowStages(flow, changedPaths)
+    .filter((stage) => endpointIds.has(stage.id));
+}
+
+function changedFlowStages(
+  flow: FlowContract,
+  changedPaths: string[],
+): FlowContract["stages"] {
+  return flow.stages.filter((stage) =>
+    (stage.paths ?? []).some((scope) =>
+      changedPaths.some((path) => pathMatchesScope(path, scope))));
+}
+
 function handoffEdgeObligationId(flowId: string, handoffId: string): string {
   return `handoff:${flowId}:${handoffId}:edge`;
+}
+
+function handoffEvidencePathObligationId(flowId: string, handoffId: string): string {
+  return `handoff:${flowId}:${handoffId}:evidence-path`;
+}
+
+function isHandoffEvidencePathObligationId(obligationId: string): boolean {
+  return /:evidence-path$/u.test(obligationId);
+}
+
+function stageResponsibilityConstraintId(flowId: string, stageId: string, index: number): string {
+  return `${flowId}.stage.${stageId}.responsibility.${index + 1}`;
+}
+
+function stageResponsibilityObligationId(flowId: string, stageId: string, index: number): string {
+  return `constraint:${stageResponsibilityConstraintId(flowId, stageId, index)}`;
+}
+
+function isStageResponsibilityObligationId(obligationId: string): boolean {
+  return /\.stage\..+\.responsibility\.\d+$/u.test(obligationId);
 }
 
 function flowHandoffSourceId(flowId: string, handoffId: string): string {
@@ -1214,6 +1366,22 @@ function findFlowHandoffByObligationId(
     .sort((left, right) => right.prefixLength - left.prefixLength
       || left.flow.contractId.localeCompare(right.flow.contractId)
       || left.handoff.id.localeCompare(right.handoff.id))[0];
+}
+
+function findFlowStageResponsibilityByObligationId(
+  flows: FlowContract[],
+  obligationId: string,
+): { flow: FlowContract; stage: FlowContract["stages"][number]; index: number } | undefined {
+  for (const flow of flows) {
+    for (const stage of flow.stages) {
+      for (const [index] of (stage.responsibilities ?? []).entries()) {
+        if (stageResponsibilityObligationId(flow.contractId, stage.id, index) === obligationId) {
+          return { flow, stage, index };
+        }
+      }
+    }
+  }
+  return undefined;
 }
 
 function classifyCheckKind(command: string): ChangeValidationCheckKind {
@@ -1279,6 +1447,20 @@ function addFlowObligations(
   changedPaths: string[],
 ): void {
   const evidenceRefs = [`FlowContract:${flow.contractId}`];
+  for (const stage of changedFlowStages(flow, changedPaths)) {
+    for (const [index, responsibility] of (stage.responsibilities ?? []).entries()) {
+      addObligation(output, {
+        id: stageResponsibilityObligationId(flow.contractId, stage.id, index),
+        kind: "repository-law",
+        statement: `Stage ${stage.label ?? stage.id} responsibility: ${responsibility}`,
+        reason: `The edit intersects stage ${stage.id} in flow ${flow.contractId}.`,
+        paths: changedPaths.filter((path) =>
+          (stage.paths ?? []).some((scope) => pathMatchesScope(path, scope))),
+        evidenceRefs,
+        blockingIfViolated: true,
+      });
+    }
+  }
   for (const handoff of flow.handoffs) {
     const paths = changedHandoffPaths(flow, handoff, changedPaths);
     if (paths.length === 0) continue;
@@ -1291,6 +1473,18 @@ function addFlowObligations(
       evidenceRefs,
       blockingIfViolated: true,
     });
+    const requiredEvidencePaths = handoff.verification?.requiredEvidencePaths ?? [];
+    if (requiredEvidencePaths.length > 0) {
+      addObligation(output, {
+        id: handoffEvidencePathObligationId(flow.contractId, handoff.id),
+        kind: "handoff",
+        statement: `Change at least one required regression evidence path for this handoff: ${requiredEvidencePaths.join(", ")}.`,
+        reason: `The ${handoff.fromStageId} -> ${handoff.toStageId} verifier policy requires current-diff regression evidence.`,
+        paths: requiredEvidencePaths,
+        evidenceRefs,
+        blockingIfViolated: true,
+      });
+    }
     for (const [index, guarantee] of (handoff.guarantees ?? []).entries()) {
       addObligation(output, {
         id: `handoff:${flow.contractId}:${handoff.id}:guarantee:${index + 1}`,

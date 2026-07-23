@@ -410,7 +410,8 @@ system, request metadata carried across a multi-system checkout flow, and an
 unrelated documentation task. Adopted law raised average required-path recall
 from 72.22% to 100% at 100% precision. Both implementation cases retained all
 literal constraints and checks; the unrelated task received no contract law.
-The largest compact delivery was 282 estimated tokens.
+The largest compact delivery is 290 estimated tokens after adding stage
+responsibilities and handoff regression-evidence requirements.
 
 The current deterministic judgment is bound to each selection digest. A pinned
 Sol/xhigh managed run then completed three paired repeats per implementation
@@ -426,7 +427,10 @@ from 4.5 to 4.83, subscription-reported tokens rose 36.3 percent, and the
 visible estimate rose 12.2 percent. The accepted classification is
 `correctness-and-exploration-gain-token-overhead`, not token savings or general
 model uplift. The digest-bound, source-free record is
-`tests/evals/model-interface-contracts/sol-managed-calibration.json`.
+`tests/evals/model-interface-contracts/sol-managed-calibration.json`. That
+record is historical: it predates the current flow-stage responsibility and
+handoff regression-evidence payload and is not presented as current
+verification of that interface.
 
 An opt-in tiered-delivery probe then made only the explicit task path and test
 mandatory while leaving the other four selected paths as conditional routes.
@@ -436,6 +440,7 @@ variants. The full delivery remains the default: labels alone did not reduce
 source reads when the packet lacked enough route-role detail to distinguish a
 necessary handoff from compatibility context. The source-free negative record
 is `tests/evals/model-interface-contracts/tiered-delivery-calibration.json`.
+It is also historical after the verifier payload changed.
 
 The compiler now assigns deterministic route roles and task-necessity reasons.
 An opt-in `role-aware` adapter keeps required task targets, implementation,

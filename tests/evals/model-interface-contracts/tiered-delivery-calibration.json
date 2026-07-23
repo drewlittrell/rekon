@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "recordedAt": "2026-07-20T22:22:12Z",
-  "status": "experimental-not-promoted",
+  "status": "historical",
   "runner": {
     "id": "codex-subscription",
     "version": "codex-cli 0.144.1",
@@ -12,6 +12,7 @@
   "contextPolicy": "tiered",
   "productionDefault": "full",
   "instructionVersion": "1.8.0",
+  "revalidationReason": "Managed instructions and repository-law context now include proof-gated change handling, flow-stage responsibilities, and handoff regression-evidence requirements. These retained model outcomes predate the current delivery payload.",
   "fixtureSha256": "bfc602a704076b55421b828f4462286ea0ee4ab2de3e5bcfeb95fbe5e8d6decb",
   "contextFixtureSha256": "788af2683afeff586e6a6703c43eef6ada3bf4f00efb929f2b874ff21deca4e5",
   "selectionSha256": "943401ff54584f2e5e1b15b4d12e83deec1cce1fe9e3761993d3626df253ea90",

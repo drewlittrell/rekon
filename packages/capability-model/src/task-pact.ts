@@ -35,6 +35,7 @@ export function buildTaskPact(input: BuildTaskPactInput) {
   const constraints: TaskPactConstraint[] = [];
   const impactObligations: TaskPactImpactObligation[] = [];
   const requiredContextPaths: string[] = [];
+  const requiredEvidencePaths: string[] = [];
   const requiredChecks: string[] = [];
   const warnings: string[] = [];
 
@@ -72,13 +73,29 @@ export function buildTaskPact(input: BuildTaskPactInput) {
       impactObligations.push({ id: `preserve:FlowContract:${contract.contractId}:${clause.id}`, kind: "preserve", statement: clause.statement, paths: flowPaths, requiredChecks: contract.requiredChecks, contractRefs: [ref] });
     }
     const stageById = new Map(contract.stages.map((stage) => [stage.id, stage]));
+    for (const stage of contract.stages) {
+      for (const [index, responsibility] of (stage.responsibilities ?? []).entries()) {
+        constraints.push(constraint(
+          contract,
+          ref,
+          "invariant",
+          stageResponsibilityConstraintId(contract.contractId, stage.id, index),
+          `Stage ${stage.label ?? stage.id} responsibility: ${responsibility}`,
+          stage.paths ?? flowPaths,
+        ));
+      }
+    }
     for (const handoff of contract.handoffs) {
       const handoffPaths = unique([...(stageById.get(handoff.fromStageId)?.paths ?? []), ...(stageById.get(handoff.toStageId)?.paths ?? [])]);
       for (const [index, guarantee] of (handoff.guarantees ?? []).entries()) constraints.push(constraint(contract, ref, "handoff", `${contract.contractId}.handoff.${handoff.id}.guarantee.${index + 1}`, guarantee, handoffPaths));
       if (handoff.failureSemantics) constraints.push(constraint(contract, ref, "handoff", `${contract.contractId}.handoff.${handoff.id}.failure`, handoff.failureSemantics, handoffPaths));
       const selectedHandoff = selectedPaths.some((path) =>
         (handoffPaths.length > 0 ? handoffPaths : flowPaths).some((scope) => pathMatchesScope(path, scope)));
-      if (selectedHandoff) requiredChecks.push(...(handoff.verification?.requiredChecks ?? []));
+      if (selectedHandoff) {
+        requiredChecks.push(...(handoff.verification?.requiredChecks ?? []));
+        requiredEvidencePaths.push(...(handoff.verification?.requiredEvidencePaths ?? []));
+        requiredContextPaths.push(...(handoff.verification?.requiredEvidencePaths ?? []));
+      }
     }
     const inspectPaths = flowPaths.filter((path) => !selectedPaths.includes(path));
     if (inspectPaths.length > 0) impactObligations.push({
@@ -99,7 +116,7 @@ export function buildTaskPact(input: BuildTaskPactInput) {
     id: `verify:${createHash("sha256").update(checks.join("\n")).digest("hex").slice(0, 12)}`,
     kind: "verify",
     statement: "Run the checks required by the matched repository contracts.",
-    paths: selectedPaths,
+    paths: unique([...selectedPaths, ...requiredEvidencePaths]),
     requiredChecks: checks,
     contractRefs: contracts.map((contract) => contract.ref),
   });
@@ -142,6 +159,10 @@ function constraint(
   paths: string[],
 ): TaskPactConstraint {
   return { id, kind, statement, paths: unique(paths), contractRef: ref, authority: contract.authority, confidence: contract.confidence };
+}
+
+function stageResponsibilityConstraintId(flowId: string, stageId: string, index: number): string {
+  return `${flowId}.stage.${stageId}.responsibility.${index + 1}`;
 }
 
 function contractFreshness(

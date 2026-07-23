@@ -3,24 +3,24 @@
   "judge": {
     "id": "maintainer-review",
     "mode": "agent",
-    "reviewedAt": "2026-07-20"
+    "reviewedAt": "2026-07-22"
   },
   "judgments": [
     {
       "caseId": "atomic-experience-composition",
-      "selectionDigest": "e8c902b4cea1afddf4ca748a70daa4823210f1f0ea524d3c7a7922d3e28ec4a8",
+      "selectionDigest": "3744e4af65a135733be5719eec14bf2b24d126f277f8d9a3d8fc2805667d7627",
       "verdict": "accepted",
       "reasons": [
-        "The packet includes every interpretation stage, the focused test, the atomic-composition prohibition, and the required check.",
+        "The packet includes every interpretation stage, each stage's responsibility, the focused test, the atomic-composition prohibition, and the required check.",
         "It is sufficient to identify connector syntax as the likely change surface without storing the complete phrase."
       ]
     },
     {
       "caseId": "checkout-baton-preservation",
-      "selectionDigest": "1bd41b7b9ad5637c63d72cdf4e9115d3b2a9a04c14925aad926c4867d7c98bc3",
+      "selectionDigest": "7501e95d85fdc84d71b24ad96bed66beec42fd1e1c953c7fb06853d47bf0d826",
       "verdict": "accepted",
       "reasons": [
-        "The packet includes request acceptance, message construction, worker consumption, receipt publication, and focused coverage.",
+        "The packet includes responsibility boundaries for request acceptance, message construction, worker consumption, receipt publication, and focused coverage.",
         "Literal requestId and optional-field guarantees make the end-to-end acceptance criteria explicit."
       ]
     },

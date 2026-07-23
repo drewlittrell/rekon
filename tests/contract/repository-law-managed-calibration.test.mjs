@@ -7,7 +7,7 @@ import test from "node:test";
 
 const repoRoot = resolve(".");
 
-test("repository-law Sol calibration remains reproducible and is marked historical after interface changes", () => {
+test("repository-law Sol calibration retains digest-bound historical evidence after interface changes", () => {
   const calibration = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-contracts/sol-managed-calibration.json"),
     "utf8",
@@ -65,10 +65,12 @@ test("repository-law Sol calibration remains reproducible and is marked historic
   assert.equal(calibration.instructionVersion, "1.8.0");
   assert.notEqual(calibration.instructionVersion, currentInstructionVersion);
   assert.equal(calibration.status, "historical");
-  assert.match(calibration.revalidationReason, /auto-refresh/iu);
+  assert.match(calibration.revalidationReason, /flow-stage responsibilities/iu);
   assert.equal(calibration.fixtureSha256, digest(fixtureBytes));
-  assert.equal(calibration.contextFixtureSha256, digest(contextFixtureBytes));
+  assert.notEqual(calibration.contextFixtureSha256, digest(contextFixtureBytes));
   assert.equal(calibration.selectionSha256, digest(JSON.stringify(selection)));
+  assert.match(calibration.contextFixtureSha256, /^[a-f0-9]{64}$/u);
+  assert.match(calibration.selectionSha256, /^[a-f0-9]{64}$/u);
   assert.equal(calibration.batchReportSha256.length, 2);
   assert.ok(calibration.batchReportSha256.every((value) => /^[a-f0-9]{64}$/u.test(value)));
 });

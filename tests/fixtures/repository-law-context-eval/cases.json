@@ -241,9 +241,24 @@
               }
             ],
             "stages": [
-              { "id": "tokenize", "systemId": "experience-intelligence", "paths": ["src/nlu/tokenize.ts"] },
-              { "id": "atomize", "systemId": "experience-intelligence", "paths": ["src/nlu/vocabulary.ts", "src/nlu/atomize.ts"] },
-              { "id": "compose", "systemId": "experience-intelligence", "paths": ["src/nlu/compose-meaning.ts", "src/nlu/experience-interpreter.ts"] }
+              {
+                "id": "tokenize",
+                "systemId": "experience-intelligence",
+                "responsibilities": ["Remove connector tokens while preserving normalized remaining tokens."],
+                "paths": ["src/nlu/tokenize.ts"]
+              },
+              {
+                "id": "atomize",
+                "systemId": "experience-intelligence",
+                "responsibilities": ["Map reusable individual tokens to atomic concepts; never store complete phrase aliases."],
+                "paths": ["src/nlu/vocabulary.ts", "src/nlu/atomize.ts"]
+              },
+              {
+                "id": "compose",
+                "systemId": "experience-intelligence",
+                "responsibilities": ["Compose atomic concepts while preserving unknown-token evidence."],
+                "paths": ["src/nlu/compose-meaning.ts", "src/nlu/experience-interpreter.ts"]
+              }
             ],
             "handoffs": [
               {
@@ -252,14 +267,24 @@
                 "toStageId": "atomize",
                 "payload": { "schema": "string[]" },
                 "guarantees": ["Connector tokens are removed while remaining tokens keep their normalized meaning."],
-                "carriedInvariantIds": ["token-accounting"]
+                "carriedInvariantIds": ["token-accounting"],
+                "verification": {
+                  "acceptedMethods": ["test"],
+                  "requiredChecks": ["npm test"],
+                  "requiredEvidencePaths": ["tests/experience-interpreter.test.ts"]
+                }
               },
               {
                 "id": "atoms-to-meaning",
                 "fromStageId": "atomize",
                 "toStageId": "compose",
                 "guarantees": ["Recognized concepts and unknown tokens cross the handoff separately."],
-                "carriedInvariantIds": ["phrase-independent", "token-accounting"]
+                "carriedInvariantIds": ["phrase-independent", "token-accounting"],
+                "verification": {
+                  "acceptedMethods": ["test"],
+                  "requiredChecks": ["npm test"],
+                  "requiredEvidencePaths": ["tests/experience-interpreter.test.ts"]
+                }
               }
             ],
             "requiredChecks": ["npm test"]
@@ -292,10 +317,30 @@
               }
             ],
             "stages": [
-              { "id": "accept", "systemId": "checkout-processing", "paths": ["src/api/checkout-controller.ts", "src/checkout/checkout-service.ts"] },
-              { "id": "queue", "systemId": "checkout-processing", "paths": ["src/checkout/checkout-message.ts"] },
-              { "id": "process", "systemId": "checkout-worker", "paths": ["src/worker/checkout-worker.ts"] },
-              { "id": "publish", "systemId": "receipts", "paths": ["src/receipts/receipt-publisher.ts"] }
+              {
+                "id": "accept",
+                "systemId": "checkout-processing",
+                "responsibilities": ["Preserve caller identity and optional metadata when accepting checkout."],
+                "paths": ["src/api/checkout-controller.ts", "src/checkout/checkout-service.ts"]
+              },
+              {
+                "id": "queue",
+                "systemId": "checkout-processing",
+                "responsibilities": ["Encode checkout identity and optional metadata without inventing values."],
+                "paths": ["src/checkout/checkout-message.ts"]
+              },
+              {
+                "id": "process",
+                "systemId": "checkout-worker",
+                "responsibilities": ["Process the same checkout identity received from the queue."],
+                "paths": ["src/worker/checkout-worker.ts"]
+              },
+              {
+                "id": "publish",
+                "systemId": "receipts",
+                "responsibilities": ["Publish receipt metadata correlated to the original checkout."],
+                "paths": ["src/receipts/receipt-publisher.ts"]
+              }
             ],
             "handoffs": [
               {
@@ -304,7 +349,12 @@
                 "toStageId": "queue",
                 "payload": { "schema": "CheckoutMessage", "requiredFields": ["requestId", "orderId"] },
                 "guarantees": ["The message preserves requestId and only includes campaignId when supplied."],
-                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"],
+                "verification": {
+                  "acceptedMethods": ["test"],
+                  "requiredChecks": ["npm test"],
+                  "requiredEvidencePaths": ["tests/checkout-flow.test.ts"]
+                }
               },
               {
                 "id": "message-to-worker",
@@ -312,7 +362,12 @@
                 "toStageId": "process",
                 "payload": { "schema": "CheckoutMessage", "requiredFields": ["requestId", "orderId"] },
                 "guarantees": ["The worker receives the same checkout identity and campaign metadata."],
-                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"],
+                "verification": {
+                  "acceptedMethods": ["test"],
+                  "requiredChecks": ["npm test"],
+                  "requiredEvidencePaths": ["tests/checkout-flow.test.ts"]
+                }
               },
               {
                 "id": "worker-to-receipt",
@@ -320,7 +375,12 @@
                 "toStageId": "publish",
                 "payload": { "schema": "ReceiptMetadata", "requiredFields": ["requestId", "orderId"] },
                 "guarantees": ["Receipt metadata remains correlated to the original request."],
-                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"]
+                "carriedInvariantIds": ["flow-request-id", "flow-optional-campaign"],
+                "verification": {
+                  "acceptedMethods": ["test"],
+                  "requiredChecks": ["npm test"],
+                  "requiredEvidencePaths": ["tests/checkout-flow.test.ts"]
+                }
               }
             ],
             "requiredChecks": ["npm test"]

@@ -606,6 +606,223 @@ test("all-required handoff verification requires both test and runtime proof", (
   );
 });
 
+test("stage responsibility requires both its declared test and model judgment", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: {
+      acceptedMethods: ["test"],
+      requiredChecks: ["npm run test:edge"],
+    },
+    evidenceRefs: [],
+  }]);
+  flow.stages[0].label = "Entry";
+  flow.stages[0].responsibilities = ["Normalize bootstrap input before runtime dispatch."];
+  const responsibilityId = "constraint:bootstrap-flow.stage.entry.responsibility.1";
+  const baseline = {
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "edge-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:edge", status: "passed" }],
+    }],
+  };
+
+  const testOnly = validateChange(baseline);
+  const obligation = testOnly.proofGate.obligations.find((entry) =>
+    entry.id === responsibilityId);
+  const testOnlyDecision = testOnly.proofGate.evaluation.decisions.find((entry) =>
+    entry.obligationId === responsibilityId);
+  assert.deepEqual(obligation?.requiredEvidence, ["test", "model-judgment"]);
+  assert.deepEqual(testOnlyDecision?.supportedMethods, ["test"]);
+  assert.deepEqual(testOnlyDecision?.missingMethods, ["model-judgment"]);
+
+  const complete = validateChange({
+    ...baseline,
+    modelJudgments: [{
+      obligationId: responsibilityId,
+      verdict: "supported",
+      explanation: "The changed entry stage still normalizes input before invoking runtime.",
+    }],
+  });
+  assert.equal(
+    complete.proofGate.evaluation.decisions.find((entry) =>
+      entry.obligationId === responsibilityId)?.verdict,
+    "satisfied",
+  );
+
+  const refuted = validateChange({
+    ...baseline,
+    modelJudgments: [{
+      obligationId: responsibilityId,
+      verdict: "refuted",
+      explanation: "The changed entry stage forwards unnormalized input.",
+    }],
+  });
+  assert.equal(refuted.status, "blocked");
+  assert.ok(refuted.blockingViolations.some((entry) =>
+    entry.details?.obligationId === responsibilityId));
+});
+
+test("handoff evidence paths require a current regression edit and cannot be self-approved", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: {
+      acceptedMethods: ["test", "model-judgment"],
+      requiredChecks: ["npm run test:edge"],
+      requiredEvidencePaths: ["tests/bootstrap.test.ts"],
+    },
+    evidenceRefs: [],
+  }]);
+  flow.stages[0].responsibilities = ["Normalize bootstrap input before runtime dispatch."];
+  const responsibilityId = "constraint:bootstrap-flow.stage.entry.responsibility.1";
+  const evidencePathId = "handoff:bootstrap-flow:entry-runtime:evidence-path";
+  const result = validateChange({
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts"],
+    baseRef: "HEAD",
+    taskPact: pact(),
+    ownershipMap,
+    flowContracts: [flow],
+    files: [{ path: "src/index.ts", status: "modified" }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "edge-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:edge", status: "passed" }],
+    }],
+    modelJudgments: [{
+      obligationId: responsibilityId,
+      verdict: "supported",
+      explanation: "The entry stage retains its responsibility.",
+    }, {
+      obligationId: evidencePathId,
+      verdict: "supported",
+      explanation: "The regression evidence is sufficient.",
+    }],
+  });
+
+  assert.equal(result.status, "needs-judgment");
+  assert.deepEqual(
+    result.proofGate.obligations.find((entry) => entry.id === evidencePathId)?.requiredEvidence,
+    ["static"],
+  );
+  assert.deepEqual(
+    result.proofGate.evaluation.decisions.find((entry) =>
+      entry.obligationId === evidencePathId)?.missingMethods,
+    ["static"],
+  );
+  assert.ok(!result.proofGate.results.some((entry) =>
+    entry.obligationId === evidencePathId));
+  assert.ok(result.proofGate.warnings.some((warning) =>
+    warning.startsWith("handoff-evidence-path-missing:")));
+  assert.ok(result.proofGate.warnings.includes(
+    `model-judgment-not-accepted: ${evidencePathId}`,
+  ));
+});
+
+test("changed handoff evidence plus exact test and responsibility judgment satisfies proof", () => {
+  const flow = flowContract([{
+    id: "entry-runtime",
+    fromStageId: "entry",
+    toStageId: "runtime",
+    verification: {
+      acceptedMethods: ["test", "model-judgment"],
+      requiredChecks: ["npm run test:edge"],
+      requiredEvidencePaths: ["tests/bootstrap.test.ts"],
+    },
+    evidenceRefs: [],
+  }]);
+  flow.stages[0].responsibilities = ["Normalize bootstrap input before runtime dispatch."];
+  const responsibilityId = "constraint:bootstrap-flow.stage.entry.responsibility.1";
+  const evidencePathId = "handoff:bootstrap-flow:entry-runtime:evidence-path";
+  const input = {
+    task: "change bootstrap",
+    changedPaths: ["src/index.ts", "tests/bootstrap.test.ts"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: {
+        text: "change bootstrap",
+        paths: ["src/index.ts", "tests/bootstrap.test.ts"],
+      },
+    }),
+    ownershipMap: {
+      ...ownershipMap,
+      entries: [
+        ...ownershipMap.entries,
+        {
+          path: "tests/bootstrap.test.ts",
+          ownerSystem: "app",
+          confidence: 1,
+          evidence: [],
+        },
+      ],
+    },
+    flowContracts: [flow],
+    files: [
+      { path: "src/index.ts", status: "modified" },
+      { path: "tests/bootstrap.test.ts", status: "modified" },
+    ],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "edge-test"),
+      generatedAt: "2026-07-21T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm run test:edge", status: "passed" }],
+    }],
+    modelJudgments: [{
+      obligationId: responsibilityId,
+      verdict: "supported",
+      explanation: "The entry stage retains its responsibility.",
+    }, {
+      obligationId: "handoff:bootstrap-flow:entry-runtime:edge",
+      verdict: "supported",
+      explanation: "The handoff remains connected.",
+    }],
+  };
+  const result = validateChange(input);
+
+  assert.equal(result.status, "passed");
+  assert.equal(result.proofGate.evaluation.status, "satisfied");
+  assert.ok(result.proofGate.results.some((entry) =>
+    entry.obligationId === evidencePathId
+    && entry.method === "static"
+    && entry.verdict === "supported"));
+  const check = result.checkSelection.checks.find((entry) =>
+    entry.command === "npm run test:edge");
+  assert.ok(check?.requirements.some((entry) =>
+    entry.paths.includes("tests/bootstrap.test.ts")));
+  assert.ok(check?.proofObligationIds.includes(responsibilityId));
+
+  const deleted = validateChange({
+    ...input,
+    files: [
+      { path: "src/index.ts", status: "modified" },
+      { path: "tests/bootstrap.test.ts", status: "deleted" },
+    ],
+  });
+  assert.equal(deleted.status, "blocked");
+  assert.ok(deleted.proofGate.results.some((entry) =>
+    entry.obligationId === evidencePathId
+    && entry.method === "static"
+    && entry.verdict === "refuted"));
+});
+
 test("an exact handoff check cannot prove a sibling edge", () => {
   const flow = flowContract([
     {

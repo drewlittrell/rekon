@@ -571,10 +571,93 @@ test("prior isolated coverage fills a changed-source test gap without acting as 
   }
 });
 
+test("proof-gated change validation requires current-diff regression evidence declared by a handoff", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-proof-evidence-path-"));
+  const evidencePath = "test/bootstrap.test.mjs";
+
+  try {
+    await createFixture(root, {
+      stageResponsibilities: ["Normalize bootstrap input before runtime dispatch."],
+      requiredEvidencePaths: [evidencePath],
+    });
+    const initial = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--base-ref", "HEAD",
+      "--judgment-json", JSON.stringify([{
+        obligationId: "handoff:proof-flow:bootstrap-runtime:evidence-path",
+        verdict: "supported",
+        explanation: "The model considers the regression evidence sufficient.",
+      }]),
+      "--root", root,
+      "--json",
+    ]);
+
+    const responsibilityId = "constraint:proof-flow.stage.bootstrap.responsibility.1";
+    const evidencePathId = "handoff:proof-flow:bootstrap-runtime:evidence-path";
+    assert.deepEqual(
+      initial.proofGate.obligations.find((entry) =>
+        entry.id === responsibilityId)?.requiredEvidence,
+      ["test", "model-judgment"],
+    );
+    assert.deepEqual(
+      initial.proofGate.obligations.find((entry) =>
+        entry.id === evidencePathId)?.requiredEvidence,
+      ["static"],
+    );
+    assert.ok(initial.proofGate.warnings.includes(
+      `model-judgment-not-accepted: ${evidencePathId}`,
+    ));
+    assert.ok(initial.proofGate.warnings.some((warning) =>
+      warning.startsWith(`handoff-evidence-path-missing: ${evidencePathId}`)));
+    assert.ok(!initial.proofGate.results.some((entry) =>
+      entry.obligationId === evidencePathId));
+
+    await writeFile(
+      join(root, evidencePath),
+      "import assert from 'node:assert/strict';\nassert.equal('preserved', 'preserved');\n",
+      "utf8",
+    );
+    const withEvidence = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--prepare-verification",
+      "--root", root,
+      "--json",
+    ]);
+
+    assert.ok(withEvidence.proofGate.results.some((entry) =>
+      entry.obligationId === evidencePathId
+      && entry.method === "static"
+      && entry.verdict === "supported"));
+    assert.ok(!withEvidence.proofGate.warnings.some((warning) =>
+      warning.startsWith(`handoff-evidence-path-missing: ${evidencePathId}`)));
+    const plannedCheck = withEvidence.checkSelection.checks.find((entry) =>
+      entry.command === selectedCheck);
+    assert.ok(plannedCheck.requirements.some((entry) =>
+      entry.paths.includes(evidencePath)));
+    assert.ok(plannedCheck.proofObligationIds.includes(responsibilityId));
+    const store = createLocalArtifactStore(root);
+    const plan = await store.read(withEvidence.verificationPlan);
+    assert.ok(plan.proofObligationIds.includes(responsibilityId));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function createFixture(root, options = {}) {
   const requiredChecks = options.requiredChecks ?? [selectedCheck];
+  const stageResponsibilities = options.stageResponsibilities ?? [];
+  const requiredEvidencePaths = options.requiredEvidencePaths ?? [];
   await mkdir(join(root, "src"), { recursive: true });
   await mkdir(join(root, "rekon", "contracts"), { recursive: true });
+  if (requiredEvidencePaths.length > 0) {
+    await mkdir(join(root, "test"), { recursive: true });
+  }
   await writeFile(join(root, "package.json"), `${JSON.stringify({
     name: "rekon-proof-gate-fixture",
     version: "1.0.0",
@@ -587,6 +670,13 @@ async function createFixture(root, options = {}) {
   }, null, 2)}\n`, "utf8");
   await writeFile(join(root, "src/index.ts"), "export const bootstrap = 'stable';\n", "utf8");
   await writeFile(join(root, "src/runtime.ts"), "export const runtime = 'stable';\n", "utf8");
+  for (const path of requiredEvidencePaths) {
+    await writeFile(
+      join(root, path),
+      "import assert from 'node:assert/strict';\nassert.equal('stable', 'stable');\n",
+      "utf8",
+    );
+  }
 
   const contractSourceDocument = {
     version: "1.0.0",
@@ -612,7 +702,12 @@ async function createFixture(root, options = {}) {
       paths: ["src/**"],
       invariants: [{ id: "runtime-identity", statement: "Preserve runtime identity end to end." }],
       stages: [
-        { id: "bootstrap", systemId: "proof-system", paths: ["src/index.ts"] },
+        {
+          id: "bootstrap",
+          systemId: "proof-system",
+          ...(stageResponsibilities.length > 0 ? { responsibilities: stageResponsibilities } : {}),
+          paths: ["src/index.ts"],
+        },
         { id: "runtime", systemId: "proof-system", paths: ["src/runtime.ts"] },
       ],
       handoffs: [{
@@ -625,6 +720,7 @@ async function createFixture(root, options = {}) {
         verification: {
           acceptedMethods: ["test"],
           requiredChecks,
+          ...(requiredEvidencePaths.length > 0 ? { requiredEvidencePaths } : {}),
         },
       }],
       requiredChecks,
@@ -679,7 +775,13 @@ async function createFixture(root, options = {}) {
     paths: ["src/**"],
     invariants: [clause("runtime-identity", "Preserve runtime identity end to end.")],
     stages: [
-      { id: "bootstrap", systemId: "proof-system", paths: ["src/index.ts"], evidenceRefs: [] },
+      {
+        id: "bootstrap",
+        systemId: "proof-system",
+        ...(stageResponsibilities.length > 0 ? { responsibilities: stageResponsibilities } : {}),
+        paths: ["src/index.ts"],
+        evidenceRefs: [],
+      },
       { id: "runtime", systemId: "proof-system", paths: ["src/runtime.ts"], evidenceRefs: [] },
     ],
     handoffs: [{
@@ -692,6 +794,7 @@ async function createFixture(root, options = {}) {
       verification: {
         acceptedMethods: ["test"],
         requiredChecks,
+        ...(requiredEvidencePaths.length > 0 ? { requiredEvidencePaths } : {}),
       },
       evidenceRefs: [],
     }],
@@ -731,6 +834,13 @@ async function createFixture(root, options = {}) {
     entries: [
       { path: "src/index.ts", ownerSystem: "proof-system", basis: "declared", confidence: 1, evidence: [systemRef] },
       { path: "src/runtime.ts", ownerSystem: "proof-system", basis: "declared", confidence: 1, evidence: [systemRef] },
+      ...requiredEvidencePaths.map((path) => ({
+        path,
+        ownerSystem: "proof-system",
+        basis: "declared",
+        confidence: 1,
+        evidence: [systemRef],
+      })),
     ],
   }), { category: "projections" });
   await store.write(createTaskPact({
@@ -744,9 +854,11 @@ async function createFixture(root, options = {}) {
     warnings: [],
   }), { category: "actions" });
 
+  const baselinePaths = ["package.json", "src", "rekon/contracts"];
+  if (requiredEvidencePaths.length > 0) baselinePaths.push("test");
   for (const args of [
     ["init", "-q"],
-    ["add", "package.json", "src", "rekon/contracts"],
+    ["add", ...baselinePaths],
     ["-c", "user.email=rekon@example.test", "-c", "user.name=Rekon Test", "commit", "-qm", "fixture baseline"],
   ]) {
     const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });

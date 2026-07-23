@@ -89,6 +89,10 @@ digests so later edits cannot reuse it.
 `FlowContract` handoffs may declare accepted proof methods, an acceptance
 policy, and exact checks for their dependency edge. These declarations do not
 collapse payload, guarantee, ordering, or failure semantics into edge proof.
+Stages may also declare path-scoped responsibilities. A handoff verifier may
+name `requiredEvidencePaths`, normally focused regression tests, only alongside
+an accepted `test` method and at least one exact check. This declares current
+diff evidence; it does not replace execution of the check.
 `ContractCandidateReport.evidenceInventory` distinguishes successful inventory
 of supported evidence from actual runtime and isolated-coverage availability.
 It is optional when reading earlier v1 reports; current discovery producers

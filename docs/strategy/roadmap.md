@@ -69,6 +69,12 @@ verification recording, reconciliation planning, and artifact validation.
   cannot satisfy sibling edges. The acting model handles only declared semantic
   judgments; repository purpose and user outcomes are completion gates rather
   than advisory text.
+- Flow stages may declare path-scoped responsibilities, and handoff verifier
+  policies may require current-diff regression evidence paths. Task pacts carry
+  both into model context. A changed stage requires its exact test plus semantic
+  judgment, while the evidence-path obligation is deterministic and cannot be
+  self-approved by a model. Existing contracts without either declaration keep
+  their prior proof behavior.
 - Targeted verification now preserves declared task and contract checks, fills
   changed-source test gaps only from passed isolated coverage linked to exact
   runner commands, and chooses a deterministic minimal candidate set. Failed,
@@ -112,12 +118,13 @@ verification recording, reconciliation planning, and artifact validation.
   structural-only fallback as conclusive.
 - A source-free repository-law gate covers compositional system semantics,
   cross-system baton preservation, and unrelated-law isolation. It raises
-  required-path recall from 72.22% to 100% at 100% precision, with a 282-token
+  required-path recall from 72.22% to 100% at 100% precision, with a 290-token
   maximum compact delivery. A three-repeat Sol/xhigh managed evaluation passed
   6/6 Rekon changes versus 4/6 baselines and reduced average explored paths
   from 17.0 to 7.17. Reported tokens rose 36.3% and the visible estimate rose
   12.2%, so the accepted result is correctness and exploration gain with token
-  overhead.
+  overhead. The retained model result is historical after flow-stage
+  responsibility and handoff regression-evidence delivery changed.
 - An opt-in tiered-delivery probe preserved quality in four Sol/xhigh Rekon
   runs but reduced no actual source reads: all 16 conditional routes were still
   inspected. The full policy remains the default. The result is retained as

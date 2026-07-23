@@ -24,6 +24,10 @@ explainable resolution.
 Each flow handoff may name its accepted verifier methods, acceptance policy,
 and exact checks. Deterministic checks and runtime observations bind directly
 to the edges they exercise; one handoff's check cannot prove a sibling edge.
+Stages may declare path-scoped responsibilities, and handoffs may require
+current-diff regression evidence paths. A changed responsibility requires its
+matching test plus semantic judgment; an evidence-path requirement is
+deterministic and cannot be self-approved.
 The acting model judges semantic obligations against cited source.
 Counterevidence blocks completion.
 Contract discovery assigns an explicit policy to every proposed handoff. It
