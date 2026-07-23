@@ -1224,6 +1224,20 @@ function shouldPropagateInputStatus(input: ArtifactFreshnessEntry): boolean {
     return input.issues.some((issue) => issue.code === "artifact.unreadable" || issue.code === "input.unknown");
   }
 
+  // A proof gate is the accepted boundary between pre-change planning and the
+  // maintained post-change generation. Refresh intentionally supersedes that
+  // planning context. Do not let purely transitive planning staleness poison
+  // artifacts rooted in the accepted gate; direct proof invalidation still
+  // propagates.
+  if (
+    input.type === "ProofGateReport"
+    && input.status === "stale"
+    && input.issues.length > 0
+    && input.issues.every((issue) => issue.code === "input.stale")
+  ) {
+    return false;
+  }
+
   return input.issues.some((issue) =>
     issue.code === "source.changed"
     || issue.code === "source.missing"

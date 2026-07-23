@@ -74,7 +74,9 @@ verification recording, reconciliation planning, and artifact validation.
   both into model context. A changed stage requires its exact test plus semantic
   judgment, while the evidence-path obligation is deterministic and cannot be
   self-approved by a model. Existing contracts without either declaration keep
-  their prior proof behavior.
+  their prior proof behavior. Current-diff evidence proves that the declared
+  regression path participated; it does not prove semantic placement. The
+  acting agent's own judgment is not yet a sufficient verifier for that claim.
 - Targeted verification now preserves declared task and contract checks, fills
   changed-source test gaps only from passed isolated coverage linked to exact
   runner commands, and chooses a deterministic minimal candidate set. Failed,
@@ -238,11 +240,19 @@ verification recording, reconciliation planning, and artifact validation.
 
 ## Next Evaluation
 
-- The first current-interface product-loop canary is complete. It proved one
-  exact-scope, independently correct managed change through accepted refresh;
-  an earlier run failed during refresh projection. Run the next repository-law
-  campaign from a clean commit with both conditions and repeated cases, and
-  measure completion reliability before making time, token, or cost claims.
+- The clean-SHA edge-verifier campaign is complete and negative. Both baselines
+  passed; both Rekon runs adopted the interface and reached satisfied proof
+  gates, but product-loop completion was 0/2. One wrong placement passed its
+  declared test and proof gate. One independently correct change failed
+  terminal refresh. Do not run another broad model campaign until both product
+  failures are corrected.
+- Make semantic placement and stage-responsibility judgment source-backed and
+  independently accountable. A bounded verifier packet should identify the
+  contract, changed source, proving evidence, and verdict provenance; the
+  acting agent must not silently certify its own placement.
+- Make terminal refresh reliable for independently correct changes and persist
+  the exact failed step, freshness result, and corrective diagnostics when it
+  does not complete.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

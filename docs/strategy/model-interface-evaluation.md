@@ -236,6 +236,21 @@ negative calibration is
 `tests/evals/model-interface-contracts/sol-product-loop-paired-calibration.json`.
 It accepts no time, token, cost, or broader model-lift claim.
 
+The contract-derived edge-verifier follow-up ran from clean commit `24b1e0d`
+after flow-stage responsibilities and current-diff regression evidence paths
+were added. Both baselines passed. Both Rekon runs adopted the interface and
+reached a satisfied proof gate, but neither completed the product loop. In the
+first run, the declared regression test passed while the change was placed in
+the protected vocabulary file and failed hidden behavior. A satisfied proof
+gate therefore did not prevent the wrong placement: the acting-agent semantic
+judgment plus the declared test was insufficient. In the second run, the
+tokenizer and regression test change passed the independent behavior and
+source-scope checks, but terminal refresh did not complete. The source-free
+record is
+`tests/evals/model-interface-contracts/sol-product-loop-edge-verifier-calibration.json`.
+It establishes neither product-loop reliability nor an outcome, time, token,
+or cost benefit.
+
 Instruction `1.6.0` introduced the distinction between direct reads and graph
 resolution. An exact
 repository path named by source should be read directly. Refinement is reserved

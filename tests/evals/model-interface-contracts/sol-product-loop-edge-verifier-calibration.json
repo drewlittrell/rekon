@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-07-23T07:04:17.413Z",
+  "status": "calibration-negative",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "campaign": {
+    "id": "model-interface-6bb24bcd9b04adca",
+    "gitCommit": "24b1e0d0cf06c7f9cd8b1e0f6e4a32630e7c074a",
+    "dirty": false,
+    "corpus": "contracts",
+    "corpusDigest": "474edc2a34e36b7f736c134fb3e366e5b17467c1981262c181816488ae0ee95c",
+    "contextDeliveryDigest": "dc58b7e890a113aec323d6d7125653e9dcd7e58d24d2d02035da431b919d960c",
+    "interfaceDigest": "7402b533545a699b920c490d68c7361c553dd62d895b43f4ab79a28a441199d0",
+    "managedInstructionsVersion": "2.0.4",
+    "mcpServerVersion": "1.4.2",
+    "conditions": ["baseline", "rekon"],
+    "repeats": 2
+  },
+  "caseId": "atomic-experience-composition",
+  "delivery": "managed",
+  "contextPolicy": "full",
+  "sourceRetention": "aggregate counts, bounded paths, enum statuses, scores, artifact-type counts, and digests only",
+  "outcome": {
+    "pairedRuns": 2,
+    "baselinePasses": 2,
+    "rekonPasses": 0,
+    "discardedPairs": 2,
+    "hiddenOraclePasses": {
+      "baseline": 2,
+      "rekon": 1
+    },
+    "protectedPathViolationRuns": {
+      "baseline": 0,
+      "rekon": 1
+    }
+  },
+  "adoption": {
+    "runs": 2,
+    "passed": 2,
+    "contextBeforeExploration": 2,
+    "contextBeforeEdit": 2,
+    "fullReadFirstUse": 2
+  },
+  "verifier": {
+    "requiredEvidencePathChanged": 2,
+    "exactTestPassed": 2,
+    "proofGateSatisfied": 2,
+    "wrongPlacementPrevented": false
+  },
+  "productLoop": {
+    "runs": 2,
+    "passed": 0,
+    "terminalComplete": 0,
+    "acceptedRefreshOutcome": 1,
+    "terminalRefreshPassed": 0
+  },
+  "failureClasses": [
+    {
+      "repeat": 1,
+      "reason": "wrong-placement-protected-path",
+      "changedImplementationPath": "src/nlu/vocabulary.ts",
+      "requiredImplementationPath": "src/nlu/tokenize.ts",
+      "requiredEvidencePath": "tests/experience-interpreter.test.ts",
+      "hiddenOraclePassed": false,
+      "declaredTestPassed": true,
+      "proofGateSatisfied": true,
+      "finalStatus": "blocked",
+      "productLoopPassed": false
+    },
+    {
+      "repeat": 2,
+      "reason": "terminal-refresh-incomplete",
+      "changedImplementationPath": "src/nlu/tokenize.ts",
+      "requiredEvidencePath": "tests/experience-interpreter.test.ts",
+      "hiddenOraclePassed": true,
+      "sourceScopePassed": true,
+      "declaredTestPassed": true,
+      "proofGateSatisfied": true,
+      "acceptedRefreshOutcome": true,
+      "terminalRefreshPassed": false,
+      "finalStatus": "blocked",
+      "productLoopPassed": false
+    }
+  ],
+  "metrics": {
+    "baseline": {
+      "averageElapsedMs": 60311.5,
+      "averageExploredPaths": 17.5,
+      "averageCommandCount": 5.5,
+      "averageTotalTokens": 180212.5,
+      "totalNonCachedInputTokens": 60716,
+      "averageVisibleEstimatedTokens": 5066.5
+    },
+    "rekon": {
+      "averageElapsedMs": 470743.5,
+      "averageExploredPaths": 12,
+      "averageCommandCount": 37,
+      "averageTotalTokens": 3180638.5,
+      "totalNonCachedInputTokens": 271337,
+      "averageVisibleEstimatedTokens": 98830
+    }
+  },
+  "decision": {
+    "responsibilityContractDelivered": true,
+    "currentDiffEvidenceEnforced": true,
+    "wrongPlacementPrevented": false,
+    "productLoopReliabilityEstablished": false,
+    "outcomeBenefitAccepted": false,
+    "timeSavingsClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "costSavingsClaimAccepted": false
+  },
+  "limitations": [
+    "One case and two paired repeats do not establish cross-task reliability.",
+    "Subscription token counts include cached input and are not provider-billed cost.",
+    "The campaign identifies separate placement-verification and terminal-refresh failures; it does not isolate one causal component.",
+    "No source bodies, task prompts, model explanations, diffs, or command payloads are retained.",
+    "No outcome, reliability, time, token, cost, or broader model-lift claim is accepted."
+  ]
+}

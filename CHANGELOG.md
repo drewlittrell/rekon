@@ -30,6 +30,17 @@ All notable changes to Rekon are documented here.
   neither passed the independent change oracle. Corrected terminal product-loop
   completion was 1/2. The retained source-free result accepts no reliability,
   outcome, time, token, cost, or broader model-lift claim.
+- Recorded the clean-SHA edge-verifier follow-up as a negative calibration.
+  Both baselines passed; both Rekon runs adopted the interface and reached a
+  satisfied proof gate, but neither completed the product loop. One run made a
+  protected, semantically wrong placement despite its declared test passing.
+  The other passed the independent behavior oracle and source-scope checks but
+  failed terminal refresh. No outcome, reliability, time, token, or cost claim
+  is accepted.
+- Corrected proof-gated refresh freshness propagation. A gate that is stale
+  only because refresh superseded its pre-change task context now terminates
+  that transitive staleness before the maintained generation. Missing,
+  unreadable, or directly invalidated proof still propagates and fails closed.
 - Change validation now resolves root-level metadata to the repository root and
   lets newly added nested files inherit an observed top-level owner only when
   that ownership is unambiguous. Mixed-owner areas still require explicit

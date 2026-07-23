@@ -320,6 +320,93 @@ test("immutable task-history events stop current-state freshness propagation", a
   });
 });
 
+test("accepted proof gates stop only transitive planning staleness", async () => {
+  await withFixture(async (root) => {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const staleContext = await store.write({
+      header: {
+        artifactType: "TaskContextReport",
+        artifactId: "task-context-proof-boundary",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: "freshness-proof-boundary-test" },
+        producer: { id: "@rekon/test.proof-boundary", version: "1.0.0" },
+        inputRefs: [],
+        invalidation: {
+          inputs: [{ kind: "source", path: "src/index.ts", digest: "0".repeat(64) }],
+        },
+        supersession: { key: "task:proof-boundary" },
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1 },
+      },
+    });
+    const acceptedGate = await writeSyntheticArtifact(
+      store,
+      "ProofGateReport",
+      "proof-gate-transitive",
+      "change-proof:transitive",
+      [staleContext],
+    );
+    const acceptedEvidence = await writeSyntheticArtifact(
+      store,
+      "EvidenceGraph",
+      "evidence-proof-boundary",
+      "evidence:proof-boundary",
+      [acceptedGate],
+    );
+    const directlyStaleGate = await store.write({
+      header: {
+        artifactType: "ProofGateReport",
+        artifactId: "proof-gate-direct",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: "freshness-proof-boundary-test" },
+        producer: { id: "@rekon/test.proof-boundary", version: "1.0.0" },
+        inputRefs: [staleContext],
+        invalidation: {
+          inputs: [{ kind: "source", path: "src/index.ts", digest: "0".repeat(64) }],
+        },
+        supersession: { key: "change-proof:direct" },
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1 },
+      },
+    });
+    const rejectedEvidence = await writeSyntheticArtifact(
+      store,
+      "EvidenceGraph",
+      "evidence-directly-stale-proof",
+      "evidence:directly-stale-proof",
+      [directlyStaleGate],
+    );
+    const missingProofEvidence = await writeSyntheticArtifact(
+      store,
+      "EvidenceGraph",
+      "evidence-missing-proof",
+      "evidence:missing-proof",
+      [{ type: "ProofGateReport", id: "missing-proof", schemaVersion: "0.1.0" }],
+    );
+
+    const result = await validateArtifactFreshness(store);
+    const freshness = (ref) => result.artifacts.find(
+      (entry) => entry.type === ref.type && entry.id === ref.id,
+    );
+
+    assert.equal(freshness(staleContext)?.status, "stale");
+    assert.equal(freshness(acceptedGate)?.status, "stale");
+    assert.ok(freshness(acceptedGate)?.issues.every((issue) => issue.code === "input.stale"));
+    assert.equal(freshness(acceptedEvidence)?.status, "fresh");
+    assert.equal(freshness(directlyStaleGate)?.status, "stale");
+    assert.ok(freshness(directlyStaleGate)?.issues.some((issue) => issue.code === "source.changed"));
+    assert.equal(freshness(rejectedEvidence)?.status, "stale");
+    assert.ok(freshness(rejectedEvidence)?.issues.some((issue) =>
+      issue.code === "input.stale" && issue.inputId === directlyStaleGate.id));
+    assert.equal(freshness(missingProofEvidence)?.status, "partial");
+    assert.ok(freshness(missingProofEvidence)?.issues.some((issue) =>
+      issue.code === "input.missing" && issue.inputId === "missing-proof"));
+  });
+});
+
 test("supersession keys isolate independent artifact streams", async () => {
   await withFixture(async (root) => {
     const store = createLocalArtifactStore(root);

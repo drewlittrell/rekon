@@ -59,6 +59,15 @@ the new `EvidenceGraph`, so accepted projections and the snapshot retain a
 transitive proof root. If no previous graph exists, the incremental request is
 promoted to a full observation; otherwise unchanged facts are retained.
 
+A proof gate also forms the freshness boundary between pre-change planning and
+post-change maintenance. Refresh intentionally supersedes the task context and
+planning artifacts that produced the gate. When a `ProofGateReport` is stale
+only because those inputs became stale, that transitive status does not
+invalidate the new generation rooted in the gate. Missing or unreadable proof,
+or a gate with direct source, configuration, or producer invalidation, still
+propagates. Proof-gated refresh revalidates the gate's source binding both
+before observation and after all maintained writes.
+
 Proof mode cannot skip publication or freshness checks. Existing adopted
 repository law is reconciled against the new projection before snapshot
 construction, and confirmed drift blocks acceptance. The refresh regenerates

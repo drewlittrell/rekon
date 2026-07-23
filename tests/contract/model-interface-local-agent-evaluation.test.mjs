@@ -1767,6 +1767,44 @@ test("paired Sol product-loop calibration preserves the negative reliability res
   }
 });
 
+test("edge-verifier Sol calibration preserves wrong-placement and terminal-refresh failures", () => {
+  const calibration = JSON.parse(readFileSync(
+    resolve(
+      repoRoot,
+      "tests/evals/model-interface-contracts/sol-product-loop-edge-verifier-calibration.json",
+    ),
+    "utf8",
+  ));
+
+  assert.equal(calibration.status, "calibration-negative");
+  assert.equal(calibration.runner.model, "gpt-5.6-sol");
+  assert.equal(calibration.campaign.gitCommit, "24b1e0d0cf06c7f9cd8b1e0f6e4a32630e7c074a");
+  assert.equal(calibration.campaign.dirty, false);
+  assert.equal(calibration.campaign.repeats, 2);
+  assert.equal(calibration.outcome.baselinePasses, 2);
+  assert.equal(calibration.outcome.rekonPasses, 0);
+  assert.equal(calibration.outcome.hiddenOraclePasses.rekon, 1);
+  assert.equal(calibration.adoption.passed, 2);
+  assert.equal(calibration.verifier.requiredEvidencePathChanged, 2);
+  assert.equal(calibration.verifier.exactTestPassed, 2);
+  assert.equal(calibration.verifier.proofGateSatisfied, 2);
+  assert.equal(calibration.verifier.wrongPlacementPrevented, false);
+  assert.equal(calibration.productLoop.passed, 0);
+  assert.equal(calibration.productLoop.terminalComplete, 0);
+  assert.equal(calibration.productLoop.acceptedRefreshOutcome, 1);
+  assert.equal(calibration.productLoop.terminalRefreshPassed, 0);
+  assert.equal(calibration.decision.productLoopReliabilityEstablished, false);
+  assert.equal(calibration.decision.outcomeBenefitAccepted, false);
+  assert.equal(calibration.decision.timeSavingsClaimAccepted, false);
+  assert.equal(calibration.decision.tokenSavingsClaimAccepted, false);
+  assert.equal(calibration.decision.costSavingsClaimAccepted, false);
+  assert.ok(calibration.limitations.some((entry) => /one case and two paired repeats/iu.test(entry)));
+  const encoded = JSON.stringify(calibration);
+  for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
+    assert.equal(encoded.includes(`\"${forbidden}\"`), false);
+  }
+});
+
 test("accepted mixed-layout calibration proves quality and scope gains without retained source", () => {
   const fixture = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-mixed/cases.json"),
