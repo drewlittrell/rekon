@@ -34,8 +34,10 @@ function runCli(args) {
   }
 }
 
-function startMcp(root) {
-  const child = spawn(process.execPath, [cliEntry, "mcp", "serve", "--root", root], {
+function startMcp(root, options = {}) {
+  const args = [cliEntry, "mcp", "serve", "--root", root];
+  if (options.noAutoRefresh) args.push("--no-auto-refresh");
+  const child = spawn(process.execPath, args, {
     cwd: repoRoot,
     stdio: ["pipe", "pipe", "pipe"],
     env: {
@@ -118,6 +120,7 @@ test("CLI and MCP task-context gateways refresh changed evidence without touchin
     assert.equal(initialContext.status, 0, initialContext.stderr || initialContext.stdout);
     const initialPayload = JSON.parse(initialContext.stdout);
     assert.equal(initialPayload.artifactFreshness.status, "refreshed");
+    assert.equal(initialPayload.contextUsage.type, "ContextUsageEvent");
     assert.ok(initialPayload.warnings.some((warning) => warning.includes("rekon contracts maintain")));
 
     const store = createLocalArtifactStore(root);
@@ -169,8 +172,33 @@ test("CLI and MCP task-context gateways refresh changed evidence without touchin
       "--json",
     ]);
     assert.equal(bypass.status, 0, bypass.stderr || bypass.stdout);
+    const bypassPayload = JSON.parse(bypass.stdout);
+    assert.equal(bypassPayload.artifactFreshness.status, "unchecked");
+    assert.ok(bypassPayload.warnings.some((warning) => warning.includes("source-evidence-stale")));
+    assert.equal(bypassPayload.agentContext.sourceSpans.length, 0);
     assert.equal(await latestCount(store, "EvidenceGraph"), beforeNoRefresh);
 
+    const staticMcp = startMcp(root, { noAutoRefresh: true });
+    try {
+      const staticResponse = await staticMcp.rpc("tools/call", {
+        name: "context_for_task",
+        arguments: {
+          task: "Modify the bootstrap in src/index.ts.",
+          paths: ["src/index.ts"],
+          profile: "compact",
+        },
+      });
+      assert.equal(staticResponse.error, undefined);
+      assert.equal(staticResponse.result.isError, false);
+      const staticPayload = JSON.parse(staticResponse.result.content[0].text);
+      assert.ok(staticPayload.data.context.warnings.value.some((warning) =>
+        warning.includes("source-evidence-stale")));
+      assert.equal("sourceSpans" in staticPayload.data.context, false);
+    } finally {
+      staticMcp.stop();
+    }
+
+    const contextUsageCountBeforeMcp = await latestCount(store, "ContextUsageEvent");
     mcp = startMcp(root);
     const response = await mcp.rpc("tools/call", {
       name: "context_for_task",
@@ -183,9 +211,12 @@ test("CLI and MCP task-context gateways refresh changed evidence without touchin
     assert.equal(response.error, undefined);
     assert.equal(response.result.isError, false);
     const mcpPayload = JSON.parse(response.result.content[0].text);
+    assert.match(mcpPayload.data.context.contextUsageRef.value, /^ContextUsageEvent:context-usage-/u);
+    assert.equal(mcpPayload.data.context.contextUsageRef.trust, "deterministic");
     assert.ok(mcpPayload.data.context.warnings.value.some((warning) =>
       warning.includes("rekon contracts maintain")));
     assert.ok(await latestCount(store, "EvidenceGraph") > beforeNoRefresh);
+    assert.ok(await latestCount(store, "ContextUsageEvent") > contextUsageCountBeforeMcp);
     assert.equal(readFileSync(sourcePath, "utf8"), mcpSource);
 
     const afterMcpRefresh = await latestCount(store, "EvidenceGraph");

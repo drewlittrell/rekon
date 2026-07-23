@@ -28,6 +28,7 @@ const EXPECTED_STEP_ORDER = [
   "findings.lifecycle",
   "issues.adjudicate",
   "coherency.delta",
+  "memory.curate",
   "snapshot",
   "publish.architecture",
   "artifacts.validate",

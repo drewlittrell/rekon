@@ -70,7 +70,7 @@ import jsTsCapability, {
   loadAgentScratchSegments,
 } from "@rekon/capability-js-ts";
 import pythonCapability from "@rekon/capability-python";
-import memoryCapability from "@rekon/capability-memory";
+import memoryCapability, { readGroundedMemoryForTask } from "@rekon/capability-memory";
 import modelCapability, {
   buildBridgeFindingLifecycleIntegrationReport,
   buildCapabilityArchitectureLintReport,
@@ -201,6 +201,7 @@ import modelCapability, {
   selectSemanticReportsForGraph,
   type SemanticReportForGraph,
   buildEmbeddingChunks,
+  buildContextUsageEvent,
   classifyEmbeddingChunks,
   computeEmbeddingIndexKey,
   embeddingVectorRef,
@@ -216,6 +217,7 @@ import modelCapability, {
   type EvidenceGraphForChunks,
   type EvidenceGraphForCapabilityGraph,
   compileTaskContext,
+  excludeStaleTaskContextSourceEvidence,
   classifyTaskOperation,
   projectModelContext,
   projectModelContextDelivery,
@@ -329,8 +331,10 @@ import {
   type Rulebook,
 } from "@rekon/kernel-rulebook";
 import {
+  attachContextUsageRefToTaskContextResponse,
   buildChangeValidationResponse,
   buildChangeValidationUnavailable,
+  compileRiskAdaptiveContextForTaskForHost,
   runMcpServer,
   TASK_CONTEXT_REFINEMENT_INSTRUCTION,
   type SourceRef,
@@ -383,11 +387,19 @@ import {
   type SystemContract,
   type TaskContextReport,
   type TaskPact,
+  type ContextUsageEvent,
+  type OutcomeEvent,
   assertContractCandidateReport,
   assertContractJudgmentReport,
+  assertContextUsageEvent,
+  assertOutcomeEvent,
+  assertTaskContextReport,
+  assertTaskPact,
   createContractAdoptionReport,
   createContractJudgmentReport,
+  createContextTaskIdentity,
   createEffectiveContractRegistry,
+  createOutcomeEvent,
   createProofGateReport,
   assertProofGateReport,
   validateRuntimeGraphObservationReport,
@@ -2438,6 +2450,10 @@ export async function main(argv: string[]): Promise<void> {
     if (!baseRef) throw new Error("rekon context validate-change --base-ref must be non-empty.");
     const verificationResultRefs = parseRepeatableFlag(parsed.flags["verification-result"]);
     const runtimeObservationRefs = parseRepeatableFlag(parsed.flags["runtime-observation"]);
+    const contextUsageRef = parseOptionalArtifactRefFlag(
+      parsed.flags["context-usage"],
+      "rekon context validate-change --context-usage",
+    );
     const modelJudgments = parseChangeModelJudgments(parsed.flags["judgment-json"]);
     const prepareVerification = parsed.flags["prepare-verification"] === true;
     if (prepareVerification && parsed.flags["record-proof"] === true) {
@@ -2449,6 +2465,7 @@ export async function main(argv: string[]): Promise<void> {
       baseRef,
       verificationResultRefs,
       runtimeObservationRefs,
+      contextUsageRef,
       modelJudgments,
     });
     let verificationPlan: ArtifactRef | undefined;
@@ -2463,6 +2480,7 @@ export async function main(argv: string[]): Promise<void> {
         proofArtifact = await recordChangeProofGate(root, validation.result);
       }
     }
+    const outcomeArtifact = await recordValidationOutcomeEvent(root, validation, proofArtifact);
     if (validation.result.status === "blocked") process.exitCode = 1;
     writeOutput(json
       ? {
@@ -2475,6 +2493,7 @@ export async function main(argv: string[]): Promise<void> {
             ],
           } : {}),
           ...(proofArtifact ? { proofArtifact } : {}),
+          ...(outcomeArtifact ? { outcomeArtifact } : {}),
         }
       : [
           renderChangeValidation(validation.result),
@@ -2483,6 +2502,7 @@ export async function main(argv: string[]): Promise<void> {
             `Next: rekon verify run --plan ${verificationPlan.type}:${verificationPlan.id} --execute --root . --json`,
           ] : []),
           ...(proofArtifact ? [`Proof gate: ${proofArtifact.type}:${proofArtifact.id}`] : []),
+          ...(outcomeArtifact ? [`Outcome: ${outcomeArtifact.type}:${outcomeArtifact.id}`] : []),
         ].join("\n"), json);
     return;
   }
@@ -2530,9 +2550,10 @@ export async function main(argv: string[]): Promise<void> {
       throw new Error("rekon context refine: no CapabilityEvidenceGraph found. Run `rekon capability graph build` first.");
     }
     const rawGraph = (await store.read(latestGraphEntry)) as unknown as TaskContextGraphLike;
+    const sourceGate = await gateCurrentTaskContextGraph(root, rawGraph);
     const graph: TaskContextGraphLike = {
-      ...rawGraph,
-      claims: (rawGraph.claims ?? []).filter((claim) => claim.source !== "llm"),
+      ...sourceGate.graph,
+      claims: (sourceGate.graph.claims ?? []).filter((claim) => claim.source !== "llm"),
     };
     const refinement = selectTaskContextRefinement({
       question,
@@ -2570,7 +2591,7 @@ export async function main(argv: string[]): Promise<void> {
       taskPact: taskPactSelection.pact,
       taskPactRef: taskPactSelection.ref,
     });
-    const warnings: string[] = [];
+    const warnings: string[] = [...sourceGate.warnings];
     const contractFreshness = capabilityContract?.header.freshness?.status ?? "unknown";
     if (contractGuidance.matchedContractIds.length > 0 && contractFreshness !== "fresh") {
       warnings.push(
@@ -2720,12 +2741,14 @@ export async function main(argv: string[]): Promise<void> {
     if (!latestGraphEntry) {
       throw new Error("rekon context task: no CapabilityEvidenceGraph found. Run `rekon capability graph build` first.");
     }
-    const graphForContext = (await store.read(latestGraphEntry)) as unknown as TaskContextGraphLike;
+    const rawGraphForContext = (await store.read(latestGraphEntry)) as unknown as TaskContextGraphLike;
+    const sourceGate = await gateCurrentTaskContextGraph(root, rawGraphForContext);
+    const graphForContext = sourceGate.graph;
 
     // Retrieval is best-effort: with the embedding cache present and the provider
     // able to embed, rank cached chunks; otherwise record a warning and build from
     // graph + explicit paths only. Reads the cache only — writes no embeddings here.
-    const warnings: string[] = [];
+    const warnings: string[] = [...sourceGate.warnings];
     const artifactFreshness = !autoRefresh
       ? { status: "unchecked" as const }
       : freshness?.refreshed
@@ -2934,6 +2957,15 @@ export async function main(argv: string[]): Promise<void> {
       ...(escalationFlag ? { escalation: escalationFlag as TaskOperationEscalation } : {}),
     });
     warnings.push(...taskOperation.warnings);
+    const groundedMemory = await readGroundedMemoryForTask(store, {
+      paths: scopedTaskPaths,
+      goal: taskText,
+      limit: taskOperation.plan.context.profile === "compact"
+        ? 3
+        : taskOperation.plan.context.profile === "standard"
+          ? 5
+          : 8,
+    });
 
     const compiled = compileTaskContext({
       taskText,
@@ -2941,16 +2973,21 @@ export async function main(argv: string[]): Promise<void> {
       graph: graphForContext,
       retrievalResults,
       ...(lexicalContextPaths.length > 0 ? { lexicalContextPaths } : {}),
-      inputRefs: [
+      inputRefs: dedupeArtifactRefs([
         latestGraphEntry,
         ...(latestContractEntry && contractGuidance.matchedContractIds.length > 0
           ? [latestContractEntry]
           : []),
         ...(taskPactSelection.ref ? [taskPactSelection.ref] : []),
-      ],
+        ...groundedMemory.inputRefs,
+      ]),
       declaredConstraints: contractGuidance.constraints,
       declaredContextPaths: contractGuidance.requiredContextPaths,
       declaredVerificationHints: contractGuidance.verificationHints,
+      groundedMemory: groundedMemory.items.map((item) => ({
+        ...item,
+        evidenceRefs: item.evidenceRefs.map((ref) => `${ref.type}:${ref.id}`),
+      })),
       provider: providerId,
       model,
       topK: effectiveTopK,
@@ -2960,9 +2997,22 @@ export async function main(argv: string[]): Promise<void> {
       warnings,
     });
     const { report } = compiled;
-    const modelContext = projectModelContextDelivery(projectModelContext(compiled.packet));
+    const projection = projectModelContext(compiled.packet);
+    const modelContext = projectModelContextDelivery(projection);
 
     const ref = await store.write(report, { category: "actions" });
+    const contextUsage = buildContextUsageEvent({
+      repoId: root,
+      report,
+      reportRef: ref,
+      packet: compiled.packet,
+      projection,
+      delivery: modelContext,
+      channel: "cli",
+      ...(taskPactSelection.ref ? { taskPactRef: taskPactSelection.ref } : {}),
+    });
+    const contextUsageRef = await store.write(contextUsage, { category: "actions" });
+    modelContext.contextUsageRef = `${contextUsageRef.type}:${contextUsageRef.id}`;
 
     // Retrieval status, surfaced so operators (and agents) can tell ranked
     // embedding retrieval apart from the graph + lexical fallback degrade path.
@@ -2985,6 +3035,7 @@ export async function main(argv: string[]): Promise<void> {
           artifactFreshness,
           retrieval: retrievalStatus,
           artifact: { type: ref.type, id: ref.id },
+          contextUsage: { type: contextUsageRef.type, id: contextUsageRef.id },
           task: report.task,
           operation: taskOperation.plan,
           selection: report.selection,
@@ -5990,6 +6041,55 @@ export async function main(argv: string[]): Promise<void> {
         await ensureTaskContextArtifactsFresh(root, paths);
       },
       handleToolCall: async ({ name, args }) => {
+        if (name === "context_for_task") {
+          if (typeof args.task !== "string" || args.task.trim().length === 0) return undefined;
+          const paths = Array.isArray(args.paths)
+            ? args.paths.filter((path): path is string => typeof path === "string")
+            : [];
+          const profile = args.profile === "compact" || args.profile === "standard" || args.profile === "deep"
+            ? args.profile
+            : undefined;
+          const escalation = args.escalation === "validation-failed" ? args.escalation : undefined;
+          const compiled = await compileRiskAdaptiveContextForTaskForHost(
+            root,
+            args.task.trim(),
+            paths,
+            profile,
+            escalation,
+          );
+          if (!compiled.report || !compiled.packet || !compiled.projection || !compiled.delivery) {
+            return compiled.response;
+          }
+
+          const store = createLocalArtifactStore(root);
+          await store.init();
+          const taskPactRef = compiled.taskPact
+            ? await store.write(compiled.taskPact, { category: "actions" })
+            : undefined;
+          const report = taskPactRef
+            ? {
+                ...compiled.report,
+                header: {
+                  ...compiled.report.header,
+                  inputRefs: dedupeArtifactRefs([...compiled.report.header.inputRefs, taskPactRef]),
+                },
+              }
+            : compiled.report;
+          const reportRef = await store.write(report, { category: "actions" });
+          const contextUsage = buildContextUsageEvent({
+            repoId: root,
+            report,
+            reportRef,
+            packet: compiled.packet,
+            projection: compiled.projection,
+            delivery: compiled.delivery,
+            channel: "mcp",
+            ...(taskPactRef ? { taskPactRef } : {}),
+          });
+          const contextUsageRef = await store.write(contextUsage, { category: "actions" });
+          return attachContextUsageRefToTaskContextResponse(compiled, contextUsageRef);
+        }
+
         if (name !== "validate_change") return undefined;
         if (typeof args.task !== "string" || args.task.trim().length === 0) return undefined;
         const changedPaths = Array.isArray(args.changedPaths)
@@ -6002,6 +6102,7 @@ export async function main(argv: string[]): Promise<void> {
         try {
           const verificationResultRefs = parseMcpArtifactRefList(args.verificationResults, "verificationResults");
           const runtimeObservationRefs = parseMcpArtifactRefList(args.runtimeObservations, "runtimeObservations");
+          const contextUsageRef = parseMcpOptionalArtifactRef(args.contextUsageRef, "contextUsageRef");
           const modelJudgments = parseChangeModelJudgments(args.judgments);
           const validation = await validateRepositoryChange(root, {
             task: args.task.trim(),
@@ -6009,9 +6110,11 @@ export async function main(argv: string[]): Promise<void> {
             baseRef,
             verificationResultRefs,
             runtimeObservationRefs,
+            contextUsageRef,
             modelJudgments,
           });
-          return buildChangeValidationResponse(validation.result, validation.sources);
+          const outcomeRef = await recordValidationOutcomeEvent(root, validation);
+          return buildChangeValidationResponse(validation.result, validation.sources, outcomeRef);
         } catch (error) {
           return buildChangeValidationUnavailable(error instanceof Error ? error.message : String(error));
         }
@@ -13661,6 +13764,7 @@ type RefreshStepId =
   | "findings.lifecycle"
   | "issues.adjudicate"
   | "coherency.delta"
+  | "memory.curate"
   | "publish.guidance"
   | "publish.architecture"
   | "publish.proof"
@@ -13668,7 +13772,8 @@ type RefreshStepId =
   | "agent-instructions.sync"
   | "artifacts.validate"
   | "artifacts.freshness"
-  | "proof-gate.revalidate";
+  | "proof-gate.revalidate"
+  | "outcome.record";
 
 type RefreshStep = {
   id: RefreshStepId;
@@ -14142,6 +14247,19 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
+  // Curate previously observed context outcomes before the ordinary snapshot.
+  // Proof-gated refresh waits until its newly accepted outcome is recorded.
+  if (!options.proofGate) {
+    try {
+      const memoryStep = await curateRefreshMemory(runtime, store);
+      steps.push(memoryStep);
+      recordArtifacts(memoryStep.artifacts);
+    } catch (error) {
+      steps.push({ id: "memory.curate", status: "failed", message: messageOf(error) });
+      return finalize("failed");
+    }
+  }
+
   // 10. snapshot. Build it after governance so its lower-layer index and
   // lineage are current, and before publication so publishers can consume it
   // without a newer snapshot immediately superseding their input.
@@ -14305,6 +14423,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   // and re-check every digest after all maintained artifacts and instructions
   // have been written. A failed final check prevents this run from becoming an
   // accepted repository generation.
+  let acceptedProofGate: ValidatedProofGateForRefresh | undefined;
   if (options.proofGate) {
     try {
       const revalidated = await validateProofGateForRefresh(
@@ -14312,6 +14431,7 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
         `${options.proofGate.ref.type}:${options.proofGate.ref.id}`,
         options.proofGate.changedFiles,
       );
+      acceptedProofGate = revalidated;
       steps.push({
         id: "proof-gate.revalidate",
         status: "passed",
@@ -14320,6 +14440,38 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
       });
     } catch (error) {
       steps.push({ id: "proof-gate.revalidate", status: "failed", message: messageOf(error) });
+    }
+  }
+
+  let acceptedOutcomeRef: ArtifactRef | undefined;
+  if (acceptedProofGate) {
+    try {
+      acceptedOutcomeRef = await recordAcceptedProofOutcome(root, acceptedProofGate, allArtifacts);
+      recordArtifacts(acceptedOutcomeRef);
+      steps.push({ id: "outcome.record", status: "passed", artifacts: [acceptedOutcomeRef] });
+    } catch (error) {
+      steps.push({ id: "outcome.record", status: "failed", message: messageOf(error) });
+    }
+  }
+
+  if (acceptedOutcomeRef) {
+    try {
+      const memoryStep = await curateRefreshMemory(runtime, store);
+      steps.push(memoryStep);
+      recordArtifacts(memoryStep.artifacts);
+    } catch (error) {
+      steps.push({ id: "memory.curate", status: "failed", message: messageOf(error) });
+    }
+
+    const finalValidation = await validateArtifactIndex(store);
+    result.validation = { valid: finalValidation.valid, issues: finalValidation.issues };
+    const validationStep = steps.find((step) => step.id === "artifacts.validate");
+    if (validationStep) {
+      validationStep.status = finalValidation.valid ? "passed" : "failed";
+      validationStep.issues = finalValidation.issues;
+      validationStep.message = finalValidation.valid
+        ? undefined
+        : "Artifact index validation failed after recording the accepted outcome and grounded curation.";
     }
   }
 
@@ -14335,6 +14487,69 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   return finalize("passed");
+}
+
+async function curateRefreshMemory(
+  runtime: Awaited<ReturnType<typeof createDefaultRuntime>>,
+  store: ReturnType<typeof createLocalArtifactStore>,
+): Promise<RefreshStep> {
+  const usageRefs = await store.list("ContextUsageEvent");
+  if (usageRefs.length === 0) {
+    return {
+      id: "memory.curate",
+      status: "skipped",
+      message: "No recorded task-context deliveries exist.",
+    };
+  }
+  const artifacts = await runtime.runLearn({
+    learnerId: "@rekon/capability-memory.learner",
+    input: { mode: "curation" },
+  });
+  const reportRef = artifacts.find((ref) => ref.type === "MemoryCurationReport");
+  const report = reportRef
+    ? await store.read(reportRef) as { summary?: unknown; groundedSummary?: unknown }
+    : undefined;
+  return {
+    id: "memory.curate",
+    status: "passed",
+    artifacts,
+    summary: {
+      curation: report?.summary,
+      grounded: report?.groundedSummary,
+    },
+  };
+}
+
+async function gateCurrentTaskContextGraph(
+  root: string,
+  graph: TaskContextGraphLike,
+): Promise<{ graph: TaskContextGraphLike; warnings: string[] }> {
+  const staleEvidenceIds: string[] = [];
+  const sourceByPath = new Map<string, Awaited<ReturnType<typeof readCurrentRepoSource>>>();
+  for (const evidence of graph.evidence ?? []) {
+    if (
+      typeof evidence.path !== "string"
+      || typeof evidence.sourceSha256 !== "string"
+      || !/^[a-f0-9]{64}$/u.test(evidence.sourceSha256)
+    ) {
+      continue;
+    }
+    let source = sourceByPath.get(evidence.path);
+    if (source === undefined) {
+      source = await readCurrentRepoSource(root, evidence.path);
+      sourceByPath.set(evidence.path, source);
+    }
+    if (!source || source.sha256 !== evidence.sourceSha256) staleEvidenceIds.push(evidence.id);
+  }
+
+  const result = excludeStaleTaskContextSourceEvidence(graph, staleEvidenceIds);
+  if (result.removedEvidenceIds.length === 0) return { graph, warnings: [] };
+  return {
+    graph: result.graph,
+    warnings: [
+      `source-evidence-stale: excluded ${result.removedEvidenceIds.length} exact evidence record(s), ${result.removedClaimIds.length} dependent claim(s), and ${result.removedCapabilityIds.length} dependent capability record(s) for ${result.removedPaths.length} changed or unreadable path(s); refresh before relying on affected graph routes`,
+    ],
+  };
 }
 
 function computeCurrentRunMajorFreshness(
@@ -15132,6 +15347,7 @@ type RepositoryChangeValidation = {
   result: ChangeValidationResult;
   sources: SourceRef[];
   warnings: string[];
+  contextUsageRef?: ArtifactRef;
 };
 
 type RepositoryChangeValidationInput = {
@@ -15140,6 +15356,7 @@ type RepositoryChangeValidationInput = {
   baseRef: string;
   verificationResultRefs?: string[];
   runtimeObservationRefs?: string[];
+  contextUsageRef?: string;
   modelJudgments?: ChangeModelJudgment[];
 };
 
@@ -15162,19 +15379,62 @@ async function validateRepositoryChange(
     }
   }
 
+  let contextUsage: ContextUsageEvent | undefined;
+  let contextUsageRef: ArtifactRef | undefined;
+  if (input.contextUsageRef) {
+    if (!artifactIndexAvailable) {
+      throw new Error("An explicit context usage ref requires an initialized Rekon artifact index.");
+    }
+    const entry = await findArtifactEntry(store, input.contextUsageRef);
+    if (entry.type !== "ContextUsageEvent") {
+      throw new Error(`Expected ContextUsageEvent for ${input.contextUsageRef}; found ${entry.type}.`);
+    }
+    contextUsage = assertContextUsageEvent(await store.read(entry));
+    contextUsageRef = artifactIndexRef(entry);
+    assertProofArtifactRepository(root, contextUsage.header, input.contextUsageRef);
+    if (contextUsage.task.text.trim() !== input.task.trim()) {
+      throw new Error(
+        `Context usage ${input.contextUsageRef} belongs to a different task; pass the ref returned for this exact task.`,
+      );
+    }
+    addValidationSource(sources, contextUsage);
+    if (!sameTaskPathScope(contextUsage.task.paths, input.changedPaths)) {
+      warnings.push(
+        "context-usage-scope-differs: explicit delivery lineage was retained although the final changed-path set differs from the initially resolved task scope",
+      );
+    }
+  }
+
   let taskPact: TaskPact | undefined;
   let taskPactRef: ArtifactRef | undefined;
-  const pactEntries = (artifactIndexAvailable ? await store.list("TaskPact") : [])
-    .slice()
-    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
-  for (const entry of pactEntries) {
-    const candidate = await store.read(entry) as TaskPact;
-    if (candidate.task.text.trim() !== input.task.trim()) continue;
-    if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
-    taskPact = candidate;
+  if (contextUsage?.taskPactRef) {
+    const entry = await findArtifactEntry(
+      store,
+      `${contextUsage.taskPactRef.type}:${contextUsage.taskPactRef.id}`,
+    );
+    if (entry.type !== "TaskPact") {
+      throw new Error(`Context usage references ${entry.type}; expected TaskPact.`);
+    }
+    taskPact = assertTaskPact(await store.read(entry));
     taskPactRef = artifactIndexRef(entry);
-    addValidationSource(sources, candidate);
-    break;
+    assertProofArtifactRepository(root, taskPact.header, `${entry.type}:${entry.id}`);
+    if (taskPact.task.text.trim() !== input.task.trim()) {
+      throw new Error("The TaskPact linked from the explicit context usage belongs to a different task.");
+    }
+    addValidationSource(sources, taskPact);
+  } else {
+    const pactEntries = (artifactIndexAvailable ? await store.list("TaskPact") : [])
+      .slice()
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+    for (const entry of pactEntries) {
+      const candidate = await store.read(entry) as TaskPact;
+      if (candidate.task.text.trim() !== input.task.trim()) continue;
+      if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
+      taskPact = candidate;
+      taskPactRef = artifactIndexRef(entry);
+      addValidationSource(sources, candidate);
+      break;
+    }
   }
   if (!taskPact && artifactIndexAvailable) {
     const current = await buildCurrentTaskPact(store, {
@@ -15189,17 +15449,38 @@ async function validateRepositoryChange(
 
   let taskContextReport: TaskContextReport | undefined;
   let taskContextRef: ArtifactRef | undefined;
-  const taskContextEntries = (artifactIndexAvailable ? await store.list("TaskContextReport") : [])
-    .slice()
-    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
-  for (const entry of taskContextEntries) {
-    const candidate = await store.read(entry) as TaskContextReport;
-    if (candidate.task.text.trim() !== input.task.trim()) continue;
-    if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
-    taskContextReport = candidate;
+  if (contextUsage) {
+    const entry = await findArtifactEntry(
+      store,
+      `${contextUsage.contextReportRef.type}:${contextUsage.contextReportRef.id}`,
+    );
+    if (entry.type !== "TaskContextReport") {
+      throw new Error(`Context usage references ${entry.type}; expected TaskContextReport.`);
+    }
+    taskContextReport = assertTaskContextReport(await store.read(entry));
     taskContextRef = artifactIndexRef(entry);
-    addValidationSource(sources, candidate);
-    break;
+    assertProofArtifactRepository(root, taskContextReport.header, `${entry.type}:${entry.id}`);
+    const reportTask = createContextTaskIdentity(
+      taskContextReport.task.text,
+      taskContextReport.task.paths,
+    );
+    if (reportTask.fingerprint !== contextUsage.task.fingerprint) {
+      throw new Error("ContextUsageEvent task identity does not match its TaskContextReport.");
+    }
+    addValidationSource(sources, taskContextReport);
+  } else {
+    const taskContextEntries = (artifactIndexAvailable ? await store.list("TaskContextReport") : [])
+      .slice()
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+    for (const entry of taskContextEntries) {
+      const candidate = await store.read(entry) as TaskContextReport;
+      if (candidate.task.text.trim() !== input.task.trim()) continue;
+      if (!sameTaskPathScope(candidate.task.paths, input.changedPaths)) continue;
+      taskContextReport = candidate;
+      taskContextRef = artifactIndexRef(entry);
+      addValidationSource(sources, candidate);
+      break;
+    }
   }
 
   const ownershipEntry = artifactIndexAvailable
@@ -15342,7 +15623,140 @@ async function validateRepositoryChange(
     result,
     sources: dedupeValidationSources(sources),
     warnings: [...new Set(warnings)].sort(),
+    ...(contextUsageRef ? { contextUsageRef } : {}),
   };
+}
+
+async function recordValidationOutcomeEvent(
+  root: string,
+  validation: RepositoryChangeValidation,
+  proofGateRef?: ArtifactRef,
+): Promise<ArtifactRef | undefined> {
+  try {
+    await access(join(root, ".rekon", "registry", "artifacts.index.json"));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+
+  const { result } = validation;
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  const task = createContextTaskIdentity(result.task, result.changedPaths);
+  const contextUsageRefs: ArtifactRef[] = validation.contextUsageRef
+    ? [validation.contextUsageRef]
+    : [];
+  if (!validation.contextUsageRef && result.baseline.taskContextRef) {
+    const usageEntries = (await store.list("ContextUsageEvent"))
+      .slice()
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+    for (const entry of usageEntries) {
+      const usage = assertContextUsageEvent(await store.read(entry));
+      if (!sameArtifactIdentity(usage.contextReportRef, result.baseline.taskContextRef)) continue;
+      if (usage.task.fingerprint !== task.fingerprint) continue;
+      contextUsageRefs.push(artifactIndexRef(entry));
+    }
+  }
+
+  const proofEvidenceRefs = dedupeArtifactRefs(
+    result.proofGate.results.flatMap((proof) => [...proof.evidenceRefs, ...proof.counterEvidenceRefs]),
+  );
+  const linkedContextUsageRefs = dedupeArtifactRefs(contextUsageRefs);
+  const verificationRefs = proofEvidenceRefs.filter((ref) => ref.type === "VerificationResult");
+  const runtimeObservationRefs = proofEvidenceRefs.filter((ref) => ref.type === "RuntimeGraphObservationReport");
+  const sourceState = changeValidationSourceState(result);
+  const status: OutcomeEvent["status"] = result.status === "blocked"
+    || result.proofGate.evaluation.status === "blocked"
+    ? "blocked"
+    : result.status === "passed" && result.proofGate.evaluation.status === "satisfied"
+      ? "verified"
+      : "incomplete";
+  const observationKey = `validation:${digestJson({
+    task: task.fingerprint,
+    sourceState: sourceState?.digest ?? null,
+    status,
+    proofGateRef: proofGateRef ? `${proofGateRef.type}:${proofGateRef.id}` : null,
+    proof: result.proofGate.results,
+    contextUsageRefs: linkedContextUsageRefs.map((ref) => `${ref.type}:${ref.id}`),
+  })}`;
+  const priorObservationKeys = new Set<string>();
+  for (const entry of await store.list("OutcomeEvent")) {
+    const prior = assertOutcomeEvent(await store.read(entry));
+    if (prior.phase !== "validation-attempt" || prior.task.fingerprint !== task.fingerprint) continue;
+    if (prior.observationKey && prior.observationKey !== observationKey) {
+      priorObservationKeys.add(prior.observationKey);
+    }
+  }
+
+  const generatedAt = new Date().toISOString();
+  const inputRefs = dedupeArtifactRefs([
+    ...linkedContextUsageRefs,
+    ...(result.baseline.taskContextRef ? [result.baseline.taskContextRef] : []),
+    ...(result.baseline.taskPactRef ? [result.baseline.taskPactRef] : []),
+    ...(proofGateRef ? [proofGateRef] : []),
+    ...proofEvidenceRefs,
+  ]);
+  const evaluation = result.proofGate.evaluation.summary;
+  const event = createOutcomeEvent({
+    header: {
+      artifactType: "OutcomeEvent",
+      artifactId: `outcome-validation-${digestJson(observationKey).slice(0, 24)}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root, paths: task.paths },
+      producer: { id: "@rekon/cli.change-validation", version: "1.0.0" },
+      inputRefs,
+      supersession: { key: `outcome-validation:${task.fingerprint}` },
+      freshness: { status: sourceState ? "fresh" : "unknown" },
+      provenance: {
+        confidence: 1,
+        notes: ["Records repository-local validation evidence; it does not claim a user or business outcome."],
+      },
+    },
+    task,
+    phase: "validation-attempt",
+    status,
+    grounding: "repository-proof",
+    observationKey,
+    contextUsageRefs: linkedContextUsageRefs,
+    ...(result.baseline.taskPactRef ? { taskPactRef: result.baseline.taskPactRef } : {}),
+    ...(sourceState ? { sourceState } : {}),
+    ...(proofGateRef ? { proofGateRef } : {}),
+    verificationRefs,
+    runtimeObservationRefs,
+    externalEvidenceRefs: [],
+    summary: {
+      requiredObligations: evaluation.required,
+      satisfied: evaluation.satisfied,
+      blocked: evaluation.blocked,
+      unresolved: evaluation.unresolved,
+      contractViolations: result.blockingViolations.length,
+      reworkAttempt: priorObservationKeys.size,
+    },
+    notes: [...new Set([
+      `Validation status: ${result.status}; proof gate: ${result.proofGate.evaluation.status}.`,
+      ...validation.warnings,
+      ...result.proofGate.warnings,
+    ])].sort(),
+  });
+  return store.write(event, { category: "actions" });
+}
+
+function changeValidationSourceState(result: ChangeValidationResult): SourceStateBinding | undefined {
+  if (result.baseline.files.length === 0) return undefined;
+  const files: SourceStateFile[] = [];
+  for (const file of result.baseline.files) {
+    if (file.status === "unavailable") return undefined;
+    files.push({
+      path: file.path,
+      status: file.status,
+      ...(file.beforeSha256 ? { beforeSha256: file.beforeSha256 } : {}),
+      ...(file.afterSha256 ? { afterSha256: file.afterSha256 } : {}),
+    });
+  }
+  return createSourceStateBinding({ baseRef: result.baseRef, files });
 }
 
 function sameTaskPathScope(left: string[], right: string[]): boolean {
@@ -15755,6 +16169,92 @@ async function recordChangeProofGate(root: string, result: ChangeValidationResul
   return store.write(report, { category: "actions" });
 }
 
+async function recordAcceptedProofOutcome(
+  root: string,
+  proofGate: ValidatedProofGateForRefresh,
+  refreshRefs: readonly ArtifactRef[],
+): Promise<ArtifactRef> {
+  const store = createLocalArtifactStore(root);
+  await store.init();
+  const task = createContextTaskIdentity(proofGate.report.task.text, proofGate.report.task.paths);
+  let validationEvent: OutcomeEvent | undefined;
+  let validationEventRef: ArtifactRef | undefined;
+  const outcomeEntries = (await store.list("OutcomeEvent"))
+    .slice()
+    .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt));
+  for (const entry of outcomeEntries) {
+    const candidate = assertOutcomeEvent(await store.read(entry));
+    if (candidate.phase !== "validation-attempt" || candidate.status !== "verified") continue;
+    if (!candidate.proofGateRef || !sameArtifactIdentity(candidate.proofGateRef, proofGate.ref)) continue;
+    validationEvent = candidate;
+    validationEventRef = artifactIndexRef(entry);
+    break;
+  }
+
+  const proofEvidenceRefs = dedupeArtifactRefs(
+    proofGate.report.results.flatMap((result) => [...result.evidenceRefs, ...result.counterEvidenceRefs]),
+  );
+  const verificationRefs = proofEvidenceRefs.filter((ref) => ref.type === "VerificationResult");
+  const runtimeObservationRefs = proofEvidenceRefs.filter((ref) => ref.type === "RuntimeGraphObservationReport");
+  const sourceState = proofGate.report.sourceState
+    && validateSourceStateBinding(proofGate.report.sourceState).ok
+    ? proofGate.report.sourceState as SourceStateBinding
+    : undefined;
+  const retainedRefreshRefs = refreshRefs.filter((ref) =>
+    ref.type === "IntelligenceSnapshot" || ref.type === "Publication");
+  const generatedAt = new Date().toISOString();
+  const observationKey = `accepted:${proofGate.ref.type}:${proofGate.ref.id}:${sourceState?.digest ?? "unbound"}`;
+  const inputRefs = dedupeArtifactRefs([
+    proofGate.ref,
+    ...(validationEventRef ? [validationEventRef] : []),
+    ...(validationEvent?.contextUsageRefs ?? []),
+    ...proofEvidenceRefs,
+    ...retainedRefreshRefs,
+  ]);
+  const evaluation = proofGate.report.evaluation.summary;
+  const event = createOutcomeEvent({
+    header: {
+      artifactType: "OutcomeEvent",
+      artifactId: `outcome-accepted-${digestJson(observationKey).slice(0, 24)}`,
+      schemaVersion: "0.1.0",
+      generatedAt,
+      subject: { repoId: root, paths: task.paths },
+      producer: { id: "@rekon/cli.refresh", version: "1.0.0" },
+      inputRefs,
+      supersession: { key: `outcome-accepted:${task.fingerprint}` },
+      freshness: { status: sourceState ? "fresh" : "unknown" },
+      provenance: {
+        confidence: 1,
+        notes: ["Records an accepted repository generation after proof-gated maintenance; it does not claim a user or business outcome."],
+      },
+    },
+    task,
+    phase: "proof-gated-refresh",
+    status: "accepted",
+    grounding: "repository-proof",
+    observationKey,
+    contextUsageRefs: validationEvent?.contextUsageRefs ?? [],
+    ...(validationEvent?.taskPactRef ? { taskPactRef: validationEvent.taskPactRef } : {}),
+    ...(sourceState ? { sourceState } : {}),
+    proofGateRef: proofGate.ref,
+    verificationRefs,
+    runtimeObservationRefs,
+    externalEvidenceRefs: [],
+    summary: {
+      requiredObligations: evaluation.required,
+      satisfied: evaluation.satisfied,
+      blocked: evaluation.blocked,
+      unresolved: evaluation.unresolved,
+      contractViolations: 0,
+      reworkAttempt: validationEvent?.summary.reworkAttempt ?? 0,
+    },
+    notes: validationEvent
+      ? ["Accepted after an exactly linked verified validation attempt and final source-state revalidation."]
+      : ["Accepted after final source-state revalidation; no exactly linked validation OutcomeEvent was available."],
+  });
+  return store.write(event, { category: "actions" });
+}
+
 async function recordChangeVerificationPlan(root: string, result: ChangeValidationResult): Promise<ArtifactRef | undefined> {
   if (result.requiredChecks.length === 0) return undefined;
   const store = createLocalArtifactStore(root);
@@ -15816,13 +16316,14 @@ async function recordChangeVerificationPlan(root: string, result: ChangeValidati
 type ValidatedProofGateForRefresh = {
   ref: ArtifactRef;
   changedFiles: string[];
+  report: ProofGateReport;
 };
 
 async function validateProofGateForRefresh(
   root: string,
   requested: string,
   requestedChangedFiles: string[],
-): Promise<{ ref: ArtifactRef; changedFiles: string[] }> {
+): Promise<ValidatedProofGateForRefresh> {
   const store = createLocalArtifactStore(root);
   await store.init();
   const entry = await findArtifactEntry(store, requested);
@@ -15870,7 +16371,7 @@ async function validateProofGateForRefresh(
     }
   }
 
-  return { ref: artifactIndexRef(entry), changedFiles: proofPaths };
+  return { ref: artifactIndexRef(entry), changedFiles: proofPaths, report };
 }
 
 function normalizeProofPath(value: string): string {
@@ -17508,12 +18009,31 @@ function parseRepeatableFlag(value: string | boolean | string[] | undefined): st
   return [];
 }
 
+function parseOptionalArtifactRefFlag(
+  value: string | boolean | string[] | undefined,
+  label: string,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${label} requires one non-empty artifact ref.`);
+  }
+  return value.trim();
+}
+
 function parseMcpArtifactRefList(value: unknown, field: string): string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string" && entry.trim().length > 0)) {
     throw new Error(`validate_change ${field} must be an array of artifact refs.`);
   }
   return value.map((entry) => entry.trim());
+}
+
+function parseMcpOptionalArtifactRef(value: unknown, field: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`validate_change ${field} must be one non-empty artifact ref.`);
+  }
+  return value.trim();
 }
 
 function parseChangeModelJudgments(value: unknown): ChangeModelJudgment[] {
@@ -19086,8 +19606,8 @@ function usage(): string {
     "    (classifies task risk and intent, chooses the smallest sufficient profile; --json includes agentContext and --model-context emits delivery only)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
-    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
-    "    (returns post-edit edge proof and required checks; executes no checks and writes artifacts only with --prepare-verification or --record-proof)",
+    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--context-usage <ContextUsageEvent:id>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
+    "    (returns post-edit edge proof and required checks; executes no checks; records an OutcomeEvent in initialized repos and writes verification/proof artifacts only with explicit flags)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",
     "rekon handoff coverage report [--root <path>] [--json]",

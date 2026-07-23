@@ -641,6 +641,7 @@ test("supported edge proof clears its compatibility obligation", () => {
     baseRef: "HEAD",
     taskPact,
     taskPactRef: ref("TaskPact", "task-pact-fixture"),
+    taskContextRef: ref("TaskContextReport", "task-context-fixture"),
     ownershipMap,
     files: [{ path: "src/index.ts", status: "modified" }],
     proofResults: [proof],
@@ -648,6 +649,7 @@ test("supported edge proof clears its compatibility obligation", () => {
 
   assert.equal(result.status, "passed");
   assert.equal(result.proofGate.evaluation.status, "satisfied");
+  assert.equal(result.baseline.taskContextRef.id, "task-context-fixture");
   assert.deepEqual(result.unresolvedSemanticObligations, []);
 });
 

@@ -1,5 +1,26 @@
-import { digestJson, type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  artifactRefKey,
+  digestJson,
+  type ArtifactHeader,
+  type ArtifactRef,
+} from "@rekon/kernel-artifacts";
+import type {
+  ContextOutcomeAssociationStatus,
+  ContextOutcomeEvaluationItem,
+  ContextOutcomeEvaluationReport,
+} from "@rekon/kernel-repo-model";
 import { type ArtifactReader, type Learner, defineCapability } from "@rekon/sdk";
+import {
+  buildGroundedContextOutcomeEvaluation,
+  GROUNDED_CONTEXT_OUTCOME_POLICY_VERSION,
+} from "./grounded-outcomes.js";
+
+export {
+  buildGroundedContextOutcomeEvaluation,
+  GROUNDED_CONTEXT_OUTCOME_POLICY_VERSION,
+} from "./grounded-outcomes.js";
+
+export const MEMORY_CURATION_POLICY_VERSION = "grounded-memory-curation.v2";
 
 export type OperatorMemoryPriority = "low" | "normal" | "high";
 
@@ -131,10 +152,17 @@ export type MemoryCurationItem = {
   unclearCount: number;
   score: number;
   reasons: string[];
+  groundedStatus?: ContextOutcomeAssociationStatus;
+  supportingRootCount?: number;
+  refutingRootCount?: number;
+  legacySignalCount?: number;
 };
 
 export type MemoryCurationReport = {
   header: ArtifactHeader;
+  policyVersion?: string;
+  groundedEvaluationRef?: ArtifactRef;
+  groundedSummary?: ContextOutcomeEvaluationReport["summary"];
   summary: {
     totalMemories: number;
     totalUsageEvents: number;
@@ -145,6 +173,25 @@ export type MemoryCurationReport = {
     supersedeCandidate: number;
   };
   items: MemoryCurationItem[];
+};
+
+export type GroundedMemoryContextItem = {
+  id: string;
+  instruction: string;
+  confidence: number;
+  groundedStatus: "unobserved" | "suggestive" | "corroborated";
+  reason: string;
+  evidenceRefs: ArtifactRef[];
+};
+
+export type GroundedMemoryContextSelection = {
+  items: GroundedMemoryContextItem[];
+  inputRefs: ArtifactRef[];
+};
+
+export type GroundedMemoryEntryRecord = {
+  ref: ArtifactRef;
+  entry: OperatorFeedbackEntry;
 };
 
 const MEMORY_USAGE_OUTCOMES: ReadonlyArray<MemoryUsageOutcome> = [
@@ -169,6 +216,7 @@ export const memoryLearner: Learner = {
     "MemorySelection",
     "MemoryUsageLedger",
     "MemoryCurationReport",
+    "ContextOutcomeEvaluationReport",
   ],
   async learn({ artifacts, input }) {
     const mode = typeof input?.mode === "string" ? input.mode : "select";
@@ -200,13 +248,21 @@ export default defineCapability({
     name: "Memory Capability",
     version: "0.1.0",
     roles: ["learner"],
-    consumes: ["OperatorFeedbackEntry", "ResolverPacket", "MemoryUsageLedger"],
+    consumes: [
+      "OperatorFeedbackEntry",
+      "ResolverPacket",
+      "MemoryUsageLedger",
+      "ContextUsageEvent",
+      "OutcomeEvent",
+      "ContextOutcomeEvaluationReport",
+    ],
     produces: [
       "OperatorFeedbackEntry",
       "MemoryEvent",
       "MemorySelection",
       "MemoryUsageLedger",
       "MemoryCurationReport",
+      "ContextOutcomeEvaluationReport",
     ],
     permissions: ["read:artifacts", "write:artifacts"],
     invalidatedBy: [
@@ -220,6 +276,11 @@ export default defineCapability({
         description:
           "Memory curation reports are invalid when new usage events are recorded.",
         inputs: ["MemoryUsageLedger"],
+      },
+      {
+        id: "context.outcome.changed",
+        description: "Grounded curation is invalid when context delivery or outcome evidence changes.",
+        inputs: ["ContextUsageEvent", "OutcomeEvent", "ContextOutcomeEvaluationReport"],
       },
     ],
     compatibility: {
@@ -295,8 +356,16 @@ async function runSelect(
   const tags = parseStringList(input.tag ?? input.tags);
   const limit = parseLimit(input.limit, 5);
   const entries = await readFeedbackEntries(artifacts);
+  const curationSelection = await readLatestCurationReport(artifacts);
+  const curationByEntry = new Map(
+    (curationSelection.report?.items ?? []).map((item) => [item.memoryEntryId, item]),
+  );
   const ranked = entries
-    .map((entry) => rankEntry(entry, { path, goal, system, capability, tags }))
+    .map((entry) => rankEntry(
+      entry,
+      { path, goal, system, capability, tags },
+      curationByEntry.get(entry.header.artifactId),
+    ))
     .sort(compareRanked);
   const selectedItems: MemorySelectionItem[] = [];
   const rejected: MemorySelectionRejection[] = [];
@@ -317,7 +386,10 @@ async function runSelect(
     selectedItems.push(candidate.item);
   }
 
-  const inputRefs = await artifacts.list("OperatorFeedbackEntry");
+  const inputRefs = [
+    ...await artifacts.list("OperatorFeedbackEntry"),
+    ...(curationSelection.ref ? [curationSelection.ref] : []),
+  ];
   const selectionKey = `memory-selection:${digestJson({
     path,
     goal,
@@ -377,7 +449,7 @@ async function runUsageRecord(
   const context = parseUsageContext(input.context, input);
   const evidence = parseEvidenceRefs(input.evidence);
 
-  const ledgerRefs = await artifacts.list("MemoryUsageLedger");
+  const ledgerRefs = await artifacts.list("MemoryUsageLedger", { order: "newest", limit: 1 });
   const existingLedger = await readLatestLedger(artifacts, ledgerRefs);
   const previousEvents = existingLedger?.events ?? [];
 
@@ -429,24 +501,31 @@ async function runCuration(
   _input: Record<string, unknown>,
 ): Promise<ArtifactRef[]> {
   const entries = await readFeedbackEntries(artifacts);
-  const ledgerRefs = await artifacts.list("MemoryUsageLedger");
+  const ledgerRefs = await artifacts.list("MemoryUsageLedger", { order: "newest", limit: 1 });
   const ledger = await readLatestLedger(artifacts, ledgerRefs);
+  const evaluation = await buildGroundedContextOutcomeEvaluation({
+    artifacts,
+    repoId: repo.id,
+  });
+  const evaluationRef = await artifacts.write("ContextOutcomeEvaluationReport", evaluation);
 
   const entryRefs = await artifacts.list("OperatorFeedbackEntry");
   const inputRefs: ArtifactRef[] = [...entryRefs];
-  if (ledgerRefs.length > 0) {
-    const latestLedgerRef = ledgerRefs.reduce((a, b) => (a.id > b.id ? a : b));
-    inputRefs.push(latestLedgerRef);
-  }
+  const latestLedgerRef = ledgerRefs[0];
+  if (latestLedgerRef) inputRefs.push(latestLedgerRef);
+  inputRefs.push(evaluationRef);
 
   const report = createMemoryCurationReport({
     repoId: repo.id,
     entries,
     events: ledger?.events ?? [],
+    evaluation,
+    evaluationRef,
     inputRefs,
   });
 
-  return [await artifacts.write("MemoryCurationReport", report)];
+  const reportRef = await artifacts.write("MemoryCurationReport", report);
+  return [reportRef, evaluationRef];
 }
 
 async function readLatestLedger(
@@ -457,12 +536,136 @@ async function readLatestLedger(
     return undefined;
   }
 
-  const sorted = [...refs].sort((left, right) => right.id.localeCompare(left.id));
-  const latest = sorted[0];
+  const latest = refs[0];
   if (!latest) {
     return undefined;
   }
   return (await artifacts.read(latest)) as MemoryUsageLedger;
+}
+
+async function readLatestCurationReport(
+  artifacts: ArtifactReader,
+): Promise<{ ref?: ArtifactRef; report?: MemoryCurationReport }> {
+  const [latest] = await artifacts.list("MemoryCurationReport", { order: "newest", limit: 1 });
+  if (!latest) return {};
+  return { ref: latest, report: await artifacts.read(latest) as MemoryCurationReport };
+}
+
+/**
+ * Repeat task-scoped memory only after grounded outcome evaluation. One
+ * matching unobserved entry may be delivered once so the loop can gather its
+ * first outcome; operator assertion and legacy usage labels never make it
+ * repeatable.
+ */
+export function selectGroundedMemoryForTask(input: {
+  entries: GroundedMemoryEntryRecord[];
+  curation?: MemoryCurationReport;
+  curationRef?: ArtifactRef;
+  paths: string[];
+  goal: string;
+  limit?: number;
+  deliveredMemoryIds?: string[];
+}): GroundedMemoryContextSelection {
+  const limit = parseLimit(input.limit, 5);
+  const curationByEntry = new Map((input.curation?.items ?? []).map((item) => [item.memoryEntryId, item]));
+  const deliveredMemoryIds = new Set(input.deliveredMemoryIds ?? []);
+  const queryPaths = uniqueStrings(input.paths.length > 0 ? input.paths : [""]);
+  const candidates: Array<{
+    item: GroundedMemoryContextItem;
+    score: number;
+    specificity: number;
+    updatedAt: string;
+    trial: boolean;
+  }> = [];
+
+  for (const record of input.entries) {
+    const id = record.entry.header.artifactId;
+    const curation = curationByEntry.get(id);
+    const grounded = curation?.groundedStatus === "suggestive" || curation?.groundedStatus === "corroborated";
+    const repeatable = grounded
+      && (curation.recommendation === "keep" || curation.recommendation === "reinforce");
+    const trial = !curation?.groundedStatus && !deliveredMemoryIds.has(id);
+    if (!repeatable && !trial) continue;
+    const ranked = queryPaths
+      .map((path) => rankEntry(record.entry, { path, goal: input.goal, tags: [] }, repeatable ? curation : undefined))
+      .filter((candidate): candidate is Extract<RankedCandidate, { rejected: false }> => !candidate.rejected)
+      .sort(compareRanked)[0];
+    if (!ranked) continue;
+
+    const evidenceRefs = dedupeArtifactRefs([
+      record.ref,
+      ...(repeatable && input.curationRef ? [input.curationRef] : []),
+      ...(repeatable && input.curation?.groundedEvaluationRef ? [input.curation.groundedEvaluationRef] : []),
+    ]);
+    const groundedStatus = repeatable ? curation.groundedStatus as "suggestive" | "corroborated" : "unobserved";
+    candidates.push({
+      item: {
+        id,
+        instruction: record.entry.instruction,
+        confidence: ranked.item.confidence,
+        groundedStatus,
+        reason: trial
+          ? `unobserved scoped memory selected once for outcome evaluation by ${ranked.item.reason}`
+          : `${groundedStatus} grounded memory selected by ${ranked.item.reason}`,
+        evidenceRefs,
+      },
+      score: ranked.score + (groundedStatus === "corroborated" ? 2 : groundedStatus === "suggestive" ? 1 : 0),
+      specificity: ranked.specificity,
+      updatedAt: ranked.updatedAt,
+      trial,
+    });
+  }
+
+  candidates.sort((left, right) =>
+    right.score - left.score
+    || right.specificity - left.specificity
+    || right.updatedAt.localeCompare(left.updatedAt)
+    || left.item.id.localeCompare(right.item.id));
+  const repeatableItems = candidates.filter((candidate) => !candidate.trial).slice(0, limit);
+  const trialItem = candidates.find((candidate) => candidate.trial);
+  const selected = [
+    ...repeatableItems,
+    ...(trialItem && repeatableItems.length < limit ? [trialItem] : []),
+  ];
+  const items = selected.map((candidate) => candidate.item);
+  return {
+    items,
+    inputRefs: dedupeArtifactRefs(items.flatMap((item) => item.evidenceRefs)),
+  };
+}
+
+export async function readGroundedMemoryForTask(
+  artifacts: ArtifactReader,
+  input: { paths: string[]; goal: string; limit?: number },
+): Promise<GroundedMemoryContextSelection> {
+  const entryRefs = await artifacts.list("OperatorFeedbackEntry");
+  const entries: GroundedMemoryEntryRecord[] = [];
+  for (const ref of entryRefs) {
+    const entry = await artifacts.read(ref) as OperatorFeedbackEntry;
+    if (typeof entry?.instruction === "string" && entry.scope !== undefined) {
+      entries.push({ ref, entry });
+    }
+  }
+  const curation = await readLatestCurationReport(artifacts);
+  const deliveredMemoryIds = new Set<string>();
+  const usageRefs = await artifacts.list("ContextUsageEvent", { order: "newest", limit: 512 });
+  for (const ref of usageRefs) {
+    const usage = await artifacts.read(ref) as { delivery?: { itemIds?: unknown } };
+    if (!Array.isArray(usage.delivery?.itemIds)) continue;
+    for (const itemId of usage.delivery.itemIds) {
+      if (typeof itemId === "string" && itemId.startsWith("memory:")) {
+        deliveredMemoryIds.add(itemId.slice("memory:".length));
+      }
+    }
+  }
+  return selectGroundedMemoryForTask({
+    entries,
+    paths: input.paths,
+    goal: input.goal,
+    deliveredMemoryIds: [...deliveredMemoryIds],
+    ...(curation.report && curation.ref ? { curation: curation.report, curationRef: curation.ref } : {}),
+    ...(input.limit !== undefined ? { limit: input.limit } : {}),
+  });
 }
 
 export function createMemoryUsageLedger(input: {
@@ -524,9 +727,11 @@ export function createMemoryCurationReport(input: {
   repoId: string;
   entries: OperatorFeedbackEntry[];
   events: MemoryUsageEvent[];
+  evaluation?: ContextOutcomeEvaluationReport;
+  evaluationRef?: ArtifactRef;
   inputRefs?: ArtifactRef[];
 }): MemoryCurationReport {
-  const items = deriveMemoryCuration(input.entries, input.events);
+  const items = deriveMemoryCuration(input.entries, input.events, input.evaluation);
   const summary = {
     totalMemories: input.entries.length,
     totalUsageEvents: input.events.length,
@@ -546,6 +751,9 @@ export function createMemoryCurationReport(input: {
       input.repoId,
       input.inputRefs ?? [],
     ),
+    policyVersion: MEMORY_CURATION_POLICY_VERSION,
+    ...(input.evaluationRef ? { groundedEvaluationRef: input.evaluationRef } : {}),
+    ...(input.evaluation ? { groundedSummary: input.evaluation.summary } : {}),
     summary,
     items,
   };
@@ -554,6 +762,7 @@ export function createMemoryCurationReport(input: {
 export function deriveMemoryCuration(
   entries: OperatorFeedbackEntry[],
   events: MemoryUsageEvent[],
+  evaluation?: ContextOutcomeEvaluationReport,
 ): MemoryCurationItem[] {
   const byEntry = new Map<string, MemoryUsageEvent[]>();
   for (const event of events) {
@@ -563,6 +772,11 @@ export function deriveMemoryCuration(
   }
 
   const items: MemoryCurationItem[] = [];
+  const groundedByEntry = new Map(
+    (evaluation?.items ?? [])
+      .filter((item) => item.subject.kind === "memory-entry")
+      .map((item) => [item.subject.id, item]),
+  );
   for (const entry of entries) {
     const id = entry.header.artifactId;
     const entryEvents = byEntry.get(id) ?? [];
@@ -571,33 +785,32 @@ export function deriveMemoryCuration(
     const harmfulCount = entryEvents.filter((e) => e.outcome === "harmful").length;
     const staleCount = entryEvents.filter((e) => e.outcome === "stale").length;
     const unclearCount = entryEvents.filter((e) => e.outcome === "unclear").length;
+    const grounded = groundedByEntry.get(id);
     const reasons: string[] = [];
 
     let recommendation: MemoryCurationRecommendation;
-    if (harmfulCount >= 2) {
+    if (grounded?.status === "refuted") {
       recommendation = "deprecate";
-      reasons.push(`harmful-count: ${harmfulCount}`);
-    } else if (harmfulCount >= 1) {
-      recommendation = "review";
-      reasons.push(`harmful-count: ${harmfulCount}`);
-    } else if (staleCount >= 2) {
-      recommendation = "supersede-candidate";
-      reasons.push(`stale-count: ${staleCount}`);
-    } else if (helpfulCount >= 2) {
+      reasons.push("grounded-counterevidence");
+    } else if (grounded?.status === "corroborated") {
       recommendation = "reinforce";
-      reasons.push(`helpful-count: ${helpfulCount}`);
-    } else if (helpfulCount >= 1 && ignoredCount === 0) {
+      reasons.push("independent-grounded-corroboration");
+    } else if (grounded?.status === "suggestive") {
       recommendation = "keep";
-      reasons.push(`helpful-count: ${helpfulCount}`);
-    } else if (ignoredCount >= 2 && helpfulCount === 0) {
+      reasons.push("single-grounded-support-group");
+    } else if (grounded?.status === "associated") {
       recommendation = "review";
-      reasons.push(`ignored-count: ${ignoredCount}`);
+      reasons.push("outcome-associated-without-independent-grounding");
+    } else if (helpfulCount >= 1 && harmfulCount === 0 && staleCount === 0) {
+      recommendation = "keep";
+      reasons.push(`legacy-helpful-self-report: ${helpfulCount}`);
+      reasons.push("self-report-cannot-reinforce");
     } else {
       recommendation = "review";
       if (entryEvents.length === 0) {
-        reasons.push("no-usage-events");
+        reasons.push("no-grounded-outcomes");
       } else {
-        reasons.push(`unclear-signals: helpful=${helpfulCount}, ignored=${ignoredCount}, harmful=${harmfulCount}, stale=${staleCount}, unclear=${unclearCount}`);
+        reasons.push(`legacy-self-report-only: helpful=${helpfulCount}, ignored=${ignoredCount}, harmful=${harmfulCount}, stale=${staleCount}, unclear=${unclearCount}`);
       }
     }
 
@@ -607,6 +820,7 @@ export function deriveMemoryCuration(
       harmfulCount,
       staleCount,
       unclearCount,
+      groundedStatus: grounded?.status,
     });
 
     items.push({
@@ -620,6 +834,12 @@ export function deriveMemoryCuration(
       unclearCount,
       score,
       reasons,
+      ...(grounded ? {
+        groundedStatus: grounded.status,
+        supportingRootCount: grounded.supportingRootKeys.length,
+        refutingRootCount: grounded.refutingRootKeys.length,
+      } : {}),
+      legacySignalCount: entryEvents.length,
     });
   }
 
@@ -640,12 +860,21 @@ function computeCurationScore(counts: {
   harmfulCount: number;
   staleCount: number;
   unclearCount: number;
+  groundedStatus?: ContextOutcomeAssociationStatus;
 }): number {
-  const raw = counts.helpfulCount * 1
-    - counts.ignoredCount * 0.25
-    - counts.harmfulCount * 1
-    - counts.staleCount * 0.5
-    - counts.unclearCount * 0.1;
+  const groundedWeight = counts.groundedStatus === "corroborated"
+    ? 2
+    : counts.groundedStatus === "suggestive"
+      ? 1
+      : counts.groundedStatus === "refuted"
+        ? -2
+        : 0;
+  const raw = groundedWeight
+    + counts.helpfulCount * 0.1
+    - counts.ignoredCount * 0.025
+    - counts.harmfulCount * 0.1
+    - counts.staleCount * 0.05
+    - counts.unclearCount * 0.01;
   return Number(raw.toFixed(3));
 }
 
@@ -731,7 +960,11 @@ type RankedCandidate =
     updatedAt: string;
   };
 
-function rankEntry(entry: OperatorFeedbackEntry, query: RankInput): RankedCandidate {
+function rankEntry(
+  entry: OperatorFeedbackEntry,
+  query: RankInput,
+  curation?: MemoryCurationItem,
+): RankedCandidate {
   const id = entry.header.artifactId;
   const status = entry.status ?? "active";
   const reasons: string[] = [];
@@ -752,6 +985,17 @@ function rankEntry(entry: OperatorFeedbackEntry, query: RankInput): RankedCandid
       rejected: true,
       id,
       reasons: ["disputed-rejected"],
+      score: 0,
+      specificity: 0,
+      updatedAt: entry.updatedAt ?? entry.createdAt ?? entry.header.generatedAt,
+    };
+  }
+
+  if (curation?.recommendation === "deprecate") {
+    return {
+      rejected: true,
+      id,
+      reasons: ["grounded-curation-deprecate"],
       score: 0,
       specificity: 0,
       updatedAt: entry.updatedAt ?? entry.createdAt ?? entry.header.generatedAt,
@@ -843,6 +1087,25 @@ function rankEntry(entry: OperatorFeedbackEntry, query: RankInput): RankedCandid
     }
   }
 
+  const scopedGoal = entry.scope.goal?.trim();
+  if (scopedGoal) {
+    const queryGoalTokens = memoryGoalTokens(query.goal);
+    const scopedGoalTokens = memoryGoalTokens(scopedGoal);
+    const overlap = [...scopedGoalTokens].filter((token) => queryGoalTokens.has(token)).length;
+    if (overlap === 0) {
+      return {
+        rejected: true,
+        id,
+        reasons: ["goal-mismatch"],
+        score: 0,
+        specificity: 0,
+        updatedAt: entry.updatedAt ?? entry.createdAt ?? entry.header.generatedAt,
+      };
+    }
+    score += Math.min(0.2, overlap * 0.05);
+    reasons.push(`goal-token-match: ${overlap}`);
+  }
+
   // Verification.
   switch (entry.verification?.status) {
     case "verified":
@@ -878,6 +1141,20 @@ function rankEntry(entry: OperatorFeedbackEntry, query: RankInput): RankedCandid
   } else if (priority === "low") {
     score -= 0.05;
     reasons.push("low-priority");
+  }
+
+  if (curation?.recommendation === "reinforce") {
+    score += 0.1;
+    reasons.push("grounded-curation-reinforce");
+  } else if (curation?.recommendation === "keep") {
+    score += 0.05;
+    reasons.push("grounded-curation-keep");
+  } else if (curation?.recommendation === "review") {
+    score -= 0.15;
+    reasons.push("grounded-curation-review");
+  } else if (curation?.recommendation === "supersede-candidate") {
+    score -= 0.25;
+    reasons.push("grounded-curation-supersede-candidate");
   }
 
   // Freshness.
@@ -1211,4 +1488,17 @@ function scopeToRecord(scope: OperatorMemoryScope): Record<string, unknown> {
   }
 
   return record;
+}
+
+function memoryGoalTokens(value: string): Set<string> {
+  return new Set(value.toLowerCase().split(/[^a-z0-9]+/u).filter((token) => token.length >= 3));
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)].sort();
+}
+
+function dedupeArtifactRefs(refs: ArtifactRef[]): ArtifactRef[] {
+  return [...new Map(refs.map((ref) => [artifactRefKey(ref), ref])).values()]
+    .sort((left, right) => artifactRefKey(left).localeCompare(artifactRefKey(right)));
 }

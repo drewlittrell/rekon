@@ -57,6 +57,33 @@ test("local artifact store writes, reads, and lists artifacts", async () => {
   }
 });
 
+test("artifact listing applies chronological order before its limit", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-runtime-order-"));
+
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    await store.write(evidenceArtifact("a-old"));
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+    await store.write(evidenceArtifact("z-new"));
+
+    assert.deepEqual(
+      (await store.list("EvidenceGraph", { order: "newest", limit: 1 })).map((entry) => entry.id),
+      ["z-new"],
+    );
+    assert.deepEqual(
+      (await store.list("EvidenceGraph", { order: "oldest", limit: 1 })).map((entry) => entry.id),
+      ["a-old"],
+    );
+    await assert.rejects(
+      store.list("EvidenceGraph", { order: "newest", limit: 0 }),
+      /positive integer/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("artifact index validation checks paths, headers, digests, and duplicates", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-runtime-"));
 

@@ -89,6 +89,65 @@ test("operator and deterministic context retain distinct trust classes", () => {
   assert.ok(packet.doNotTouch.every((zone) => zone.trust === "operator" && zone.enforced === false));
 });
 
+test("grounded memory stays supporting and preserves stable outcome identity", () => {
+  const { packet, report } = compileTaskContext({
+    taskText: "Modify the bootstrap flow.",
+    paths: ["src/index.ts"],
+    graph: { nodes: [{ kind: "file", id: "src/index.ts" }] },
+    groundedMemory: [
+      {
+        id: "memory-corroborated",
+        instruction: "Preserve bootstrap ordering.",
+        confidence: 0.9,
+        groundedStatus: "corroborated",
+        evidenceRefs: ["OperatorFeedbackEntry:memory-corroborated", "ContextOutcomeEvaluationReport:evaluation-1"],
+      },
+      {
+        id: "memory-suggestive",
+        instruction: "Keep initialization idempotent.",
+        confidence: 0.7,
+        groundedStatus: "suggestive",
+        evidenceRefs: ["OperatorFeedbackEntry:memory-suggestive", "ContextOutcomeEvaluationReport:evaluation-1"],
+      },
+    ],
+    generatedAt: "2026-07-22T00:00:00.000Z",
+  });
+
+  assert.deepEqual(packet.supportingContext.map((item) => item.ref), [
+    "memory:memory-corroborated",
+    "memory:memory-suggestive",
+  ]);
+  assert.ok(packet.supportingContext.every((item) => item.trust === "memory"));
+  assert.equal(packet.supportingContext[0].admission, "supported");
+  assert.equal(packet.supportingContext[1].admission, "unresolved");
+  assert.equal(report.contextItems[1].contextKey, "memory:memory-corroborated");
+  assert.equal(projectModelContext(packet).supportingContext[0].groundedStatus, "corroborated");
+});
+
+test("an unobserved memory trial stays unresolved supporting context", () => {
+  const { packet, report } = compileTaskContext({
+    taskText: "Modify the bootstrap flow.",
+    paths: ["src/index.ts"],
+    graph: { nodes: [{ kind: "file", id: "src/index.ts" }] },
+    groundedMemory: [{
+      id: "memory-trial",
+      instruction: "Preserve bootstrap ordering.",
+      confidence: 0.8,
+      groundedStatus: "unobserved",
+      evidenceRefs: ["OperatorFeedbackEntry:memory-trial"],
+    }],
+    generatedAt: "2026-07-22T00:00:00.000Z",
+  });
+
+  const item = packet.supportingContext.find((candidate) => candidate.ref === "memory:memory-trial");
+  assert.ok(item);
+  assert.equal(item.trust, "memory");
+  assert.equal(item.admission, "unresolved");
+  assert.equal(item.groundedStatus, "unobserved");
+  assert.equal(report.contextItems.find((candidate) =>
+    candidate.contextKey === "memory:memory-trial")?.groundedStatus, "unobserved");
+});
+
 test("context admission excludes rejected claims and labels inferred context unresolved", () => {
   const { packet, report } = compileTaskContext({
     taskText: "Change src/index.ts.",

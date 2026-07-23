@@ -8,6 +8,8 @@ evidence and refreshes `.rekon/` artifacts when needed. It does not write
 repository source, execute project commands, call models, or access the
 network. Pass `--no-auto-refresh` only when a caller deliberately needs the
 existing artifact state.
+Exact source digests are still checked at delivery in that mode. Stale excerpts
+and their dependent graph routes are omitted with a warning.
 
 Tools are non-destructive, idempotent, and closed-world. `resolve_source_target`
 and `validate_change` are read-only. `context_for_task` advertises
@@ -20,7 +22,9 @@ can update local Rekon artifacts.
   with compact read-first routing, bounded deterministic source spans, trust
   labels, source freshness, constraints, checks, warnings, and a shared
   risk-adaptive `operation`. Path-matched `CapabilityContract` rules are served
-  as declared guidance.
+  as declared guidance. Task-scoped memory may be served with `memory` trust
+  and an explicit `unobserved`, `suggestive`, or `corroborated` status. An
+  unobserved entry is a one-time unresolved trial; only grounded entries repeat.
 - `resolve_source_target`: a bounded unread context delta for one exact symbol,
   type, or call named by inspected source, using a `dependency`, `dependent`,
   `test`, `contract`, `consumer`, `producer`, or `implementation` relationship.
@@ -28,8 +32,11 @@ can update local Rekon artifacts.
   law, ownership, dependency policy, and flow handoffs. It returns blocking
   violations, required checks, and a proof gate that names the evidence needed
   for each affected contract edge. Selected checks include the exact proof
-  obligation IDs they can satisfy. It does not execute checks or persist a
-  report.
+  obligation IDs they can satisfy. Pass the `contextUsageRef` returned by
+  `context_for_task` to retain exact delivery-to-outcome lineage when final
+  changed paths differ from the initially resolved scope. It does not execute
+  checks. The CLI host records the grounded `OutcomeEvent`; the read-only MCP
+  package does not write artifacts itself.
 
 The server still accepts the earlier `orientation`, `where_does_this_belong`,
 `preflight_change`, and `refine_task_context` names for compatibility. They are
@@ -47,8 +54,9 @@ rekon mcp serve --root .
 When the MCP tools are available to an agent:
 
 1. Call `context_for_task` first with the concrete task and known paths. Let
-   Rekon select the profile, follow the returned `operation`, then read every
-   `readFirst` path before planning or editing.
+   Rekon select the profile, retain the returned `contextUsageRef`, follow the
+   returned `operation`, then read every `readFirst` path before planning or
+   editing.
 2. Read exact repository paths directly. When inspected source names a
    task-required symbol, type, or call whose target path is absent from
    `readFirst` and `boundaryPaths`, call `resolve_source_target` with that exact
@@ -67,9 +75,10 @@ When the MCP tools are available to an agent:
    source writes.
 5. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
-6. After editing, call `validate_change` with the original task, every changed
-   path, and the pre-edit base ref. Resolve deterministic violations, judge only
-   obligations that accept `model-judgment`. Run the equivalent CLI call with
+6. After editing, call `validate_change` with the retained `contextUsageRef`,
+   original task, every changed path, and the pre-edit base ref. Resolve
+   deterministic violations, judge only obligations that accept
+   `model-judgment`. Run the equivalent CLI call with `--context-usage` and
    `--prepare-verification`, execute its returned plan, and derive the
    `VerificationResult`.
    For a failed check, consume `correctiveContext` first: inspect only its

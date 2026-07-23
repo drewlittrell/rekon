@@ -1,4 +1,12 @@
-import type { ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  artifactLineageRootKey,
+  artifactRefKey,
+  type ArtifactHeader,
+  type ArtifactLineageAssessment,
+  type ArtifactLineageIssue,
+  type ArtifactRef,
+  validateArtifactHeader,
+} from "@rekon/kernel-artifacts";
 import type { EvidenceProvider } from "@rekon/kernel-evidence";
 
 export type CapabilityRole =
@@ -53,8 +61,190 @@ export type ArtifactTypeDefinition = {
 
 export type ArtifactReader = {
   read(ref: ArtifactRef): Promise<unknown>;
-  list(type?: string): Promise<ArtifactRef[]>;
+  list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
 };
+
+export type ArtifactListOptions = {
+  order?: "newest" | "oldest";
+  limit?: number;
+};
+
+export type ResolveArtifactLineageOptions = {
+  maxDepth?: number;
+  maxArtifacts?: number;
+};
+
+/**
+ * Follow artifact input refs to their root observations. The traversal is
+ * bounded, rejects malformed or mismatched artifacts, and reports shared roots
+ * so correlated derivations are not mistaken for independent evidence.
+ */
+export async function resolveArtifactLineage(
+  artifacts: ArtifactReader,
+  refs: ArtifactRef[],
+  options: ResolveArtifactLineageOptions = {},
+): Promise<ArtifactLineageAssessment> {
+  const maxDepth = positiveInteger(options.maxDepth, 32);
+  const maxArtifacts = positiveInteger(options.maxArtifacts, 1_000);
+  const seedRefs = dedupeArtifactRefs(refs);
+  const headerByKey = new Map<string, ArtifactHeader>();
+  const visited = new Set<string>();
+  const roots = new Map<string, { ref: ArtifactRef; seedKeys: Set<string> }>();
+  const issues: ArtifactLineageIssue[] = [];
+  let artifactLimitReported = false;
+
+  const walk = async (
+    ref: ArtifactRef,
+    seedRef: ArtifactRef,
+    path: ArtifactRef[],
+    depth: number,
+  ): Promise<void> => {
+    const key = artifactRefKey(ref);
+    if (path.some((entry) => artifactRefKey(entry) === key)) {
+      issues.push({
+        code: "cycle-detected",
+        message: `Artifact lineage cycle detected at ${key}.`,
+        ref,
+        path: [...path, ref],
+      });
+      return;
+    }
+    if (depth > maxDepth) {
+      issues.push({
+        code: "depth-limit-reached",
+        message: `Artifact lineage depth exceeded ${maxDepth} at ${key}.`,
+        ref,
+        path: [...path, ref],
+      });
+      return;
+    }
+
+    let header = headerByKey.get(key);
+    if (!header) {
+      if (!visited.has(key) && visited.size >= maxArtifacts) {
+        if (!artifactLimitReported) {
+          artifactLimitReported = true;
+          issues.push({
+            code: "artifact-limit-reached",
+            message: `Artifact lineage traversal exceeded ${maxArtifacts} artifacts.`,
+            ref,
+            path: [...path, ref],
+          });
+        }
+        return;
+      }
+      visited.add(key);
+
+      let value: unknown;
+      try {
+        value = await artifacts.read(ref);
+      } catch (error) {
+        issues.push({
+          code: "artifact-read-failed",
+          message: `Could not read ${key}: ${error instanceof Error ? error.message : String(error)}`,
+          ref,
+          path: [...path, ref],
+        });
+        return;
+      }
+
+      const candidate = isRecord(value) ? value.header : undefined;
+      const validation = validateArtifactHeader(candidate);
+      if (!validation.ok) {
+        issues.push({
+          code: "header-invalid",
+          message: `Artifact ${key} has an invalid header: ${validation.issues
+            .map((issue) => `${issue.path} ${issue.message}`)
+            .join("; ")}`,
+          ref,
+          path: [...path, ref],
+        });
+        return;
+      }
+      header = validation.value;
+      if (
+        header.artifactType !== ref.type
+        || header.artifactId !== ref.id
+        || header.schemaVersion !== ref.schemaVersion
+      ) {
+        issues.push({
+          code: "ref-mismatch",
+          message: `Artifact ref ${key} does not match header ${header.artifactType}:${header.artifactId}:${header.schemaVersion}.`,
+          ref,
+          path: [...path, ref],
+        });
+        return;
+      }
+      headerByKey.set(key, header);
+    }
+
+    if (header.inputRefs.length === 0) {
+      const rootKey = artifactLineageRootKey(ref);
+      const existing = roots.get(rootKey);
+      if (existing) {
+        existing.seedKeys.add(artifactRefKey(seedRef));
+        if (!existing.ref.digest && ref.digest) existing.ref = ref;
+      } else {
+        roots.set(rootKey, { ref, seedKeys: new Set([artifactRefKey(seedRef)]) });
+      }
+      return;
+    }
+
+    const nextPath = [...path, ref];
+    for (const inputRef of dedupeArtifactRefs(header.inputRefs)) {
+      await walk(inputRef, seedRef, nextPath, depth + 1);
+    }
+  };
+
+  for (const seedRef of seedRefs) {
+    await walk(seedRef, seedRef, [], 0);
+  }
+
+  const seedByKey = new Map(seedRefs.map((ref) => [artifactRefKey(ref), ref]));
+  const lineageRoots = [...roots.entries()]
+    .map(([key, root]) => ({
+      key,
+      ref: root.ref,
+      seedRefs: [...root.seedKeys]
+        .map((seedKey) => seedByKey.get(seedKey))
+        .filter((ref): ref is ArtifactRef => Boolean(ref))
+        .sort(compareArtifactRefs),
+    }))
+    .sort((left, right) => left.key.localeCompare(right.key));
+
+  return {
+    seedRefs,
+    roots: lineageRoots,
+    sharedRootKeys: lineageRoots
+      .filter((root) => root.seedRefs.length > 1)
+      .map((root) => root.key),
+    visitedArtifacts: visited.size,
+    complete: issues.length === 0,
+    issues,
+  };
+}
+
+function positiveInteger(value: number | undefined, fallback: number): number {
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
+}
+
+function dedupeArtifactRefs(refs: ArtifactRef[]): ArtifactRef[] {
+  const byKey = new Map<string, ArtifactRef>();
+  for (const ref of refs) {
+    const key = artifactRefKey(ref);
+    const existing = byKey.get(key);
+    if (!existing || (!existing.digest && ref.digest)) byKey.set(key, ref);
+  }
+  return [...byKey.values()].sort(compareArtifactRefs);
+}
+
+function compareArtifactRefs(left: ArtifactRef, right: ArtifactRef): number {
+  return artifactRefKey(left).localeCompare(artifactRefKey(right));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export type ArtifactWriter = {
   write(type: string, artifact: unknown): Promise<ArtifactRef>;
@@ -249,6 +439,7 @@ const BUILT_IN_ARTIFACT_TYPES: ArtifactTypeDefinition[] = [
   { type: "MemoryEvent", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "ContextUsageEvent", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "OutcomeEvent", schemaVersion: "0.1.0", stability: "experimental" },
+  { type: "ContextOutcomeEvaluationReport", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "MemorySelection", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "MemoryUsageLedger", schemaVersion: "0.1.0", stability: "experimental" },
   { type: "MemoryCurationReport", schemaVersion: "0.1.0", stability: "experimental" },
@@ -630,7 +821,7 @@ async function runConformanceHandlers(
 function createConformanceArtifactAccess(artifacts: ArtifactReader & ArtifactWriter): ArtifactReader & ArtifactWriter {
   return {
     read: (ref) => artifacts.read(ref),
-    list: (type) => artifacts.list(type),
+    list: (type, options) => artifacts.list(type, options),
     async write(type, artifact) {
       assertWrittenArtifactHeader(type, artifact);
 

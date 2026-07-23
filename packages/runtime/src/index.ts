@@ -62,6 +62,7 @@ import {
 import { type ObservedRepo, type OwnershipMap } from "@rekon/kernel-repo-model";
 import {
   type CapabilityDefinition,
+  type ArtifactListOptions,
   type CapabilityManifest,
   type CapabilityPermission,
   type CapabilityRegistrySnapshot,
@@ -170,7 +171,7 @@ export type ArtifactStore = {
   write(artifact: ArtifactWithHeader, options?: { category?: ArtifactCategory }): Promise<ArtifactRef>;
   read(ref: ArtifactRef): Promise<unknown>;
   readById(type: string, id: string): Promise<unknown>;
-  list(type?: string): Promise<ArtifactIndexEntry[]>;
+  list(type?: string, options?: ArtifactListOptions): Promise<ArtifactIndexEntry[]>;
 };
 
 export type ArtifactWithHeader = {
@@ -280,6 +281,7 @@ const ARTIFACT_CATEGORY_BY_TYPE: Record<string, ArtifactCategory> = {
   MemoryEvent: "actions",
   ContextUsageEvent: "actions",
   OutcomeEvent: "actions",
+  ContextOutcomeEvaluationReport: "publications",
   MemorySelection: "publications",
   MemoryUsageLedger: "actions",
   MemoryCurationReport: "publications",
@@ -494,10 +496,22 @@ export function createLocalArtifactStore(repoRoot: string): ArtifactStore {
 
       return readValidatedArtifact(repoRoot, indexPath, entry);
     },
-    async list(type) {
+    async list(type, options) {
       const index = await readArtifactIndex(repoRoot, indexPath);
-
-      return type ? index.filter((entry) => entry.type === type) : index;
+      let entries = type ? index.filter((entry) => entry.type === type) : index;
+      if (options?.order) {
+        const direction = options.order === "newest" ? -1 : 1;
+        entries = [...entries].sort((left, right) =>
+          direction * left.writtenAt.localeCompare(right.writtenAt)
+          || `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
+      }
+      if (options?.limit !== undefined) {
+        if (!Number.isInteger(options.limit) || options.limit < 1) {
+          throw new Error("Artifact list limit must be a positive integer.");
+        }
+        entries = entries.slice(0, options.limit);
+      }
+      return entries;
     },
   };
 }
@@ -2720,10 +2734,10 @@ function runtimeArtifactAccess(context: RuntimeContext, manifest: CapabilityMani
 
       return context.artifacts.read(ref);
     },
-    list: (type?: string) => {
+    list: (type?: string, options?: ArtifactListOptions) => {
       ensureArtifactPermission(context, manifest, "read:artifacts");
 
-      return context.artifacts.list(type);
+      return context.artifacts.list(type, options);
     },
     write: (type: string, artifact: unknown) => {
       ensureArtifactPermission(context, manifest, "write:artifacts");

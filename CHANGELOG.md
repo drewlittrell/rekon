@@ -4,6 +4,28 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added grounded context learning. CLI and MCP task delivery now records the
+  exact bounded projection, post-edit validation and accepted refresh record
+  separately grounded outcomes, and memory curation collapses connected shared
+  artifact lineage across outcomes before classifying associations. One
+  matching `unobserved` entry may enter once as unresolved context; only scoped
+  `suggestive` or `corroborated` memory repeats. Counterevidence excludes it
+  and self-report cannot reinforce
+  it. Proof-gated refresh runs curation after the accepted outcome. MCP
+  interface `1.4.0` adds the `memory` trust class and grounding status to
+  delivered context. MCP interface `1.4.1` returns and accepts explicit
+  `contextUsageRef` lineage; CLI validation accepts the same ref through
+  `--context-usage`. Pathless lexical anchors now become the report's exact
+  resolved task scope instead of remaining context-only paths.
+- Updated managed agent instructions to `2.0.3` so agents retain the task
+  delivery ref and return it during post-edit validation.
+- Added bounded chronological artifact listing to the public SDK and runtime.
+  Grounded outcome evaluation and one-time memory trials now read the newest
+  retained events by `writtenAt` instead of relying on artifact-id order.
+- Task-context delivery now rechecks exact source SHA-256 bindings in both CLI
+  and MCP, even with automatic refresh disabled. Stale evidence and dependent
+  graph routes are omitted with a warning. Under packet pressure, advisory
+  memory is removed before exact deterministic source spans.
 - Product-flow discovery now preserves entry classification through graph
   composition, excludes repository tooling and tests from contract starts, and
   extracts literal JavaScript/TypeScript CLI command branches as operation-level
@@ -142,7 +164,8 @@ All notable changes to Rekon are documented here.
 - Added one optional repository-native exemplar for extension and placement
   tasks. Cached similarity may propose the file, but its bounded excerpt must
   come from deterministic digest-bound evidence and remains inference-tagged.
-  Packet budgets may omit it, and memory or model claims remain unservable.
+  Packet budgets may omit it, and ungrounded memory or model claims remain
+  unservable.
 - Capability-graph refresh now replaces pre-digest source evidence before task
   context is compiled, preventing stale excerpts from being served without a
   current source binding.

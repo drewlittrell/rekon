@@ -143,7 +143,7 @@ test("usage list returns recorded events from the latest ledger", async () => {
   });
 });
 
-test("curation report recommends reinforce for repeated helpful memory", async () => {
+test("curation report keeps but does not reinforce repeated helpful self-reports", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
     const memoryEntryId = addMemory(root, {
@@ -161,9 +161,11 @@ test("curation report recommends reinforce for repeated helpful memory", async (
     assert.equal(report.report.summary.totalUsageEvents, 3);
     const item = report.report.items.find((entry) => entry.memoryEntryId === memoryEntryId);
     assert.ok(item, "curation item should exist for recorded memory");
-    assert.equal(item.recommendation, "reinforce");
+    assert.equal(item.recommendation, "keep");
     assert.equal(item.helpfulCount, 3);
-    assert.ok(item.reasons.some((reason) => reason.includes("helpful-count")));
+    assert.ok(item.reasons.includes("self-report-cannot-reinforce"));
+    assert.equal(report.report.policyVersion, "grounded-memory-curation.v2");
+    assert.equal(report.report.groundedEvaluationRef.type, "ContextOutcomeEvaluationReport");
   });
 });
 
@@ -188,7 +190,7 @@ test("curation report recommends review for a single harmful event", async () =>
   });
 });
 
-test("curation report recommends deprecate for repeated harmful events", async () => {
+test("curation report requires grounded counterevidence before deprecating memory", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
     const memoryEntryId = addMemory(root, {
@@ -204,13 +206,14 @@ test("curation report recommends deprecate for repeated harmful events", async (
 
     const item = report.report.items.find((entry) => entry.memoryEntryId === memoryEntryId);
     assert.ok(item);
-    assert.equal(item.recommendation, "deprecate");
+    assert.equal(item.recommendation, "review");
     assert.equal(item.harmfulCount, 2);
-    assert.equal(report.report.summary.deprecate, 1);
+    assert.equal(report.report.summary.deprecate, 0);
+    assert.ok(item.reasons.some((reason) => reason.startsWith("legacy-self-report-only")));
   });
 });
 
-test("curation report recommends supersede-candidate for repeated stale events", async () => {
+test("curation report reviews repeated stale self-reports without auto-superseding", async () => {
   await withFixture(async (root) => {
     runCli(["refresh", "--root", root, "--json"]);
     const memoryEntryId = addMemory(root, {
@@ -226,9 +229,9 @@ test("curation report recommends supersede-candidate for repeated stale events",
 
     const item = report.report.items.find((entry) => entry.memoryEntryId === memoryEntryId);
     assert.ok(item);
-    assert.equal(item.recommendation, "supersede-candidate");
+    assert.equal(item.recommendation, "review");
     assert.equal(item.staleCount, 2);
-    assert.equal(report.report.summary.supersedeCandidate, 1);
+    assert.equal(report.report.summary.supersedeCandidate, 0);
   });
 });
 

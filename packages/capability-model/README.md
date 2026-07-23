@@ -106,6 +106,15 @@ CLI and MCP. Its `compact`, `standard`, and `deep` profiles bound selected core
 context, supporting context, constraints, checks, evidence, and selection
 trace. `renderTaskContextMarkdown()` renders the same compiled packet for human
 readers; adapters must not maintain a separate selection policy.
+`excludeStaleTaskContextSourceEvidence()` applies the shared pure gate after a
+host checks exact source digests. Stale excerpts and their dependent graph
+routes cannot remain deterministic task context.
+Task-scoped memory enters only as supporting context. It keeps a stable
+`memory:<entry-id>` identity and `memory` trust. One unobserved entry may be
+tried once; only suggestive or corroborated entries repeat. Memory never
+becomes repository law or deterministic graph evidence.
+When the packet is full, advisory memory is removed before exact deterministic
+source spans.
 `projectModelContext()` retains the explainable audit projection.
 `projectModelContextDelivery()` removes repeated routing and provenance fields
 for model consumption while preserving the selected read order, pacts, checks,

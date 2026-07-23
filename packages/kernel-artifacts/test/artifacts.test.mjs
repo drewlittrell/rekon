@@ -3,7 +3,10 @@ import test from "node:test";
 
 import {
   artifactHeaderSchema,
+  artifactLineageAssessmentSchema,
+  artifactLineageRootKey,
   artifactRefSchema,
+  artifactRefKey,
   assertArtifactHeader,
   assertArtifactRef,
   assertSourceStateBinding,
@@ -15,6 +18,7 @@ import {
   sourceStateBindingsMatch,
   toArtifactRef,
   validateArtifactHeader,
+  validateArtifactLineageAssessment,
   validateArtifactRef,
   validateSourceStateBinding,
 } from "../dist/index.js";
@@ -77,6 +81,27 @@ test("ArtifactRef validates required public fields", () => {
   );
   assert.deepEqual(artifactRefSchema.parse(validRef), validRef);
   assert.throws(() => assertArtifactRef({ id: "missing-type" }), /ArtifactRef validation failed/);
+});
+
+test("artifact lineage contracts preserve roots and correlated seed refs", () => {
+  const secondRef = { type: "VerificationResult", id: "verification-2", schemaVersion: "0.1.0" };
+  const assessment = {
+    seedRefs: [validRef, secondRef],
+    roots: [{
+      key: artifactLineageRootKey(validRef),
+      ref: validRef,
+      seedRefs: [validRef, secondRef],
+    }],
+    sharedRootKeys: [artifactLineageRootKey(validRef)],
+    visitedArtifacts: 3,
+    complete: true,
+    issues: [],
+  };
+
+  assert.equal(artifactRefKey(validRef), "EvidenceGraph:evidence-1:0.1.0");
+  assert.equal(validateArtifactLineageAssessment(assessment).ok, true);
+  assert.deepEqual(artifactLineageAssessmentSchema.parse(assessment), assessment);
+  assert.equal(validateArtifactLineageAssessment({ ...assessment, visitedArtifacts: -1 }).ok, false);
 });
 
 test("ArtifactHeader validates required metadata and nested input refs", () => {

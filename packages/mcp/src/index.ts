@@ -10,7 +10,7 @@
 //     spawns, never touches the network.
 //   - D5 trust classes from the first byte: every leaf value is added through
 //     tag(), which requires a trust class. v1 serves deterministic, declared,
-//     and caller-supplied operator content. Inference and memory remain gated.
+//     caller-supplied operator content, and grounded scoped memory.
 //   - Freshness honesty: every source is named with a four-status freshness
 //     value; staleness is marked, never swallowed.
 //   - Model-facing instructions are fixed, reviewed interface strings. Artifact
@@ -18,12 +18,14 @@
 //   - Answer precision over volume: hard response ceilings with explicit
 //     truncation markers.
 
+import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   classifyTaskOperation,
   compileTaskContext,
+  excludeStaleTaskContextSourceEvidence,
   buildTaskPact,
   projectModelContext,
   projectModelContextDelivery,
@@ -33,6 +35,7 @@ import {
   TASK_CONTEXT_REFINEMENT_RELATIONSHIPS,
   type ContextProfile,
   type ContextTrustClass,
+  type CompiledContextPacket,
   type ModelContextProjection,
   type ModelContextDelivery,
   type ModelContextDeliveryPolicy,
@@ -43,12 +46,18 @@ import {
   type TaskContextRefinementRelationship,
   type TaskContextGraphLike,
 } from "@rekon/capability-model";
+import {
+  selectGroundedMemoryForTask,
+  type MemoryCurationReport,
+  type OperatorFeedbackEntry,
+} from "@rekon/capability-memory";
 import type {
   CapabilityContract,
   ContractDriftReport,
   EffectiveContractRegistry,
   FlowContract,
   SystemContract,
+  TaskContextReport,
   TaskPact,
 } from "@rekon/kernel-repo-model";
 import {
@@ -64,7 +73,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.3.2";
+export const MCP_SERVER_VERSION = "1.4.1";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -82,6 +91,7 @@ export const SERVABLE_TRUST_CLASSES: ReadonlyArray<TrustClass> = Object.freeze([
   "deterministic",
   "declared",
   "inference",
+  "memory",
   "operator",
 ]);
 
@@ -122,6 +132,15 @@ export type McpToolResponse = {
   unavailable?: { reason: string; operatorCommand: string };
 };
 
+export type CompiledTaskContextForHost = {
+  response: McpToolResponse;
+  report?: TaskContextReport;
+  packet?: CompiledContextPacket;
+  projection?: ModelContextProjection;
+  delivery?: ModelContextDelivery;
+  taskPact?: TaskPact;
+};
+
 export const ORIENTATION_RESPONSE_CEILING_BYTES = 8 * 1024;
 export const WHERE_RESPONSE_CEILING_BYTES = 6 * 1024;
 export const TASK_CONTEXT_RESPONSE_CEILING_BYTES = 12 * 1024;
@@ -150,7 +169,10 @@ type ArtifactReader = {
   latest: (type: string) => { entry: IndexEntry; body: Record<string, unknown> } | null;
   latestGeneratedAt: (type: string) => string | null;
   readRef: (ref: ArtifactRef) => Record<string, unknown> | null;
-  listRefs: (type?: string) => ArtifactRef[];
+  listRefs: (
+    type?: string,
+    options?: { order?: "newest" | "oldest"; limit?: number },
+  ) => ArtifactRef[];
 };
 
 export function createArtifactReader(repoRoot: string): ArtifactReader | null {
@@ -210,9 +232,16 @@ export function createArtifactReader(repoRoot: string): ArtifactReader | null {
       );
       return entry ? readBody(entry) : null;
     },
-    listRefs(type) {
-      return index
-        .filter((entry) => !type || entry.artifactType === type)
+    listRefs(type, options) {
+      let entries = index.filter((entry) => !type || entry.artifactType === type);
+      if (options?.order) {
+        const direction = options.order === "newest" ? -1 : 1;
+        entries = [...entries].sort((left, right) => direction * (
+          (left.writtenAt ?? generatedAtOf(left)).localeCompare(right.writtenAt ?? generatedAtOf(right))
+        ) || `${left.artifactType}:${left.artifactId}`.localeCompare(`${right.artifactType}:${right.artifactId}`));
+      }
+      if (options?.limit !== undefined) entries = entries.slice(0, options.limit);
+      return entries
         .map((entry) => ({
           type: entry.artifactType,
           id: entry.artifactId,
@@ -334,6 +363,54 @@ function pathIsInside(path: string, root: string): boolean {
   const relativePath = relative(resolve(root), resolve(path));
 
   return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+}
+
+function gateCurrentTaskContextGraph(
+  repoRoot: string,
+  graph: TaskContextGraphLike,
+): { graph: TaskContextGraphLike; warnings: string[] } {
+  const staleEvidenceIds: string[] = [];
+  const sourceDigests = new Map<string, string | null>();
+  for (const evidence of graph.evidence ?? []) {
+    if (
+      typeof evidence.path !== "string"
+      || typeof evidence.sourceSha256 !== "string"
+      || !/^[a-f0-9]{64}$/u.test(evidence.sourceSha256)
+    ) {
+      continue;
+    }
+    let digest = sourceDigests.get(evidence.path);
+    if (digest === undefined) {
+      digest = currentRepoSourceDigest(repoRoot, evidence.path);
+      sourceDigests.set(evidence.path, digest);
+    }
+    if (digest !== evidence.sourceSha256) staleEvidenceIds.push(evidence.id);
+  }
+
+  const result = excludeStaleTaskContextSourceEvidence(graph, staleEvidenceIds);
+  if (result.removedEvidenceIds.length === 0) return { graph, warnings: [] };
+  return {
+    graph: result.graph,
+    warnings: [
+      `source-evidence-stale: excluded ${result.removedEvidenceIds.length} exact evidence record(s), ${result.removedClaimIds.length} dependent claim(s), and ${result.removedCapabilityIds.length} dependent capability record(s) for ${result.removedPaths.length} changed or unreadable path(s); refresh before relying on affected graph routes`,
+    ],
+  };
+}
+
+function currentRepoSourceDigest(repoRoot: string, path: string): string | null {
+  if (!path || isAbsolute(path)) return null;
+  try {
+    const realRepoRoot = realpathSync(repoRoot);
+    const candidate = resolve(realRepoRoot, path);
+    if (!pathIsInside(candidate, realRepoRoot)) return null;
+    const realCandidate = realpathSync(candidate);
+    if (!pathIsInside(realCandidate, realRepoRoot)) return null;
+    const stats = lstatSync(realCandidate);
+    if (!stats.isFile()) return null;
+    return createHash("sha256").update(readFileSync(realCandidate)).digest("hex");
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -738,6 +815,9 @@ function tagContextItem(item: ModelContextProjection["coreContext"][number]): Re
     ...(item.admission !== undefined
       ? { admission: tagPacketValue(item.admission, "deterministic") }
       : {}),
+    ...(item.groundedStatus !== undefined
+      ? { groundedStatus: tagPacketValue(item.groundedStatus, "deterministic") }
+      : {}),
     reason: tagPacketValue(item.reason, trust),
     ...(item.routeRole !== undefined
       ? { routeRole: tagPacketValue(item.routeRole, "deterministic") }
@@ -758,6 +838,9 @@ function tagModelContextDelivery(
   return {
     schemaVersion: tagPacketValue(delivery.schemaVersion, "declared"),
     instruction: tagPacketValue(delivery.instruction, "declared"),
+    ...(delivery.contextUsageRef !== undefined
+      ? { contextUsageRef: tagPacketValue(delivery.contextUsageRef, "deterministic") }
+      : {}),
     ...(delivery.operation ? { operation: tagTaskOperation(delivery.operation) } : {}),
     readFirst: tagPacketValue(delivery.readFirst, "deterministic"),
     ...(delivery.boundaryPaths !== undefined
@@ -871,13 +954,25 @@ export function buildContextForTask(
   profile: ContextProfile = "compact",
   operation?: TaskOperationPlan,
 ): McpToolResponse {
+  return compileContextForTaskForHost(repoRoot, task, paths, profile, operation).response;
+}
+
+export function compileContextForTaskForHost(
+  repoRoot: string,
+  task: string,
+  paths: string[] = [],
+  profile: ContextProfile = "compact",
+  operation?: TaskOperationPlan,
+): CompiledTaskContextForHost {
   const reader = createArtifactReader(repoRoot);
 
   if (!reader) {
-    return failClosed(
-      "No Rekon artifact index found - the repo has not been scanned.",
-      "rekon scan (or rekon refresh) - run by the operator, never by this server",
-    );
+    return {
+      response: failClosed(
+        "No Rekon artifact index found - the repo has not been scanned.",
+        "rekon scan (or rekon refresh) - run by the operator, never by this server",
+      ),
+    };
   }
 
   const latestEvidenceAt = reader.latestGeneratedAt("EvidenceGraph");
@@ -885,23 +980,29 @@ export function buildContextForTask(
   const contractSource = sourceRef(reader, "CapabilityContract", latestEvidenceAt);
 
   if (!graphSource.body) {
-    return failClosed(
-      "No CapabilityEvidenceGraph artifact exists yet.",
-      "rekon capability graph build - run by the operator, never by this server",
-    );
+    return {
+      response: failClosed(
+        "No CapabilityEvidenceGraph artifact exists yet.",
+        "rekon capability graph build - run by the operator, never by this server",
+      ),
+    };
   }
 
-  const graph = graphSource.body as unknown as TaskContextGraphLike;
+  const rawGraph = graphSource.body as unknown as TaskContextGraphLike;
+  const sourceGate = gateCurrentTaskContextGraph(repoRoot, rawGraph);
+  const graph = sourceGate.graph;
   const normalizedPaths = [...new Set(paths.map((path) => path.trim()).filter(Boolean))];
   const lexicalContextPaths = normalizedPaths.length === 0
     ? selectLexicalGraphContextPaths(task, graph)
     : [];
 
   if (normalizedPaths.length === 0 && lexicalContextPaths.length === 0) {
-    return failClosed(
-      "No explicit path or deterministic graph match could ground this task.",
-      "rekon context task --task <task> --path <path> --json - run by the operator",
-    );
+    return {
+      response: failClosed(
+        "No explicit path or deterministic graph match could ground this task.",
+        "rekon context task --task <task> --path <path> --json - run by the operator",
+      ),
+    };
   }
 
   // MCP never calls an embedding or model provider. It compiles from the latest
@@ -920,10 +1021,12 @@ export function buildContextForTask(
     latestEvidenceAt,
   });
   if (taskPactSelection.unavailable) {
-    return failClosed(
-      taskPactSelection.unavailable,
-      "rekon contracts compile --root . --json - run by the operator, never by this server",
-    );
+    return {
+      response: failClosed(
+        taskPactSelection.unavailable,
+        "rekon contracts compile --root . --json - run by the operator, never by this server",
+      ),
+    };
   }
   const contractGuidance = selectTaskContractGuidance({
     paths: scopedPaths,
@@ -933,16 +1036,25 @@ export function buildContextForTask(
     capabilityContractFreshness: contractSource.ref.freshness,
     taskPact: taskPactSelection.pact,
   });
-  const warnings = lexicalContextPaths.length > 0
-    ? ["embedding retrieval was not invoked by MCP; deterministic graph + lexical fallback selected task context"]
-    : [];
+  const warnings = [
+    ...sourceGate.warnings,
+    ...(lexicalContextPaths.length > 0
+      ? ["embedding retrieval was not invoked by MCP; deterministic graph + lexical fallback selected task context"]
+      : []),
+  ];
   if (contractGuidance.matchedContractIds.length > 0 && contractSource.ref.freshness !== "fresh") {
     warnings.push(
       `selected CapabilityContract guidance is ${contractSource.ref.freshness}; verify current repository policy before relying on it`,
     );
   }
   warnings.push(...taskPactSelection.warnings);
-  const { packet } = compileTaskContext({
+  const groundedMemory = readGroundedTaskMemory(
+    reader,
+    scopedPaths,
+    task,
+    profile === "compact" ? 3 : profile === "standard" ? 5 : 8,
+  );
+  const { report, packet } = compileTaskContext({
     taskText: task,
     paths: normalizedPaths,
     graph: deterministicGraph,
@@ -953,13 +1065,18 @@ export function buildContextForTask(
         ? [contractSource.artifactRef]
         : []),
       ...taskPactSelection.inputRefs,
+      ...groundedMemory.inputRefs,
     ],
     declaredConstraints: contractGuidance.constraints,
     declaredContextPaths: contractGuidance.requiredContextPaths,
     declaredVerificationHints: contractGuidance.verificationHints,
+    groundedMemory: groundedMemory.items.map((item) => ({
+      ...item,
+      evidenceRefs: item.evidenceRefs.map((ref) => `${ref.type}:${ref.id}`),
+    })),
     provider: "mcp-read-only",
     model: "none",
-    repoId: ".",
+    repoId: repoRoot,
     profile,
     ...(operation ? { operation } : {}),
     warnings,
@@ -969,15 +1086,46 @@ export function buildContextForTask(
     policy: configuredModelContextDeliveryPolicy(),
   });
 
-  return withinCeiling({
+  const response = withinCeiling({
     preamble: ORIENTATION_PREAMBLE,
     sources: [
       graphSource.ref,
       ...(contractGuidance.matchedContractIds.length > 0 ? [contractSource.ref] : []),
       ...taskPactSelection.sources,
+      ...groundedMemory.inputRefs.map((ref) => artifactSourceRef(reader, ref, latestEvidenceAt)),
     ],
     data: { context: tagModelContextDelivery(delivery, modelContext) },
     truncated: packet.truncated,
+  }, TASK_CONTEXT_RESPONSE_CEILING_BYTES);
+  return {
+    response,
+    report,
+    packet,
+    projection: modelContext,
+    delivery,
+    ...(taskPactSelection.pact ? { taskPact: taskPactSelection.pact } : {}),
+  };
+}
+
+/**
+ * Add the host-persisted usage-event reference to an already compiled task
+ * response. The MCP package stays read-only; its host owns the artifact write.
+ */
+export function attachContextUsageRefToTaskContextResponse(
+  compiled: CompiledTaskContextForHost,
+  contextUsageRef: ArtifactRef,
+): McpToolResponse {
+  if (!compiled.delivery || !compiled.projection) return compiled.response;
+  const delivery = {
+    ...compiled.delivery,
+    contextUsageRef: `${contextUsageRef.type}:${contextUsageRef.id}`,
+  };
+  return withinCeiling({
+    ...compiled.response,
+    data: {
+      ...compiled.response.data,
+      context: tagModelContextDelivery(delivery, compiled.projection),
+    },
   }, TASK_CONTEXT_RESPONSE_CEILING_BYTES);
 }
 
@@ -988,14 +1136,32 @@ export async function buildRiskAdaptiveContextForTask(
   requestedProfile?: ContextProfile,
   escalation?: TaskOperationEscalation,
 ): Promise<McpToolResponse> {
+  return (await compileRiskAdaptiveContextForTaskForHost(
+    repoRoot,
+    task,
+    paths,
+    requestedProfile,
+    escalation,
+  )).response;
+}
+
+export async function compileRiskAdaptiveContextForTaskForHost(
+  repoRoot: string,
+  task: string,
+  paths: string[] = [],
+  requestedProfile?: ContextProfile,
+  escalation?: TaskOperationEscalation,
+): Promise<CompiledTaskContextForHost> {
   const reader = createArtifactReader(repoRoot);
-  if (!reader) return buildContextForTask(repoRoot, task, paths, requestedProfile ?? "compact");
+  if (!reader) return compileContextForTaskForHost(repoRoot, task, paths, requestedProfile ?? "compact");
 
   const latestEvidenceAt = reader.latestGeneratedAt("EvidenceGraph");
   const graphSource = sourceRef(reader, "CapabilityEvidenceGraph", latestEvidenceAt);
-  if (!graphSource.body) return buildContextForTask(repoRoot, task, paths, requestedProfile ?? "compact");
+  if (!graphSource.body) return compileContextForTaskForHost(repoRoot, task, paths, requestedProfile ?? "compact");
 
-  const graph = graphSource.body as unknown as TaskContextGraphLike;
+  const rawGraph = graphSource.body as unknown as TaskContextGraphLike;
+  const sourceGate = gateCurrentTaskContextGraph(repoRoot, rawGraph);
+  const graph = sourceGate.graph;
   const normalizedPaths = uniqueStrings(paths);
   const lexicalContextPaths = normalizedPaths.length === 0
     ? selectLexicalGraphContextPaths(task, graph)
@@ -1038,7 +1204,7 @@ export async function buildRiskAdaptiveContextForTask(
     ...(escalation ? { escalation } : {}),
   });
 
-  return buildContextForTask(repoRoot, task, paths, operation.context.profile, operation);
+  return compileContextForTaskForHost(repoRoot, task, paths, operation.context.profile, operation);
 }
 
 function resolverArtifactReader(reader: ArtifactReader) {
@@ -1062,6 +1228,42 @@ function artifactRefFromIndexEntry(entry: IndexEntry): ArtifactRef {
     path: entry.path,
     ...(entry.digest ? { digest: entry.digest } : {}),
   };
+}
+
+function readGroundedTaskMemory(
+  reader: ArtifactReader,
+  paths: string[],
+  goal: string,
+  limit: number,
+) {
+  const entries = reader.listRefs("OperatorFeedbackEntry").flatMap((ref) => {
+    const entry = reader.readRef(ref) as unknown as OperatorFeedbackEntry | null;
+    return entry && typeof entry.instruction === "string" && entry.scope !== undefined
+      ? [{ ref, entry }]
+      : [];
+  });
+  const curationHit = reader.latest("MemoryCurationReport");
+  const deliveredMemoryIds = new Set<string>();
+  for (const ref of reader.listRefs("ContextUsageEvent", { order: "newest", limit: 512 })) {
+    const usage = reader.readRef(ref) as { delivery?: { itemIds?: unknown } } | null;
+    if (!Array.isArray(usage?.delivery?.itemIds)) continue;
+    for (const itemId of usage.delivery.itemIds) {
+      if (typeof itemId === "string" && itemId.startsWith("memory:")) {
+        deliveredMemoryIds.add(itemId.slice("memory:".length));
+      }
+    }
+  }
+  return selectGroundedMemoryForTask({
+    entries,
+    paths,
+    goal,
+    limit,
+    deliveredMemoryIds: [...deliveredMemoryIds],
+    ...(curationHit ? {
+      curation: curationHit.body as unknown as MemoryCurationReport,
+      curationRef: artifactRefFromIndexEntry(curationHit.entry),
+    } : {}),
+  });
 }
 
 function readTaskOperationFlows(reader: ArtifactReader, pact?: TaskPact): TaskOperationFlow[] {
@@ -1161,7 +1363,9 @@ export function buildTaskContextRefinement(
     );
   }
 
-  const graph = graphSource.body as unknown as TaskContextGraphLike;
+  const rawGraph = graphSource.body as unknown as TaskContextGraphLike;
+  const sourceGate = gateCurrentTaskContextGraph(repoRoot, rawGraph);
+  const graph = sourceGate.graph;
   const deterministicGraph: TaskContextGraphLike = {
     ...graph,
     claims: (graph.claims ?? []).filter((claim) => claim.source !== "llm"),
@@ -1200,7 +1404,7 @@ export function buildTaskContextRefinement(
     capabilityContractFreshness: contractSource.ref.freshness,
     taskPact: taskPactSelection.pact,
   });
-  const warnings: string[] = [];
+  const warnings: string[] = [...sourceGate.warnings];
   if (contractGuidance.matchedContractIds.length > 0 && contractSource.ref.freshness !== "fresh") {
     warnings.push(
       `selected CapabilityContract guidance is ${contractSource.ref.freshness}; verify current repository policy before relying on it`,
@@ -1382,6 +1586,7 @@ export async function buildPreflightChange(
 export function buildChangeValidationResponse(
   result: ChangeValidationResult,
   sources: SourceRef[] = [],
+  outcomeRef?: ArtifactRef,
 ): McpToolResponse {
   const checkSelection = result.checkSelection ?? {
     strategy: "changed-scope" as const,
@@ -1512,6 +1717,9 @@ export function buildChangeValidationResponse(
       data: {
         changeValidation: {
           status: tag(result.status, "deterministic"),
+          ...(outcomeRef
+            ? { outcomeRef: tag(`${outcomeRef.type}:${outcomeRef.id}`, "deterministic") }
+            : {}),
           blockingViolations: violations.map((entry) => ({
             code: tag(entry.code, "deterministic"),
             message: tag(entry.message, "deterministic"),
@@ -1623,6 +1831,9 @@ export function buildChangeValidationResponse(
     data: {
       changeValidation: {
         status: tag(result.status, "deterministic"),
+        ...(outcomeRef
+          ? { outcomeRef: tag(`${outcomeRef.type}:${outcomeRef.id}`, "deterministic") }
+          : {}),
         blockingViolations: [{
           code: tag("validation.output-truncated", "deterministic"),
           message: tag("The decision exceeded the MCP byte ceiling; rerun with fewer changed paths.", "deterministic"),
@@ -1766,6 +1977,7 @@ const MCP_TOOL_DEFINITIONS = [
         task: { type: "string" },
         changedPaths: { type: "array", items: { type: "string" } },
         baseRef: { type: "string" },
+        contextUsageRef: { type: "string" },
         verificationResults: {
           type: "array",
           items: { type: "string" },
@@ -1815,10 +2027,10 @@ const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_targ
 export const MCP_TOOLS = MCP_TOOL_DEFINITIONS.filter((tool) => MODEL_FACING_MCP_TOOLS.has(tool.name));
 
 export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
-  "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Follow its operation and batch-read every `readFirst` path before editing.",
+  "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Keep its `contextUsageRef`; follow its operation and batch-read every `readFirst` path before editing.",
   "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. For failed checks, use `correctiveContext` to inspect only the listed paths, obligations, and redacted diagnostic; repair and rerun before escalating an unexplained failure with `escalation: validation-failed`.",
+  "After editing, call `validate_change` with that ref, the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. For failed checks, use `correctiveContext` to inspect only the listed paths, obligations, and redacted diagnostic; repair and rerun before escalating an unexplained failure with `escalation: validation-failed`.",
   "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
   "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags. It refreshes maintained knowledge and rechecks gated source bytes; digest, gate, refresh, or contract-drift failure means incomplete.",
 ]);
@@ -1826,7 +2038,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
   "rekon context task --task \"<task>\" --path <path> --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
-  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
+  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
   "rekon artifacts freshness --json",
 ]);
@@ -1877,6 +2089,12 @@ export function callTool(
     }
     if (args.baseRef !== undefined && (typeof args.baseRef !== "string" || args.baseRef.trim().length === 0)) {
       return failClosed("validate_change baseRef must be a non-empty Git ref when supplied.", "n/a (input error)");
+    }
+    if (
+      args.contextUsageRef !== undefined
+      && (typeof args.contextUsageRef !== "string" || args.contextUsageRef.trim().length === 0)
+    ) {
+      return failClosed("validate_change contextUsageRef must be a non-empty artifact ref when supplied.", "n/a (input error)");
     }
     return failClosed(
       "validate_change requires the CLI-hosted MCP server so it can compare read-only Git and current-source evidence.",

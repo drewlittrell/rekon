@@ -6,8 +6,9 @@ authority boundaries.
 ## Before Editing
 
 1. Call `context_for_task` with the concrete task and known paths. Let Rekon
-   choose context depth, follow the returned `operation`, and read every
-   `readFirst` path before planning or editing. Batch those reads when practical.
+   choose context depth, retain the returned `contextUsageRef`, follow the
+   returned `operation`, and read every `readFirst` path before planning or
+   editing. Batch those reads when practical.
 2. Call `resolve_source_target` only when inspected source exposes a
    task-required symbolic target whose path is absent from `readFirst` and
    `boundaryPaths`. Pact text and preservation-only constraints name surfaces
@@ -26,8 +27,9 @@ authority boundaries.
    Inspect `rekon artifacts freshness --json` before relying on it.
 6. Check source refs, findings, work order, and verification plan before making
    changes.
-7. After editing, call `validate_change` with the original task, every changed
-   path, and the pre-edit Git base ref. Resolve blocking violations. Judge only
+7. After editing, call `validate_change` with the `contextUsageRef` returned by
+   `context_for_task`, the original task, every changed path, and the pre-edit
+   Git base ref. Resolve blocking violations. Judge only
    obligations that accept `model-judgment`. Materialize the returned checks
    with the equivalent CLI call plus `--prepare-verification`, execute the
    returned plan, and derive its `VerificationResult`. If the failure remains unexplained, request
@@ -88,8 +90,8 @@ rekon mcp serve --root .
 rekon scan --root <repo> --json
 rekon context task --root <repo> --task "<task>" --path <path> --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
-rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --json
-rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --verification-result <ref> --judgment-json '<json>' --record-proof --json
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --json
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --verification-result <ref> --judgment-json '<json>' --record-proof --json
 rekon refresh --root <repo> --proof-gate <ProofGateReport:id> --json
 rekon contracts maintain --root <repo> --json
 rekon resolve preflight --root <repo> --path <path> --goal "<goal>" --json

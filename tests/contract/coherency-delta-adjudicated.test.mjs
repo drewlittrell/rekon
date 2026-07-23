@@ -294,6 +294,7 @@ test("rekon refresh runs issues.adjudicate between findings.lifecycle and cohere
         "findings.lifecycle",
         "issues.adjudicate",
         "coherency.delta",
+        "memory.curate",
         "snapshot",
         "publish.architecture",
         "artifacts.validate",

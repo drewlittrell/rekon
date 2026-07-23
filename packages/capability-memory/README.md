@@ -12,18 +12,23 @@ surface. Selection internals are `internal`. See
 
 ## Purpose
 
-The package uses the public `@rekon/sdk` learner API. It writes typed
-`OperatorFeedbackEntry`, `MemoryEvent`, and `MemorySelection` artifacts.
+The package uses the public `@rekon/sdk` learner API. It writes typed feedback,
+selection, usage, grounded outcome evaluation, and curation artifacts.
 
 ## Lifecycle Fit
 
-Runs during `Learn`. Resolver packets can include selected memory as guidance.
+Runs during `Learn`. Refresh curates recorded context outcomes. Task context
+may try one matching, unobserved entry once; only task-scoped suggestive or
+corroborated memory repeats.
 
 ## Public Surface
 
 The default export is a Rekon capability definition with learner handlers.
+`buildGroundedContextOutcomeEvaluation()`, `selectGroundedMemoryForTask()`, and
+`readGroundedMemoryForTask()` expose the same bounded policy to hosts.
 
 ## Import Boundary
 
-Memory selections can enrich resolver packets, but memory does not rewrite
-ownership, rules, findings, or other architecture facts.
+Memory can enrich task context and resolver packets, but it does not rewrite
+ownership, rules, findings, contracts, or other architecture facts. Delivery
+and self-report alone cannot reinforce an entry.

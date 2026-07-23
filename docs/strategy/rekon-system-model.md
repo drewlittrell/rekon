@@ -65,6 +65,14 @@ confirmed drift blocks acceptance, while missing contracts remain an explicit
 bootstrap decision. The gated source bytes are checked again after the final
 write so refresh cannot accept a source state that changed while it ran.
 
+The same boundary maintains scoped learning. Hosts record the exact context
+delivered for a task; validation and accepted refresh record separately
+grounded outcomes. Curation collapses shared proof roots so repeated artifacts
+from one observation do not look independent. One matching, unobserved memory
+entry may be tried once as unresolved context; only suggestive or corroborated
+memory repeats, and refutation removes it from selection. These associations
+improve future context without becoming repository truth.
+
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The
 compiler selects current repository law, ownership, graph context, scoped

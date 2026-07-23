@@ -41,6 +41,7 @@ export type ContextPacketItem = {
   path?: string;
   symbolId?: string;
   capabilityId?: string;
+  groundedStatus?: TaskContextItem["groundedStatus"];
   score?: number;
   scoreBand?: TaskContextItem["scoreBand"];
   evidenceRefs: string[];
@@ -127,7 +128,7 @@ export type ModelContextProjectionItem = Pick<
   "ref" | "kind" | "trust" | "freshness" | "reason"
 > & Partial<Pick<
   ContextPacketItem,
-  "routeRole" | "necessity" | "necessityReason" | "admission"
+  "routeRole" | "necessity" | "necessityReason" | "admission" | "groundedStatus"
 >>;
 
 export type ModelContextProjection = {
@@ -165,6 +166,8 @@ export type ModelContextProjection = {
 
 export type ModelContextDelivery = {
   schemaVersion: "1.0.0";
+  /** Set by a recording host after the otherwise-pure context projection. */
+  contextUsageRef?: string;
   instruction: string;
   operation?: TaskOperationPlan;
   readFirst: string[];
@@ -247,6 +250,7 @@ function estimateTokens(value: unknown): number {
 }
 
 function itemRef(item: TaskContextItem): string {
+  if (item.contextKey) return item.contextKey;
   if (item.kind === "capability" && item.capabilityId) return item.capabilityId;
   if (item.kind === "symbol" && item.symbolId) return item.symbolId;
   return item.path ?? item.symbolId ?? item.capabilityId ?? item.id;
@@ -255,6 +259,7 @@ function itemRef(item: TaskContextItem): string {
 function trustForSource(source: TaskContextItem["source"]): ContextTrustClass {
   if (source === "operator_input") return "operator";
   if (source === "deterministic_graph") return "deterministic";
+  if (source === "memory") return "memory";
   return "inference";
 }
 
@@ -276,6 +281,7 @@ function toPacketItem(
     ...(item.path !== undefined ? { path: item.path } : {}),
     ...(item.symbolId !== undefined ? { symbolId: item.symbolId } : {}),
     ...(item.capabilityId !== undefined ? { capabilityId: item.capabilityId } : {}),
+    ...(item.groundedStatus !== undefined ? { groundedStatus: item.groundedStatus } : {}),
     ...(item.score !== undefined ? { score: item.score } : {}),
     ...(item.scoreBand !== undefined ? { scoreBand: item.scoreBand } : {}),
     evidenceRefs: item.evidenceRefs,
@@ -309,6 +315,13 @@ function routeForTaskContextItem(
       routeRole: "supporting",
       necessity: "supporting",
       necessityReason: "Inferred relevance is advisory rather than a required source route.",
+    };
+  }
+  if (item.source === "memory") {
+    return {
+      routeRole: "supporting",
+      necessity: "supporting",
+      necessityReason: "Grounded prior outcomes make this scoped memory relevant without making it repository law.",
     };
   }
   if (isTestContextPath(ref) || /\b(?:test|tests|verify|verifies)\b/iu.test(item.reason)) {
@@ -371,7 +384,9 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     (item) => item.source === "operator_input" || item.source === "deterministic_graph",
   ));
   const supportingCandidates = dedupePacketCandidates(report.contextItems.filter(
-    (item) => item.source === "embedding_retrieval" || item.source === "semantic_file_understanding",
+    (item) => item.source === "memory"
+      || item.source === "embedding_retrieval"
+      || item.source === "semantic_file_understanding",
   ));
   const coreContext: ContextPacketItem[] = [];
   const supportingContext: ContextPacketItem[] = [];
@@ -403,7 +418,14 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
       const itemTokens = estimateTokens(packetItem);
       const withinItemLimit = target.length < maxItems;
       const withinTokenLimit = selectionTokens + itemTokens <= selectionTokenLimit;
-      const included = withinItemLimit && (packetItem.necessity === "required" || withinTokenLimit);
+      // Grounded memory has already passed scope and outcome checks. Let it
+      // cross the soft 70% selection threshold so deterministic core routes do
+      // not starve learning; the hard packet budget below can still trim it.
+      const included = withinItemLimit && (
+        packetItem.necessity === "required"
+        || packetItem.source === "memory"
+        || withinTokenLimit
+      );
 
       if (included) {
         target.push(packetItem);
@@ -488,8 +510,11 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
   });
 
   let estimatedTokens = estimatePacket();
-  while (estimatedTokens > budget.maxTokens && supportingContext.length > 0) {
-    const removed = supportingContext.pop()!;
+  while (estimatedTokens > budget.maxTokens && supportingContext.some((item) => item.source !== "memory")) {
+    let index = supportingContext.length - 1;
+    while (index >= 0 && supportingContext[index]?.source === "memory") index -= 1;
+    const removed = supportingContext.splice(index, 1)[0];
+    if (!removed) break;
     const trace = contextTrace.find((entry) => entry.ref === removed.ref && entry.decision === "included");
     if (trace) {
       trace.decision = "excluded";
@@ -532,9 +557,57 @@ export function compileTaskContext(input: CompileTaskContextInput): CompileTaskC
     contextTrace = contextTrace.slice(0, -1);
     estimatedTokens = estimatePacket();
   }
+  while (estimatedTokens > budget.maxTokens && supportingContext.some((item) => item.source === "memory")) {
+    const groundingOrder = ["unobserved", "suggestive", "corroborated"] as const;
+    let index = -1;
+    for (const groundingStatus of groundingOrder) {
+      for (let candidateIndex = supportingContext.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+        const candidate = supportingContext[candidateIndex];
+        if (candidate?.source === "memory" && candidate.groundedStatus === groundingStatus) {
+          index = candidateIndex;
+          break;
+        }
+      }
+      if (index >= 0) break;
+    }
+    if (index < 0) {
+      for (let candidateIndex = supportingContext.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+        if (supportingContext[candidateIndex]?.source === "memory") {
+          index = candidateIndex;
+          break;
+        }
+      }
+    }
+    const removed = supportingContext.splice(index, 1)[0];
+    if (!removed) break;
+    const trace = contextTrace.find((entry) => entry.ref === removed.ref && entry.decision === "included");
+    if (trace) {
+      trace.decision = "excluded";
+      trace.reason = `${profile} packet hard budget preserves deterministic source context ahead of advisory memory`;
+    }
+    estimatedTokens = estimatePacket();
+  }
   while (estimatedTokens > budget.maxTokens && sourceSpans.length > 0) {
     sourceSpans = sourceSpans.slice(0, -1);
     sourceSpanOmittedForBudget = true;
+    estimatedTokens = estimatePacket();
+  }
+  while (estimatedTokens > budget.maxTokens && supportingContext.length > 0) {
+    let suggestiveIndex = -1;
+    for (let index = supportingContext.length - 1; index >= 0; index -= 1) {
+      if (supportingContext[index]?.groundedStatus === "suggestive") {
+        suggestiveIndex = index;
+        break;
+      }
+    }
+    const index = suggestiveIndex >= 0 ? suggestiveIndex : supportingContext.length - 1;
+    const removed = supportingContext.splice(index, 1)[0];
+    if (!removed) break;
+    const trace = contextTrace.find((entry) => entry.ref === removed.ref && entry.decision === "included");
+    if (trace) {
+      trace.decision = "excluded";
+      trace.reason = `${profile} packet hard budget reached after lower-value envelope fields were removed`;
+    }
     estimatedTokens = estimatePacket();
   }
 
@@ -584,6 +657,7 @@ export function projectModelContext(packet: CompiledContextPacket): ModelContext
     necessity: item.necessity,
     necessityReason: item.necessityReason,
     admission: item.admission,
+    groundedStatus: item.groundedStatus,
   });
   const projectedCoreContext = dedupeProjectionItems(packet.coreContext.map(projectItem));
   const selectedRoots = new Set(
@@ -651,11 +725,15 @@ export function projectModelContextDelivery(
   options: ProjectModelContextDeliveryOptions = {},
 ): ModelContextDelivery {
   const policy = options.policy ?? "full";
+  const hasOperatorTaskPath = context.coreContext.some((item) =>
+    item.kind === "file"
+    && item.trust === "operator"
+    && context.paths.includes(item.ref));
   const includeBoundaryPaths = policy !== "role-aware"
     && policy !== "summary-aware"
     && policy !== "navigation-only"
     && context.boundaryPaths.length > 0
-    && (context.paths.length > 0 || context.selection.profile !== "compact");
+    && (hasOperatorTaskPath || context.selection.profile !== "compact");
   const { readFirst, supportingContext, routeSummaries } = deliveryTiers(context, policy);
   const deliveredPathSet = new Set(readFirst);
   const sourceSpans = (context.sourceSpans ?? []).filter((span) => deliveredPathSet.has(span.path));
@@ -892,6 +970,8 @@ function legacyDeliveryItem(item: ModelContextProjectionItem): ModelContextProje
     trust: item.trust,
     freshness: item.freshness,
     reason: item.reason,
+    ...(item.groundedStatus ? { groundedStatus: item.groundedStatus } : {}),
+    ...(item.trust === "memory" && item.admission ? { admission: item.admission } : {}),
   };
 }
 

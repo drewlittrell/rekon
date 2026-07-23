@@ -48,6 +48,10 @@ honor that scope.
 - `PermissionPolicy`
 - lifecycle run methods
 
+`ArtifactStore.list(type, { order, limit })` orders by index `writtenAt` and
+applies the limit after ordering. The SDK exposes the same option to capability
+handlers; artifact ids are identities, not timestamps.
+
 Contract source discovery rejects traversal, symlinks, generated workspaces,
 duplicate source IDs, and invalid documents.
 

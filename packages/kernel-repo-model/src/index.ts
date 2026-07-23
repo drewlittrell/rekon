@@ -17,6 +17,7 @@ export * from "./contract-candidates.js";
 export * from "./repository-contract-drift.js";
 export * from "./task-pact.js";
 export * from "./proof-gates.js";
+export * from "./learning-events.js";
 
 export type ObservedSystem = {
   id: string;
@@ -4541,6 +4542,7 @@ export type TaskContextItemKind =
   | "file"
   | "symbol"
   | "capability"
+  | "memory"
   | "semantic_summary"
   | "verification_hint"
   | "do_not_touch"
@@ -4550,7 +4552,10 @@ export type TaskContextItemSource =
   | "deterministic_graph"
   | "semantic_file_understanding"
   | "embedding_retrieval"
+  | "memory"
   | "operator_input";
+
+export type TaskContextGroundedStatus = "unobserved" | "suggestive" | "corroborated";
 
 export type TaskContextScoreBand = "strong" | "useful" | "weak" | "ignored";
 
@@ -4585,6 +4590,8 @@ export type TaskContextAdmission = {
 
 export type TaskContextItem = {
   id: string;
+  /** Stable delivery identity used to join later outcomes to this context. */
+  contextKey?: string;
   kind: TaskContextItemKind;
   path?: string;
   symbolId?: string;
@@ -4594,6 +4601,7 @@ export type TaskContextItem = {
   scoreBand?: TaskContextScoreBand;
   evidenceRefs: string[];
   source: TaskContextItemSource;
+  groundedStatus?: TaskContextGroundedStatus;
   routeRole?: TaskContextRouteRole;
   necessity?: TaskContextRouteNecessity;
   necessityReason?: string;
@@ -4685,6 +4693,7 @@ const TASK_CONTEXT_ITEM_KINDS = new Set<string>([
   "file",
   "symbol",
   "capability",
+  "memory",
   "semantic_summary",
   "verification_hint",
   "do_not_touch",
@@ -4694,8 +4703,10 @@ const TASK_CONTEXT_ITEM_SOURCES = new Set<string>([
   "deterministic_graph",
   "semantic_file_understanding",
   "embedding_retrieval",
+  "memory",
   "operator_input",
 ]);
+const TASK_CONTEXT_GROUNDED_STATUSES = new Set<string>(["unobserved", "suggestive", "corroborated"]);
 const TASK_CONTEXT_SCORE_BANDS = new Set<string>(["strong", "useful", "weak", "ignored"]);
 const TASK_CONTEXT_ROUTE_ROLES = new Set<string>([
   "task-target",
@@ -4748,11 +4759,19 @@ export function createTaskContextReport(input: TaskContextReport): TaskContextRe
     subjectId: item.id,
     verdict: item.source === "operator_input" || item.source === "deterministic_graph"
       ? "supported"
+      : item.source === "memory" && item.groundedStatus === "corroborated"
+        ? "supported"
       : "unresolved",
     reason: item.source === "operator_input"
       ? "Explicit task input is admitted as operator-declared scope."
       : item.source === "deterministic_graph"
         ? "Deterministic graph evidence supports this context item."
+        : item.source === "memory" && item.groundedStatus === "corroborated"
+          ? "Independent grounded outcomes corroborate this scoped memory."
+          : item.source === "memory" && item.groundedStatus === "suggestive"
+            ? "One grounded outcome supports this scoped memory; it remains suggestive rather than fact."
+            : item.source === "memory"
+              ? "This scoped memory is being delivered once as an unresolved trial."
         : "Inferred relevance is admitted as an unresolved lead, not as fact.",
     evidenceRefs: [...item.evidenceRefs],
   }));
@@ -4825,11 +4844,30 @@ function validateTaskContextItem(
   if (typeof value.reason !== "string" || value.reason.trim().length === 0) {
     issues.push({ path: `${path}.reason`, message: "Expected a non-empty string (context items must carry a reason)." });
   }
-  for (const field of ["path", "symbolId", "capabilityId"] as const) {
+  for (const field of ["contextKey", "path", "symbolId", "capabilityId"] as const) {
     const supplied = value[field];
     if (supplied !== undefined && (typeof supplied !== "string" || supplied.length === 0)) {
       issues.push({ path: `${path}.${field}`, message: "Expected a non-empty string when present." });
     }
+  }
+  if (
+    value.groundedStatus !== undefined
+    && (typeof value.groundedStatus !== "string" || !TASK_CONTEXT_GROUNDED_STATUSES.has(value.groundedStatus))
+  ) {
+    issues.push({ path: `${path}.groundedStatus`, message: "Expected unobserved, suggestive, or corroborated when present." });
+  }
+  if (value.source === "memory" || value.kind === "memory") {
+    if (value.source !== "memory" || value.kind !== "memory") {
+      issues.push({ path, message: "Memory context kind and source must both be memory." });
+    }
+    if (value.groundedStatus === undefined) {
+      issues.push({ path: `${path}.groundedStatus`, message: "Memory context must declare grounded status." });
+    }
+    if (typeof value.contextKey !== "string" || !value.contextKey.startsWith("memory:")) {
+      issues.push({ path: `${path}.contextKey`, message: "Memory context must declare a stable memory: context key." });
+    }
+  } else if (value.groundedStatus !== undefined) {
+    issues.push({ path: `${path}.groundedStatus`, message: "Only memory context may declare grounded status." });
   }
   if (value.score !== undefined && typeof value.score !== "number") {
     issues.push({ path: `${path}.score`, message: "Expected a number when present." });

@@ -26,6 +26,9 @@ This package owns deterministic model artifacts derived from evidence:
 - `ContractDriftReport`
 - `TaskPact`
 - `ProofGateReport`
+- `ContextUsageEvent`
+- `OutcomeEvent`
+- `ContextOutcomeEvaluationReport`
 - `RuntimeGraphObservationReport`
 - `SemanticDebtJudgmentReport`
 - `SecurityScanReport`
@@ -99,6 +102,10 @@ complete route description.
 `TaskContextAdmission` records whether each delivered item is supported or
 unresolved and keeps rejected graph claims out of context while preserving an
 audit decision. Legacy reports may omit this additive field.
+`TaskContextItem` supports a `memory` kind and source with a stable
+`contextKey` and `unobserved`, `suggestive`, or `corroborated` grounding
+status. The learning event contracts join that delivered identity to exact
+grounded outcomes; delivery and self-report are not proof of effectiveness.
 Exact `CapabilityEvidenceRef` source excerpts may carry `sourceSha256`, binding
 their line range and text to the scanned source. Consumers must not serve an
 exact source span unless this digest is present and valid.

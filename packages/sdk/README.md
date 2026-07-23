@@ -40,6 +40,10 @@ actuator.
 
 The registry validates duplicate capability ids, duplicate handler ids, role/handler mismatches, unknown permissions, and undeclared handler output.
 
+`ArtifactReader.list(type, { order, limit })` supports bounded chronological
+reads. Capabilities that evaluate recent event streams should request
+`order: "newest"` instead of inferring recency from artifact ids.
+
 `validateCapability()` returns structured conformance issues without throwing.
 `assertCapabilityConforms()` is intended for tests. It validates the manifest,
 registered handlers, permissions, invalidation rules, consumed and produced

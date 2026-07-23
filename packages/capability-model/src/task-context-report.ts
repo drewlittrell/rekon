@@ -123,6 +123,15 @@ export type DeclaredTaskContextPath = {
   necessityReason?: string;
 };
 
+export type GroundedTaskMemoryContext = {
+  id: string;
+  instruction: string;
+  confidence: number;
+  groundedStatus: "unobserved" | "suggestive" | "corroborated";
+  evidenceRefs: string[];
+  reason?: string;
+};
+
 export type BuildTaskContextReportInput = {
   taskText: string;
   paths?: string[];
@@ -151,6 +160,7 @@ export type BuildTaskContextReportInput = {
   inputRefs?: ArtifactRef[];
   declaredConstraints?: DeclaredTaskConstraint[];
   declaredVerificationHints?: DeclaredTaskVerificationHint[];
+  groundedMemory?: GroundedTaskMemoryContext[];
 };
 
 function classifyBand(score: number): TaskContextScoreBand {
@@ -675,19 +685,28 @@ export function selectLexicalGraphContextPaths(
 export function buildTaskContextReport(input: BuildTaskContextReportInput): TaskContextReport {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const taskText = input.taskText ?? "";
-  const paths = (input.paths ?? []).map((p) => p.trim()).filter((p) => p.length > 0);
+  const paths = [...new Set((input.paths ?? []).map((p) => p.trim()).filter((p) => p.length > 0))];
   const graph = input.graph ?? {};
   const graphNodes = graph.nodes ?? [];
   const graphClaims = graph.claims ?? [];
   const graphCapabilities = graph.capabilities ?? [];
   const retrieval = input.retrievalResults ?? [];
+  const graphFilePaths = new Set(
+    graphNodes
+      .filter((node) => node.kind === "file" && typeof node.id === "string" && node.id.length > 0)
+      .map((node) => node.id),
+  );
+  const lexicalPaths = [...new Set((input.lexicalContextPaths ?? [])
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && !paths.includes(p) && graphFilePaths.has(p)))];
+  const taskPaths = [...paths, ...lexicalPaths];
 
   const artifactId = `${TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX}${createHash("sha256")
-    .update(`${taskText}\n${paths.join(",")}\n${generatedAt}`)
+    .update(`${taskText}\n${taskPaths.join(",")}\n${generatedAt}`)
     .digest("hex")
     .slice(0, 16)}`;
   const supersessionKey = `task:${createHash("sha256")
-    .update(`${taskText}\n${[...paths].sort().join(",")}`)
+    .update(`${taskText}\n${[...taskPaths].sort().join(",")}`)
     .digest("hex")}`;
 
   const header: ArtifactHeader = {
@@ -696,7 +715,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     schemaVersion: "0.1.0",
     generatedAt,
     supersession: { key: supersessionKey },
-    subject: { repoId: input.repoId ?? ".", ...(paths.length > 0 ? { paths } : {}) },
+    subject: { repoId: input.repoId ?? ".", ...(taskPaths.length > 0 ? { paths: taskPaths } : {}) },
     producer: { id: "@rekon/capability-model.task-context-report", version: "0.1.0-beta.0" },
     inputRefs: [...(input.inputRefs ?? [])],
     freshness: { status: "fresh" },
@@ -758,12 +777,8 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
   //     file-node paths here. They are REAL deterministic graph nodes (selection
   //     is lexical; the nodes are facts), surfaced as deterministic_graph context
   //     and expanded by step 3 like any selected path. Proposal/context, not proof.
-  const lexicalPaths = (input.lexicalContextPaths ?? [])
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0 && !paths.includes(p));
   for (const path of lexicalPaths) {
     const fileRef: TaskContextGraphRefLike = { kind: "file", id: path };
-    if (!nodeExists(fileRef)) continue; // only surface paths that are real graph nodes
     pushItem(
       {
         kind: "file",
@@ -809,6 +824,32 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
       `declared:${path}`,
     );
     addNeighborhoodNode(fileRef);
+  }
+
+  // 1d. Scoped memory remains supporting context. A new entry may be delivered
+  // once as an unresolved trial; only grounded entries repeat. Neither state
+  // can become repository law or override deterministic graph evidence.
+  for (const memory of input.groundedMemory ?? []) {
+    const instruction = memory.instruction.trim();
+    if (memory.id.trim().length === 0 || instruction.length === 0) continue;
+    pushItem(
+      {
+        contextKey: `memory:${memory.id}`,
+        kind: "memory",
+        reason: `Scoped grounded memory (${memory.groundedStatus}): ${instruction}`,
+        score: memory.confidence,
+        evidenceRefs: [...memory.evidenceRefs],
+        source: "memory",
+        groundedStatus: memory.groundedStatus,
+        ...routeMetadata(
+          "supporting",
+          "supporting",
+          memory.reason
+            ?? "Grounded prior outcomes make this instruction relevant, but it does not replace repository evidence.",
+        ),
+      },
+      `memory:${memory.id}`,
+    );
   }
 
   // 2. Embedding retrieval neighbors: strong + useful are always included; weak
@@ -1073,7 +1114,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
 
   // 4. Constraints from operator text and explicitly supplied repository law.
   const doNotTouch = dedupeConstraints([
-    ...extractDoNotTouchZones(taskText, paths),
+    ...extractDoNotTouchZones(taskText, taskPaths),
     ...(input.declaredConstraints ?? []).map((constraint): TaskContextDoNotTouchZone => ({
       reason: constraint.statement,
       ...(constraint.path ? { path: constraint.path } : {}),
@@ -1104,7 +1145,7 @@ export function buildTaskContextReport(input: BuildTaskContextReportInput): Task
     schemaVersion: "0.1.0",
     task: {
       text: taskText,
-      paths,
+      paths: taskPaths,
       ...(input.goal !== undefined ? { goal: input.goal } : {}),
     },
     selection: {

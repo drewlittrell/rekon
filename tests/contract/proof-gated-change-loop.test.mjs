@@ -16,6 +16,7 @@ import {
   createRuntimeGraphObservationReport,
   createSystemContract,
   createTaskPact,
+  assertOutcomeEvent,
 } from "@rekon/kernel-repo-model";
 import { digestJson } from "@rekon/kernel-artifacts";
 import { createLocalArtifactStore } from "@rekon/runtime";
@@ -30,6 +31,30 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
 
   try {
     await createFixture(root);
+    const addedMemory = runCliJson([
+      "memory", "add",
+      "--instruction", "Keep the bootstrap handoff stable.",
+      "--path", "src/index.ts",
+      "--goal", taskText,
+      "--root", root,
+      "--json",
+    ]);
+    const memoryRef = addedMemory.artifacts.find((entry) => entry.type === "OperatorFeedbackEntry");
+    assert.ok(memoryRef);
+    const delivered = runCliJson([
+      "context", "task",
+      "--task", taskText,
+      "--path", "src/index.ts",
+      "--provider", "mock",
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(delivered.contextUsage.type, "ContextUsageEvent");
+    const trialMemory = delivered.agentContext.supportingContext.find((entry) =>
+      entry.ref === `memory:${memoryRef.id}`);
+    assert.ok(trialMemory);
+    assert.equal(trialMemory.groundedStatus, "unobserved");
+    assert.equal(trialMemory.admission, "unresolved");
     const initial = runCliJson([
       "context", "validate-change",
       "--task", taskText,
@@ -159,6 +184,7 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(completed.proofGate.evaluation.summary.blocked, 0);
     assert.equal(completed.proofGate.evaluation.summary.unresolved, 0);
     assert.equal(completed.proofArtifact.type, "ProofGateReport");
+    assert.equal(completed.outcomeArtifact.type, "OutcomeEvent");
 
     const edgeObligation = completed.proofGate.obligations.find((entry) => entry.id.endsWith(":edge"));
     assert.ok(edgeObligation);
@@ -174,6 +200,11 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(report.sourceState.digest, verification.verificationResult.sourceStateDigest);
     assert.ok(report.header.inputRefs.some((entry) =>
       entry.type === "VerificationResult" && entry.id === futureVerificationRef.id));
+    const verifiedOutcome = assertOutcomeEvent(await store.read(completed.outcomeArtifact));
+    assert.equal(verifiedOutcome.phase, "validation-attempt");
+    assert.equal(verifiedOutcome.status, "verified");
+    assert.equal(verifiedOutcome.proofGateRef.id, completed.proofArtifact.id);
+    assert.equal(verifiedOutcome.sourceState.digest, report.sourceState.digest);
 
     const foreignReport = structuredClone(report);
     foreignReport.header.artifactId = "proof-gate-foreign-repository";
@@ -207,6 +238,47 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(refresh.status, "passed");
     assert.ok(refresh.artifacts.some((entry) => entry.type === "ProofGateReport"));
     assert.equal(refresh.steps.find((step) => step.id === "proof-gate.revalidate")?.status, "passed");
+    const outcomeStep = refresh.steps.find((step) => step.id === "outcome.record");
+    assert.equal(outcomeStep?.status, "passed");
+    const acceptedOutcome = assertOutcomeEvent(await store.read(outcomeStep.artifacts[0]));
+    assert.equal(acceptedOutcome.phase, "proof-gated-refresh");
+    assert.equal(acceptedOutcome.status, "accepted");
+    assert.equal(acceptedOutcome.proofGateRef.id, completed.proofArtifact.id);
+    assert.ok(acceptedOutcome.header.inputRefs.some((entry) =>
+      entry.type === "OutcomeEvent" && entry.id === completed.outcomeArtifact.id));
+    const memoryStep = refresh.steps.find((step) => step.id === "memory.curate");
+    assert.equal(memoryStep?.status, "passed");
+    assert.ok(memoryStep.artifacts.some((entry) => entry.type === "MemoryCurationReport"));
+    const evaluationRef = memoryStep.artifacts.find((entry) => entry.type === "ContextOutcomeEvaluationReport");
+    assert.ok(evaluationRef);
+    const evaluation = await store.read(evaluationRef);
+    assert.ok(evaluation.header.inputRefs.some((entry) =>
+      entry.type === "OutcomeEvent" && entry.id === acceptedOutcome.header.artifactId));
+    const evaluatedMemory = evaluation.items.find((entry) =>
+      entry.subject.kind === "memory-entry" && entry.subject.id === memoryRef.id);
+    assert.equal(evaluatedMemory?.status, "suggestive");
+    assert.equal(evaluatedMemory?.supportingRootKeys.length, 1);
+    const curationRef = memoryStep.artifacts.find((entry) => entry.type === "MemoryCurationReport");
+    assert.ok(curationRef);
+    const curation = await store.read(curationRef);
+    const curatedMemory = curation.items.find((entry) => entry.memoryEntryId === memoryRef.id);
+    assert.equal(curatedMemory?.recommendation, "keep");
+    assert.equal(curatedMemory?.groundedStatus, "suggestive");
+    assert.ok(refresh.steps.indexOf(outcomeStep) < refresh.steps.indexOf(memoryStep));
+
+    const repeatedContext = runCliJson([
+      "context", "task",
+      "--task", taskText,
+      "--path", "src/index.ts",
+      "--provider", "mock",
+      "--root", root,
+      "--json",
+    ]);
+    const repeatedMemory = repeatedContext.agentContext.supportingContext.find((entry) =>
+      entry.ref === `memory:${memoryRef.id}`);
+    assert.ok(repeatedMemory);
+    assert.equal(repeatedMemory.groundedStatus, "suggestive");
+    assert.equal(repeatedMemory.admission, "unresolved");
 
     const observeStep = refresh.steps.find((step) => step.id === "observe");
     const evidenceRef = observeStep?.artifacts?.[0];

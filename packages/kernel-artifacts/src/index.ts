@@ -8,6 +8,41 @@ export type ArtifactRef = {
   schemaVersion: string;
 };
 
+export type ArtifactLineageIssueCode =
+  | "artifact-read-failed"
+  | "header-invalid"
+  | "ref-mismatch"
+  | "cycle-detected"
+  | "depth-limit-reached"
+  | "artifact-limit-reached";
+
+export type ArtifactLineageIssue = {
+  code: ArtifactLineageIssueCode;
+  message: string;
+  ref?: ArtifactRef;
+  path?: ArtifactRef[];
+};
+
+export type ArtifactLineageRoot = {
+  key: string;
+  ref: ArtifactRef;
+  seedRefs: ArtifactRef[];
+};
+
+/**
+ * Bounded derivation-lineage result for a set of artifact refs. Roots are
+ * artifacts with no declared input refs. A root shared by multiple seeds is
+ * one evidence origin, not independent corroboration.
+ */
+export type ArtifactLineageAssessment = {
+  seedRefs: ArtifactRef[];
+  roots: ArtifactLineageRoot[];
+  sharedRootKeys: string[];
+  visitedArtifacts: number;
+  complete: boolean;
+  issues: ArtifactLineageIssue[];
+};
+
 export type ArtifactInvalidationInput = {
   kind: "source" | "config";
   path: string;
@@ -188,6 +223,128 @@ export const artifactRefSchema: ArtifactSchema<ArtifactRef> = {
   validate: validateArtifactRef,
   parse: assertArtifactRef,
 };
+
+export function artifactRefKey(ref: ArtifactRef): string {
+  return `${ref.type}:${ref.id}:${ref.schemaVersion}`;
+}
+
+export function artifactLineageRootKey(ref: ArtifactRef): string {
+  return artifactRefKey(ref);
+}
+
+export function validateArtifactLineageAssessment(
+  value: unknown,
+): ValidationResult<ArtifactLineageAssessment> {
+  const issues: ValidationIssue[] = [];
+
+  if (!isRecord(value)) {
+    return { ok: false, issues: [{ path: "$", message: "Expected an object." }] };
+  }
+
+  validateArtifactRefArray(value.seedRefs, "$.seedRefs", issues);
+  if (!Array.isArray(value.roots)) {
+    issues.push({ path: "$.roots", message: "Expected an array." });
+  } else {
+    value.roots.forEach((root, index) => {
+      const path = `$.roots[${index}]`;
+      if (!isRecord(root)) {
+        issues.push({ path, message: "Expected an object." });
+        return;
+      }
+      pushRequiredStringIssue(issues, root.key, `${path}.key`);
+      appendNestedIssues(issues, validateArtifactRef(root.ref).issues, `${path}.ref`);
+      validateArtifactRefArray(root.seedRefs, `${path}.seedRefs`, issues);
+    });
+  }
+  if (!isStringArray(value.sharedRootKeys)) {
+    issues.push({ path: "$.sharedRootKeys", message: "Expected an array of strings." });
+  }
+  if (!Number.isInteger(value.visitedArtifacts) || Number(value.visitedArtifacts) < 0) {
+    issues.push({ path: "$.visitedArtifacts", message: "Expected a non-negative integer." });
+  }
+  if (typeof value.complete !== "boolean") {
+    issues.push({ path: "$.complete", message: "Expected a boolean." });
+  }
+  if (!Array.isArray(value.issues)) {
+    issues.push({ path: "$.issues", message: "Expected an array." });
+  } else {
+    value.issues.forEach((issue, index) => validateArtifactLineageIssue(
+      issue,
+      `$.issues[${index}]`,
+      issues,
+    ));
+  }
+
+  return issues.length > 0
+    ? { ok: false, issues }
+    : { ok: true, value: value as ArtifactLineageAssessment, issues: [] };
+}
+
+export function assertArtifactLineageAssessment(value: unknown): ArtifactLineageAssessment {
+  return assertValid(validateArtifactLineageAssessment(value), "ArtifactLineageAssessment");
+}
+
+export const artifactLineageAssessmentSchema: ArtifactSchema<ArtifactLineageAssessment> = {
+  validate: validateArtifactLineageAssessment,
+  parse: assertArtifactLineageAssessment,
+};
+
+const ARTIFACT_LINEAGE_ISSUE_CODES = new Set<ArtifactLineageIssueCode>([
+  "artifact-read-failed",
+  "header-invalid",
+  "ref-mismatch",
+  "cycle-detected",
+  "depth-limit-reached",
+  "artifact-limit-reached",
+]);
+
+function validateArtifactRefArray(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!Array.isArray(value)) {
+    issues.push({ path, message: "Expected an array." });
+    return;
+  }
+  value.forEach((ref, index) => {
+    appendNestedIssues(issues, validateArtifactRef(ref).issues, `${path}[${index}]`);
+  });
+}
+
+function validateArtifactLineageIssue(
+  value: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (!isRecord(value)) {
+    issues.push({ path, message: "Expected an object." });
+    return;
+  }
+  if (!ARTIFACT_LINEAGE_ISSUE_CODES.has(value.code as ArtifactLineageIssueCode)) {
+    issues.push({ path: `${path}.code`, message: "Expected a supported lineage issue code." });
+  }
+  pushRequiredStringIssue(issues, value.message, `${path}.message`);
+  if (value.ref !== undefined) {
+    appendNestedIssues(issues, validateArtifactRef(value.ref).issues, `${path}.ref`);
+  }
+  if (value.path !== undefined) {
+    validateArtifactRefArray(value.path, `${path}.path`, issues);
+  }
+}
+
+function appendNestedIssues(
+  target: ValidationIssue[],
+  nested: ValidationIssue[],
+  prefix: string,
+): void {
+  for (const issue of nested) {
+    target.push({
+      path: issue.path === "$" ? prefix : `${prefix}${issue.path.slice(1)}`,
+      message: issue.message,
+    });
+  }
+}
 
 export function validateArtifactHeader(value: unknown): ValidationResult<ArtifactHeader> {
   const issues: ValidationIssue[] = [];

@@ -106,7 +106,9 @@ and task-operation policy. Both check task-local
 freshness before compiling context; stale source evidence triggers an
 incremental refresh of Rekon artifacts. The CLI host owns those writes. Neither
 surface writes repository source or executes project commands. Use
-`--no-auto-refresh` only to inspect existing artifact state. When the capability
+`--no-auto-refresh` only to inspect existing artifact state. Exact source
+digests are still checked; stale excerpts and their dependent graph routes are
+omitted with a warning. When the capability
 graph binds a requested path to a configured `CapabilityContract`, both
 surfaces include its declared pacts and required checks. Adopted system or flow
 law is selected through the same `TaskPact` rules.
@@ -124,7 +126,8 @@ incremental refresh:
 
 ```sh
 rekon context validate-change --task "<task>" --changed-path <path> \
-  --base-ref HEAD --verification-result <VerificationResult:id> \
+  --base-ref HEAD --context-usage <ContextUsageEvent:id> \
+  --verification-result <VerificationResult:id> \
   --judgment-json '<judgments>' --record-proof --json
 rekon refresh --proof-gate <ProofGateReport:id> --json
 ```
@@ -135,7 +138,8 @@ the refreshed evidence lineage, preserves unaffected evidence, rebuilds models
 and governance, reconciles adopted repository law, writes a current snapshot,
 regenerates agent guidance, repository summary, architecture summary, proof
 report, agent contract, and managed `AGENTS.md` instructions, then validates
-artifacts and freshness. Confirmed contract drift fails the refresh. The CLI
+artifacts and freshness. It records the accepted outcome and refreshes grounded
+memory curation before completion. Confirmed contract drift fails the refresh. The CLI
 re-reads the gate and compares source bytes again after the final write so a
 mid-refresh edit cannot advance accepted knowledge.
 
@@ -158,6 +162,9 @@ to a model. When exact deterministic evidence exists, the payload includes
 bounded, source-digest-bound `sourceSpans` for delivered `readFirst` paths.
 Extension and placement tasks may also receive one inference-tagged repository
 exemplar with a deterministic source span when the profile budget permits.
+Task-scoped memory carries `memory` trust and remains supporting context. One
+matching, unobserved entry may appear once; only suggestive or corroborated
+entries repeat.
 Normal `--json` retains the full audit-oriented `agentContext`, including
 evidence, routing reasons, budgets, and selection trace.
 
@@ -169,9 +176,11 @@ and matched contract guidance; it does not invoke embedding or model providers
 and does not write an artifact.
 
 After editing, run `rekon context validate-change --task "<task>"
---changed-path <path> --base-ref HEAD --json`. Repeat `--changed-path` for the
-complete task diff. The command reads Git and current source, reuses the
-matching TaskPact when available, and returns blocking violations, unresolved
+--changed-path <path> --base-ref HEAD --context-usage
+<ContextUsageEvent:id> --json`. Use the ref returned by the task-context call
+and repeat `--changed-path` for the complete task diff. The command reads Git
+and current source, reuses the exact delivered TaskPact and context when the ref
+is supplied, and returns blocking violations, unresolved
 semantic obligations, required checks, selection provenance, proof-local
 corrective context, and a typed proof gate. The check list preserves explicit
 task checks and narrows contract checks to systems, flows, and capabilities

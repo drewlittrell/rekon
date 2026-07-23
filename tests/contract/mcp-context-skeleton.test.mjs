@@ -18,7 +18,7 @@ const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
 const cliEntry = join(repoRoot, "packages/cli/dist/index.js");
 const mcp = await import(join(repoRoot, "packages/mcp/dist/index.js"));
 
-const SERVABLE = new Set(["deterministic", "declared", "inference", "operator"]);
+const SERVABLE = new Set(["deterministic", "declared", "inference", "memory", "operator"]);
 
 // --- tiny stdio JSON-RPC client over a spawned `rekon mcp serve` ---------
 
@@ -61,6 +61,20 @@ function startServer(root) {
 
 const toolPayload = (result) => JSON.parse(result.result.content[0].text);
 
+function artifactHeader(type, id, subjectRepoId, inputRefs) {
+  return {
+    artifactType: type,
+    artifactId: id,
+    schemaVersion: "0.1.0",
+    generatedAt: new Date().toISOString(),
+    subject: { repoId: subjectRepoId },
+    producer: { id: "@rekon/test.mcp-context", version: "1.0.0" },
+    inputRefs,
+    freshness: { status: "fresh" },
+    provenance: { confidence: 1, notes: ["MCP context fixture"] },
+  };
+}
+
 // Trust-class coverage walker: every primitive leaf inside `data` must sit
 // inside a {value, trust} envelope with a servable class.
 function assertTrustCoverage(node, path = "data") {
@@ -95,6 +109,7 @@ before(async () => {
   fixtureRoot = mkdtempSync(join(tmpdir(), "rekon-mcp-fixture-"));
   emptyRoot = mkdtempSync(join(tmpdir(), "rekon-mcp-empty-"));
   cpSync(join(repoRoot, "examples/simple-js-ts"), fixtureRoot, { recursive: true });
+  rmSync(join(fixtureRoot, ".rekon"), { recursive: true, force: true });
 
   const refresh = spawnSync(process.execPath, [cliEntry, "refresh", "--root", fixtureRoot, "--json"], {
     encoding: "utf8",
@@ -315,6 +330,58 @@ before(async () => {
   });
   assert.equal(compile.status, 0, compile.stderr || compile.stdout);
 
+  const memoryEntryRef = await store.write({
+    header: artifactHeader("OperatorFeedbackEntry", "mcp-grounded-memory", fixtureRoot, []),
+    instruction: "Preserve bootstrap ordering.",
+    scope: { paths: ["src"] },
+    confidence: 1,
+    status: "active",
+  }, { category: "actions" });
+  const evaluationRef = await store.write({
+    header: artifactHeader("ContextOutcomeEvaluationReport", "mcp-memory-evaluation", fixtureRoot, [memoryEntryRef]),
+    policyVersion: "grounded-context-outcomes.v1",
+    items: [],
+    lineage: { complete: true, sharedRootKeys: [], issueCodes: [] },
+    summary: { total: 0, unobserved: 0, associated: 0, suggestive: 0, corroborated: 0, refuted: 0 },
+  }, { category: "publications" });
+  await store.write({
+    header: artifactHeader("MemoryCurationReport", "mcp-memory-curation", fixtureRoot, [memoryEntryRef, evaluationRef]),
+    policyVersion: "grounded-memory-curation.v2",
+    groundedEvaluationRef: evaluationRef,
+    summary: {
+      totalMemories: 1,
+      totalUsageEvents: 0,
+      keep: 0,
+      reinforce: 1,
+      review: 0,
+      deprecate: 0,
+      supersedeCandidate: 0,
+    },
+    items: [{
+      memoryEntryId: memoryEntryRef.id,
+      instruction: "Preserve bootstrap ordering.",
+      recommendation: "reinforce",
+      helpfulCount: 0,
+      ignoredCount: 0,
+      harmfulCount: 0,
+      staleCount: 0,
+      unclearCount: 0,
+      score: 2,
+      reasons: ["independent-grounded-corroboration"],
+      groundedStatus: "corroborated",
+      supportingRootCount: 2,
+      refutingRootCount: 0,
+      legacySignalCount: 0,
+    }],
+  }, { category: "publications" });
+  await store.write({
+    header: artifactHeader("OperatorFeedbackEntry", "mcp-unobserved-memory", fixtureRoot, []),
+    instruction: "Prefer a different bootstrap sequence.",
+    scope: { paths: ["src"] },
+    confidence: 1,
+    status: "active",
+  }, { category: "actions" });
+
   for (const args of [
     ["init", "-q"],
     ["add", "src", "package.json", "rekon"],
@@ -371,6 +438,7 @@ test("protocol: initialize + tools/list expose the model context tools with sche
   ]);
   const validation = list.result.tools.find((tool) => tool.name === "validate_change");
   assert.deepEqual(validation.inputSchema.required, ["task", "changedPaths"]);
+  assert.equal(validation.inputSchema.properties.contextUsageRef.type, "string");
   assert.deepEqual(validation.inputSchema.properties.judgments.items.required, ["obligationId", "verdict", "explanation"]);
 });
 
@@ -473,7 +541,7 @@ test("trust-class coverage: every leaf in all fixture responses carries a servab
   assertTrustCoverage(validation.data);
 });
 
-test("context_for_task returns compact budgeted graph context without writing", async () => {
+test("context_for_task returns compact budgeted graph context and records delivery", async () => {
   const result = await server.rpc("tools/call", {
     name: "context_for_task",
     arguments: { task: "modify bootstrap", paths: ["src/index.ts"], profile: "compact" },
@@ -486,13 +554,32 @@ test("context_for_task returns compact budgeted graph context without writing", 
   assert.equal(payload.data.context.operation.context.profile.value, "compact");
   assert.equal(payload.data.context.operation.risk.tier.value, "high");
   assert.equal(payload.data.context.operation.intent.mode.value, "work-order");
+  assert.match(
+    payload.data.context.contextUsageRef.value,
+    /^ContextUsageEvent:context-usage-/u,
+  );
+  assert.equal(payload.data.context.contextUsageRef.trust, "deterministic");
   assert.equal(
     payload.data.context.operation.intent.command.value,
     "rekon intent work-order --path <path> --goal <goal> --json",
   );
   assert.ok(Array.isArray(payload.data.context.constraints));
   assert.ok(Array.isArray(payload.data.context.checks));
-  assert.ok(Array.isArray(payload.data.context.sourceSpans));
+  assert.ok(
+    Array.isArray(payload.data.context.sourceSpans),
+    "expected deterministic source spans in compact context",
+  );
+  assert.ok(
+    Array.isArray(payload.data.context.supportingContext),
+    "expected grounded memory supporting context",
+  );
+  const memory = payload.data.context.supportingContext.find((item) =>
+    item.ref.value === "memory:mcp-grounded-memory");
+  assert.equal(memory.trustClass.value, "memory");
+  assert.equal(memory.groundedStatus.value, "corroborated");
+  assert.equal(memory.admission.value, "supported");
+  assert.equal(payload.data.context.supportingContext.some((item) =>
+    item.ref.value === "memory:mcp-unobserved-memory"), false);
   assert.ok(payload.data.context.sourceSpans.some((span) =>
     span.path.value === "src/index.ts"
     && /^[a-f0-9]{64}$/u.test(span.sourceSha256.value)
@@ -501,12 +588,42 @@ test("context_for_task returns compact budgeted graph context without writing", 
     && span.excerpt.trust === "deterministic"));
   assert.match(payload.data.context.instruction.value, /Look up only task-required targets named by inspected source/);
   assert.match(payload.data.context.instruction.value, /Batch-read every readFirst path/);
-  assert.ok(Buffer.byteLength(JSON.stringify(payload.data.context), "utf8") < 4 * 1024);
+  assert.ok(Buffer.byteLength(JSON.stringify(payload.data.context), "utf8") < 5 * 1024);
   assert.equal("paths" in payload.data.context, false);
   assert.equal("coreContext" in payload.data.context, false);
   assert.equal("selection" in payload.data.context, false);
   assert.equal("contextTrace" in payload.data.context, false);
   assert.equal("evidence" in payload.data.context, false);
+
+  const store = createLocalArtifactStore(fixtureRoot);
+  await store.init();
+  const usageEntry = (await store.list("ContextUsageEvent")).find((entry) =>
+    `${entry.type}:${entry.id}` === payload.data.context.contextUsageRef.value);
+  assert.ok(usageEntry);
+  const usage = await store.read(usageEntry);
+  assert.equal(`${usageEntry.type}:${usageEntry.id}`, payload.data.context.contextUsageRef.value);
+  assert.equal(usage.delivery.channel, "mcp");
+  assert.equal(usage.contextReportRef.type, "TaskContextReport");
+  assert.deepEqual(usage.claims, []);
+});
+
+test("attaching a context usage ref preserves the MCP response ceiling", () => {
+  const compiled = mcp.compileContextForTaskForHost(
+    fixtureRoot,
+    "modify bootstrap",
+    ["src/index.ts"],
+  );
+  compiled.response.data.padding = "x".repeat(mcp.TASK_CONTEXT_RESPONSE_CEILING_BYTES);
+  const response = mcp.attachContextUsageRefToTaskContextResponse(compiled, {
+    type: "ContextUsageEvent",
+    id: "context-usage-ceiling",
+    schemaVersion: "0.1.0",
+  });
+
+  assert.equal(response.truncated, true);
+  assert.ok(
+    Buffer.byteLength(JSON.stringify(response), "utf8") <= mcp.TASK_CONTEXT_RESPONSE_CEILING_BYTES,
+  );
 });
 
 test("context_for_task serves one inferred exemplar with deterministic source binding", async () => {
@@ -813,11 +930,22 @@ test("preflight_change returns ownership, checks, risk, and resolution trace wit
   assert.ok(payload.data.preflight.resolutionTrace.length > 0);
 });
 
-test("validate_change compares Git and current source without persisting or running checks", async () => {
+test("validate_change records a grounded outcome without running checks", async () => {
   const sourcePath = join(fixtureRoot, "src/index.ts");
   const original = readFileSync(sourcePath, "utf8");
   const store = createLocalArtifactStore(fixtureRoot);
   const beforeIndex = await store.list();
+  const context = toolPayload(await server.rpc("tools/call", {
+    name: "context_for_task",
+    arguments: {
+      task: "modify bootstrap",
+      paths: ["src/index.ts", "src/runtime.ts"],
+      profile: "compact",
+    },
+  })).data.context;
+  const contextUsageRef = context.contextUsageRef.value;
+  assert.match(contextUsageRef, /^ContextUsageEvent:context-usage-/u);
+  let recordedOutcomeRef;
   try {
     writeFileSync(sourcePath, `${original}\n// post-edit validation fixture\n`, "utf8");
     const result = await server.rpc("tools/call", {
@@ -826,6 +954,7 @@ test("validate_change compares Git and current source without persisting or runn
         task: "modify bootstrap",
         changedPaths: ["src/index.ts"],
         baseRef: "HEAD",
+        contextUsageRef,
       },
     });
     const payload = toolPayload(result);
@@ -833,6 +962,9 @@ test("validate_change compares Git and current source without persisting or runn
 
     assert.equal(result.result.isError, false);
     assert.equal(validation.status.value, "needs-judgment");
+    assert.match(validation.outcomeRef.value, /^OutcomeEvent:outcome-validation-/u);
+    assert.equal(validation.outcomeRef.trust, "deterministic");
+    recordedOutcomeRef = validation.outcomeRef.value;
     assert.equal(validation.proofGate.status.value, "incomplete");
     assert.ok(validation.proofGate.obligations.length > 0);
     assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
@@ -849,6 +981,7 @@ test("validate_change compares Git and current source without persisting or runn
       "blockingViolations",
       "checkSelection",
       "correctiveContext",
+      "outcomeRef",
       "proofGate",
       "requiredChecks",
       "status",
@@ -868,6 +1001,8 @@ test("validate_change compares Git and current source without persisting or runn
       "src/index.ts",
       "--base-ref",
       "HEAD",
+      "--context-usage",
+      contextUsageRef,
       "--json",
     ], { encoding: "utf8", timeout: 15000 });
     assert.equal(cli.status, 0, cli.stderr || cli.stdout);
@@ -877,6 +1012,7 @@ test("validate_change compares Git and current source without persisting or runn
       "blockingViolations",
       "checkSelection",
       "correctiveContext",
+      "outcomeArtifact",
       "proofGate",
       "requiredChecks",
       "status",
@@ -886,7 +1022,19 @@ test("validate_change compares Git and current source without persisting or runn
   } finally {
     writeFileSync(sourcePath, original, "utf8");
   }
-  assert.deepEqual(await store.list(), beforeIndex);
+  const afterIndex = await store.list();
+  assert.ok(afterIndex.length >= beforeIndex.length + 1);
+  const outcomeEntry = afterIndex.find((entry) =>
+    `${entry.type}:${entry.id}` === recordedOutcomeRef);
+  assert.ok(outcomeEntry);
+  const outcome = await store.read(outcomeEntry);
+  assert.equal(outcome.phase, "validation-attempt");
+  assert.equal(outcome.status, "incomplete");
+  assert.deepEqual(
+    outcome.contextUsageRefs.map((ref) => `${ref.type}:${ref.id}`),
+    [contextUsageRef],
+  );
+  assert.ok(outcome.header.inputRefs.some((entry) => entry.type === "TaskContextReport"));
 });
 
 test("CLI validate-change does not initialize Rekon in an unscanned Git repository", () => {
@@ -1060,9 +1208,10 @@ test("MCP artifact reader refuses forged index paths outside .rekon/artifacts", 
 test("the trust gate is enforced by construction: tag() refuses unservable classes", () => {
   assert.equal(mcp.tag("x", "declared").trust, "declared");
   assert.equal(mcp.tag("x", "inference").trust, "inference");
+  assert.equal(mcp.tag("x", "memory").trust, "memory");
   assert.equal(mcp.tag("x", "operator").trust, "operator");
 
-  assert.throws(() => mcp.tag("x", "memory"), /not servable/);
+  assert.throws(() => mcp.tag("x", "untrusted"), /not servable/);
 });
 
 test("read-only structurally: no process, network, or write capability in @rekon/mcp source", () => {

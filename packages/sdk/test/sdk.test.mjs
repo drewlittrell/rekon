@@ -5,6 +5,7 @@ import {
   assertCapabilityConforms,
   createCapabilityRegistry,
   defineCapability,
+  resolveArtifactLineage,
   validateCapability,
 } from "../dist/index.js";
 
@@ -50,6 +51,72 @@ function sampleCapability(overrides = {}) {
     },
   });
 }
+
+function artifact(type, id, inputRefs = []) {
+  return {
+    header: {
+      artifactType: type,
+      artifactId: id,
+      schemaVersion: "0.1.0",
+      generatedAt: "2026-07-22T20:00:00.000Z",
+      subject: { repoId: "rekon" },
+      producer: { id: "@rekon/test", version: "1.0.0" },
+      inputRefs,
+    },
+  };
+}
+
+function ref(type, id) {
+  return { type, id, schemaVersion: "0.1.0" };
+}
+
+test("artifact lineage resolves shared root observations without double counting", async () => {
+  const root = ref("VerificationRun", "run-1");
+  const first = ref("VerificationResult", "result-1");
+  const second = ref("ProofGateReport", "proof-1");
+  const values = new Map([
+    ["VerificationRun:run-1:0.1.0", artifact("VerificationRun", "run-1")],
+    ["VerificationResult:result-1:0.1.0", artifact("VerificationResult", "result-1", [root])],
+    ["ProofGateReport:proof-1:0.1.0", artifact("ProofGateReport", "proof-1", [root])],
+  ]);
+  const artifacts = {
+    async read(artifactRef) {
+      const value = values.get(`${artifactRef.type}:${artifactRef.id}:${artifactRef.schemaVersion}`);
+      if (!value) throw new Error("missing fixture");
+      return value;
+    },
+    async list() {
+      return [];
+    },
+  };
+
+  const lineage = await resolveArtifactLineage(artifacts, [first, second]);
+
+  assert.equal(lineage.complete, true);
+  assert.equal(lineage.visitedArtifacts, 3);
+  assert.deepEqual(lineage.roots, [{ key: "VerificationRun:run-1:0.1.0", ref: root, seedRefs: [second, first] }]);
+  assert.deepEqual(lineage.sharedRootKeys, ["VerificationRun:run-1:0.1.0"]);
+});
+
+test("artifact lineage fails closed on cycles", async () => {
+  const first = ref("Artifact", "first");
+  const second = ref("Artifact", "second");
+  const values = new Map([
+    ["Artifact:first:0.1.0", artifact("Artifact", "first", [second])],
+    ["Artifact:second:0.1.0", artifact("Artifact", "second", [first])],
+  ]);
+  const lineage = await resolveArtifactLineage({
+    async read(artifactRef) {
+      return values.get(`${artifactRef.type}:${artifactRef.id}:${artifactRef.schemaVersion}`);
+    },
+    async list() {
+      return [];
+    },
+  }, [first]);
+
+  assert.equal(lineage.complete, false);
+  assert.ok(lineage.issues.some((issue) => issue.code === "cycle-detected"));
+});
 
 test("SDK registers multiple capabilities and exposes a registry snapshot", () => {
   const registry = createCapabilityRegistry();

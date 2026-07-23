@@ -150,6 +150,54 @@ test("operator-provided path becomes a context item", () => {
   assert.match(item?.necessityReason ?? "", /operator explicitly named/iu);
 });
 
+test("pathless lexical anchors become the exact resolved task scope", () => {
+  const report = buildTaskContextReport({
+    taskText: "Modify the user lookup implementation.",
+    graph: GRAPH_FIXTURE,
+    lexicalContextPaths: ["src/users/get-user.ts", "missing.ts", "src/users/get-user.ts"],
+    generatedAt: AT,
+    repoId: ".",
+  });
+
+  assert.deepEqual(report.task.paths, ["src/users/get-user.ts"]);
+  assert.deepEqual(report.header.subject.paths, ["src/users/get-user.ts"]);
+  assert.ok(report.contextItems.some((item) =>
+    item.path === "src/users/get-user.ts"
+    && item.source === "deterministic_graph"
+    && item.routeRole === "task-target"));
+});
+
+test("memory context requires a stable identity and grounded status", () => {
+  const report = buildTaskContextReport({
+    taskText: TASK,
+    paths: ["src/index.ts"],
+    graph: GRAPH_FIXTURE,
+    retrievalResults: [],
+    groundedMemory: [{
+      id: "preserve-bootstrap",
+      instruction: "Preserve bootstrap behavior.",
+      confidence: 0.9,
+      groundedStatus: "suggestive",
+      evidenceRefs: ["OperatorFeedbackEntry:preserve-bootstrap"],
+    }],
+    generatedAt: AT,
+    repoId: ".",
+  });
+  const memory = report.contextItems.find((item) => item.kind === "memory");
+  assert.equal(memory?.source, "memory");
+  assert.equal(memory?.contextKey, "memory:preserve-bootstrap");
+  assert.equal(memory?.groundedStatus, "suggestive");
+  assert.equal(validateTaskContextReport(report).ok, true);
+
+  const mismatched = structuredClone(report);
+  mismatched.contextItems.find((item) => item.kind === "memory").kind = "file";
+  assert.equal(validateTaskContextReport(mismatched).ok, false);
+
+  const missingIdentity = structuredClone(report);
+  delete missingIdentity.contextItems.find((item) => item.kind === "memory").contextKey;
+  assert.equal(validateTaskContextReport(missingIdentity).ok, false);
+});
+
 test("route metadata is additive and legacy TaskContextReport items still validate", () => {
   const legacy = structuredClone(baseReport);
   for (const item of legacy.contextItems) {

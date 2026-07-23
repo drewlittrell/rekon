@@ -279,6 +279,7 @@ export {
   type DeclaredTaskConstraint,
   type DeclaredTaskContextPath,
   type DeclaredTaskVerificationHint,
+  type GroundedTaskMemoryContext,
   TASK_CONTEXT_REPORT_ARTIFACT_ID_PREFIX,
   DEFAULT_LEXICAL_FALLBACK_LIMIT,
   buildTaskContextReport,
@@ -460,6 +461,16 @@ export {
   estimateModelContextDeliveryTokens,
   renderTaskContextMarkdown,
 } from "./context-compiler.js";
+
+export {
+  type BuildContextUsageEventInput,
+  buildContextUsageEvent,
+} from "./context-usage.js";
+
+export {
+  type TaskContextSourceEvidenceGateResult,
+  excludeStaleTaskContextSourceEvidence,
+} from "./task-context-source-gate.js";
 
 export {
   TASK_CONTEXT_REFINEMENT_RELATIONSHIPS,

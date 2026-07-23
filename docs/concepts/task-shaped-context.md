@@ -10,6 +10,9 @@ returns a compact model-delivery projection. Both gateways first compare the
 requested scope with the latest evidence and refresh Rekon artifacts when
 needed. The refresh is deterministic and source-safe; `--no-auto-refresh`
 disables it for deliberate artifact-state inspection.
+When no path is supplied, deterministic graph and lexical anchors become the
+report's resolved task paths, so its identity matches the scope Rekon actually
+selected rather than an empty caller input.
 
 Profiles provide reviewed selection budgets:
 
@@ -40,6 +43,14 @@ graph claims are excluded and retained only in the audit packet's
 `refutedContext`. A model-facing packet must not turn an unresolved route into a
 repository fact.
 
+Scoped memory is a separate supporting trust class. Rekon may admit one
+matching, unobserved entry once as an unresolved trial. One independent proof
+group makes it `suggestive`, two make it `corroborated`, and counterevidence
+makes it `refuted`. Only suggestive or corroborated entries repeat;
+corroborated memory is supported while suggestive memory remains unresolved.
+Every delivery preserves a stable `memory:<entry-id>` identity so later
+outcomes can be joined without fuzzy task or timestamp matching.
+
 The audit report may retain several evidence routes to the same file. Packet
 selection collapses those routes by context identity and keeps operator or
 declared-law routing first, so duplicate graph claims cannot consume the budget
@@ -54,6 +65,10 @@ refreshed before context is compiled. Profile limits cap both span count and
 total excerpt characters. Spans are entry points into selected source, not a
 replacement for inspecting the implementation or proof that the surrounding
 code is correct. A delivery policy that omits a path also omits its span.
+CLI and MCP recheck bound digests immediately before delivery, including when
+automatic refresh is disabled. A mismatch removes the exact evidence and its
+dependent graph routes and adds a warning. Packet pressure removes advisory
+memory before an exact current source span.
 
 For tasks that add or place an established extension point, the compiler may
 also include one `repositoryExemplar`. Cached similarity proposes the path, so
@@ -153,6 +168,14 @@ The call is also the rehydration boundary. Managed instructions require a fresh
 task-context request after context compaction or restart and whenever the goal
 or known path scope materially changes. The root instruction file remains a
 small bootloader; dynamic repository law stays in task-selected artifacts.
+
+CLI and MCP hosts write a `ContextUsageEvent` for the exact delivered
+projection. Post-edit validation writes an `OutcomeEvent`, and a successful
+proof-gated refresh records the accepted outcome before running memory
+curation. The context response returns its exact usage ref; passing it to
+`validate_change` preserves delivery lineage when pathless resolution found a
+broader scope than the final diff. Delivery alone never counts as use, and a
+model's self-report cannot promote memory.
 
 ## Route Semantics
 

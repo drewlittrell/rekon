@@ -192,6 +192,7 @@ export type ChangeValidationResult = {
   };
   baseline: {
     taskPactRef?: ArtifactRef;
+    taskContextRef?: ArtifactRef;
     files: ChangeFileEvidence[];
   };
   boundaries: {
@@ -461,6 +462,7 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     correctiveContext,
     baseline: {
       ...(pactRef ? { taskPactRef: pactRef } : {}),
+      ...(input.taskContextRef ? { taskContextRef: input.taskContextRef } : {}),
       files: files.sort((left, right) => left.path.localeCompare(right.path)),
     },
     boundaries: {
