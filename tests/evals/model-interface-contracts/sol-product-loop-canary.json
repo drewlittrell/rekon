@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "capturedAt": "2026-07-23T04:22:16.629Z",
+  "capturedAt": "2026-07-23T16:53:09.924Z",
   "status": "canary",
   "runner": {
     "id": "codex-subscription",
@@ -9,14 +9,14 @@
     "reasoningEffort": "xhigh"
   },
   "campaign": {
-    "id": "model-interface-9c10cc898f84e60f",
-    "gitCommit": "3d2d4e2af429ecec0d8a1446cc50e4a10010f3e7",
+    "id": "model-interface-5ab31a21aaf0ffef",
+    "gitCommit": "3a25eec3a456e70c57670e1961f04cfda45ba4f1",
     "dirty": true,
     "corpus": "contracts",
-    "corpusDigest": "e0d991dd3117c236fe98109d19c8560ed1ac024edf7616eeae508df424e63047",
-    "interfaceDigest": "7402b533545a699b920c490d68c7361c553dd62d895b43f4ab79a28a441199d0",
-    "managedInstructionsVersion": "2.0.4",
-    "mcpServerVersion": "1.4.2"
+    "corpusDigest": "474edc2a34e36b7f736c134fb3e366e5b17467c1981262c181816488ae0ee95c",
+    "interfaceDigest": "dea5305a54fc0e55a9ec4342a513940db509712c8e17bf97c24cb5226a478784",
+    "managedInstructionsVersion": "2.0.6",
+    "mcpServerVersion": "1.4.4"
   },
   "caseId": "atomic-experience-composition",
   "delivery": "managed",
@@ -44,12 +44,16 @@
   },
   "productLoop": {
     "passed": true,
-    "validationCalls": 5,
+    "validationCalls": 6,
+    "contextClaimReceiptRecorded": true,
     "contextClaimCoverage": 1,
     "verificationPlanRecorded": true,
     "verificationRunPassed": true,
     "verificationSourceStable": true,
     "verificationResultPassed": true,
+    "placementVerificationTrusted": true,
+    "trustedPlacementReports": 1,
+    "untrustedPlacementReports": 0,
     "proofGateSatisfied": true,
     "validationOutcomeVerified": true,
     "refreshOutcomeAccepted": true,
@@ -57,32 +61,31 @@
     "refreshLatestMajorFresh": true,
     "managedInstructionsCurrent": true
   },
-  "metrics": {
-    "elapsedMs": 589565,
-    "exploredPaths": 15,
-    "commands": 57,
-    "failedCommands": 6,
-    "subscriptionTokens": {
-      "input": 6341462,
-      "cachedInput": 6161152,
-      "nonCachedInput": 180310,
-      "output": 23730,
-      "reasoningOutput": 9918,
-      "total": 6365192
-    },
-    "visibleEstimatedTokens": 117540
+  "independentPlacement": {
+    "verdict": "supported",
+    "signedReports": 1,
+    "trusted": true,
+    "privateKeyExposedToActor": false
   },
-  "observerCorrection": {
-    "reason": "The original shell-text command recall missed the exact passed command retained by VerificationResult.",
-    "method": "Merged passed typed verification commands into agent check recall and re-ran the unchanged independent scorer.",
-    "preCorrectionQualityScore": 0.8571,
-    "postCorrectionQualityScore": 1,
-    "postCorrectionPassed": true
+  "metrics": {
+    "elapsedMs": 317198,
+    "exploredPaths": 12,
+    "commands": 19,
+    "failedCommands": 4,
+    "subscriptionTokens": {
+      "input": 1786573,
+      "cachedInput": 1675264,
+      "nonCachedInput": 111309,
+      "output": 12077,
+      "reasoningOutput": 5152,
+      "total": 1798650
+    },
+    "visibleEstimatedTokens": 61943
   },
   "limitations": [
     "One managed run and no baseline comparison.",
     "The evaluator worktree was dirty while the benchmark observer was under development.",
-    "An earlier post-shim run reached a satisfied proof gate but failed the refresh project step, so completion reliability is not established.",
+    "Completion reliability is not established by a single successful canary.",
     "This canary supports product-loop executability only; it does not support token, time, cost, lower-model-lift, or cross-repository claims."
   ]
 }

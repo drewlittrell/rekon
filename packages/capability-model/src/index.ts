@@ -8,7 +8,11 @@ import {
   createObservedRepo,
   createOwnershipMap,
 } from "@rekon/kernel-repo-model";
-import { type Projector, defineCapability } from "@rekon/sdk";
+import {
+  type ArtifactListOptions,
+  type Projector,
+  defineCapability,
+} from "@rekon/sdk";
 import {
   type PhraseReportLike,
   buildPhraseBackedCapabilityMapAdditions,
@@ -703,26 +707,26 @@ export default defineCapability({
 });
 
 async function latestEvidenceRef(artifacts: {
-  list?: (type?: string) => Promise<ArtifactRef[]>;
+  list?: (type?: string, options?: ArtifactListOptions) => Promise<ArtifactRef[]>;
 } & { read(ref: ArtifactRef): Promise<unknown> }): Promise<ArtifactRef | undefined> {
   if (!artifacts.list) {
     return undefined;
   }
 
-  const refs = await artifacts.list("EvidenceGraph");
+  const refs = await artifacts.list("EvidenceGraph", { order: "newest", limit: 1 });
 
-  return refs.at(-1);
+  return refs[0];
 }
 
 async function latestPhraseReportRef(artifacts: {
-  list?: (type?: string) => Promise<ArtifactRef[]>;
+  list?: (type?: string, options?: ArtifactListOptions) => Promise<ArtifactRef[]>;
 } & { read(ref: ArtifactRef): Promise<unknown> }): Promise<ArtifactRef | undefined> {
   if (!artifacts.list) {
     return undefined;
   }
   try {
-    const refs = await artifacts.list("CapabilityPhraseReport");
-    return refs.at(-1);
+    const refs = await artifacts.list("CapabilityPhraseReport", { order: "newest", limit: 1 });
+    return refs[0];
   } catch {
     // Older runtimes may not know the CapabilityPhraseReport
     // type. Absence is benign — v2 fields stay omitted.
@@ -731,11 +735,14 @@ async function latestPhraseReportRef(artifacts: {
 }
 
 async function latestCapabilityEvidenceGraphRef(artifacts: {
-  list?: (type?: string) => Promise<ArtifactRef[]>;
+  list?: (type?: string, options?: ArtifactListOptions) => Promise<ArtifactRef[]>;
 } & { read(ref: ArtifactRef): Promise<unknown> }): Promise<ArtifactRef | undefined> {
   if (!artifacts.list) return undefined;
   try {
-    return (await artifacts.list("CapabilityEvidenceGraph")).at(-1);
+    return (await artifacts.list(
+      "CapabilityEvidenceGraph",
+      { order: "newest", limit: 1 },
+    ))[0];
   } catch {
     return undefined;
   }

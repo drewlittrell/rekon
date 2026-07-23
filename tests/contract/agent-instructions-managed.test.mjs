@@ -52,7 +52,9 @@ test("setup preserves project guidance and installs one managed block", async ()
   assert.match(content, /--prepare-verification/u);
   assert.match(content, /explicit VerificationResult refs/u);
   assert.match(content, /PlacementVerificationReport/u);
-  assert.match(content, /never self-certify it/u);
+  assert.match(content, /independently signed/u);
+  assert.match(content, /do not create or sign it/u);
+  assert.match(content, /host verifier/u);
   assert.match(content, /--placement-verification/u);
   assert.match(content, /`proofGate.status: satisfied`/u);
   assert.match(content, /--record-proof/u);
@@ -95,7 +97,7 @@ test("sync replaces stale managed content but preserves surrounding bytes", asyn
   assert.ok(updated.startsWith("# Before\n\n"));
   assert.ok(updated.endsWith("\n\n# After\n"));
   assert.ok(!updated.includes("stale content"));
-  assert.match(updated, /version="2\.0\.5"/);
+  assert.match(updated, /version="2\.0\.6"/);
   assert.match(updated, /rekon contracts maintain --root \. --json/u);
   assert.match(updated, /complete its judgment step yourself/u);
 });
@@ -199,6 +201,6 @@ test("refresh replaces a stale managed block when on-refresh sync is enabled", a
 
   assert.equal(syncStep.status, "passed");
   assert.equal(syncStep.summary.changed, true);
-  assert.match(updated, /version="2\.0\.5"/);
+  assert.match(updated, /version="2\.0\.6"/);
   assert.ok(!updated.includes("\nstale\n"));
 });

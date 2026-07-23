@@ -1,10 +1,12 @@
 import {
+  canonicalJson,
   type ArtifactHeader,
   type ArtifactRef,
   type ArtifactSchema,
   createArtifactHeader,
   createArtifactRef,
   createSourceStateBinding,
+  digestJson,
   type SourceStateBinding,
   type ValidationIssue,
   type ValidationResult,
@@ -12,6 +14,12 @@ import {
   validateArtifactRef,
   validateSourceStateBinding,
 } from "@rekon/kernel-artifacts";
+import {
+  createPrivateKey,
+  createPublicKey,
+  sign as signBytes,
+  verify as verifyBytes,
+} from "node:crypto";
 
 export type PlacementVerificationVerdict = "supported" | "refuted" | "unresolved";
 
@@ -22,6 +30,45 @@ export type PlacementVerificationSourceEvidence = {
   lineEnd: number;
   excerpt: string;
 };
+
+export type PlacementVerificationAttestation = {
+  algorithm: "ed25519";
+  keyId: string;
+  payloadDigest: string;
+  signature: string;
+};
+
+export type PlacementVerificationTrustedKey = {
+  algorithm: "ed25519";
+  keyId: string;
+  verifierId: string;
+  publicKeySpki: string;
+};
+
+export type PlacementVerificationSigningKey = {
+  algorithm: "ed25519";
+  keyId: string;
+  privateKeyPkcs8: string;
+};
+
+export type PlacementVerificationAttestationResult =
+  | {
+      trusted: true;
+      keyId: string;
+      verifierId: string;
+    }
+  | {
+      trusted: false;
+      reason:
+        | "report-invalid"
+        | "attestation-missing"
+        | "trusted-key-missing"
+        | "verifier-mismatch"
+        | "algorithm-mismatch"
+        | "payload-digest-mismatch"
+        | "signature-invalid"
+        | "key-invalid";
+    };
 
 export type PlacementVerificationReport = {
   header: ArtifactHeader;
@@ -48,6 +95,7 @@ export type PlacementVerificationReport = {
     version: string;
     independentOf: string[];
   };
+  attestation?: PlacementVerificationAttestation;
 };
 
 const VERDICTS = new Set<PlacementVerificationVerdict>([
@@ -60,6 +108,7 @@ const VERIFIER_KINDS = new Set<PlacementVerificationReport["verifier"]["kind"]>(
   "service",
 ]);
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const MAX_EXCERPT_LENGTH = 6_000;
 
 export function createPlacementVerificationReport(
@@ -101,7 +150,106 @@ export function createPlacementVerificationReport(
       version: input.verifier.version.trim(),
       independentOf: unique(input.verifier.independentOf),
     },
+    ...(input.attestation ? {
+      attestation: {
+        algorithm: input.attestation.algorithm,
+        keyId: input.attestation.keyId.trim(),
+        payloadDigest: input.attestation.payloadDigest,
+        signature: input.attestation.signature,
+      },
+    } : {}),
   });
+}
+
+export function signPlacementVerificationReport(
+  input: PlacementVerificationReport,
+  key: PlacementVerificationSigningKey,
+): PlacementVerificationReport {
+  if (key.algorithm !== "ed25519") {
+    throw new TypeError("Placement verification signing requires an Ed25519 key.");
+  }
+  const normalized = createPlacementVerificationReport({
+    ...input,
+    attestation: undefined,
+  });
+  const payload = placementVerificationSigningPayload(normalized);
+  const signature = signBytes(
+    null,
+    Buffer.from(canonicalJson(payload), "utf8"),
+    createPrivateKey({
+      key: Buffer.from(key.privateKeyPkcs8, "base64"),
+      format: "der",
+      type: "pkcs8",
+    }),
+  ).toString("base64");
+
+  return createPlacementVerificationReport({
+    ...normalized,
+    attestation: {
+      algorithm: key.algorithm,
+      keyId: key.keyId,
+      payloadDigest: digestJson(payload),
+      signature,
+    },
+  });
+}
+
+export function verifyPlacementVerificationAttestation(
+  report: PlacementVerificationReport,
+  trustedKeys: PlacementVerificationTrustedKey[],
+): PlacementVerificationAttestationResult {
+  if (!validatePlacementVerificationReport(report).ok) {
+    return { trusted: false, reason: "report-invalid" };
+  }
+  if (!report.attestation) {
+    return { trusted: false, reason: "attestation-missing" };
+  }
+  const trustedKey = trustedKeys.find((candidate) =>
+    candidate.keyId === report.attestation?.keyId);
+  if (!trustedKey) {
+    return { trusted: false, reason: "trusted-key-missing" };
+  }
+  if (trustedKey.verifierId !== report.verifier.id) {
+    return { trusted: false, reason: "verifier-mismatch" };
+  }
+  if (
+    trustedKey.algorithm !== "ed25519"
+    || report.attestation.algorithm !== trustedKey.algorithm
+  ) {
+    return { trusted: false, reason: "algorithm-mismatch" };
+  }
+  const payload = placementVerificationSigningPayload(report);
+  if (digestJson(payload) !== report.attestation.payloadDigest) {
+    return { trusted: false, reason: "payload-digest-mismatch" };
+  }
+  try {
+    const valid = verifyBytes(
+      null,
+      Buffer.from(canonicalJson(payload), "utf8"),
+      createPublicKey({
+        key: Buffer.from(trustedKey.publicKeySpki, "base64"),
+        format: "der",
+        type: "spki",
+      }),
+      Buffer.from(report.attestation.signature, "base64"),
+    );
+    return valid
+      ? {
+          trusted: true,
+          keyId: trustedKey.keyId,
+          verifierId: trustedKey.verifierId,
+        }
+      : { trusted: false, reason: "signature-invalid" };
+  } catch {
+    return { trusted: false, reason: "key-invalid" };
+  }
+}
+
+export function placementVerificationSigningPayload(
+  report: PlacementVerificationReport,
+): Omit<PlacementVerificationReport, "attestation"> {
+  const { attestation: _attestation, ...payload } = report;
+  return payload;
 }
 
 export function validatePlacementVerificationReport(
@@ -258,6 +406,36 @@ export function validatePlacementVerificationReport(
         path: "$.verifier.independentOf",
         message: "A verifier cannot be independent of itself.",
       });
+    }
+  }
+
+  if (value.attestation !== undefined) {
+    if (!isRecord(value.attestation)) {
+      issues.push({ path: "$.attestation", message: "Expected an object." });
+    } else {
+      if (value.attestation.algorithm !== "ed25519") {
+        issues.push({ path: "$.attestation.algorithm", message: 'Expected "ed25519".' });
+      }
+      requiredString(issues, value.attestation.keyId, "$.attestation.keyId");
+      if (
+        typeof value.attestation.payloadDigest !== "string"
+        || !SHA256_PATTERN.test(value.attestation.payloadDigest)
+      ) {
+        issues.push({
+          path: "$.attestation.payloadDigest",
+          message: "Expected a lowercase SHA-256 digest.",
+        });
+      }
+      if (
+        typeof value.attestation.signature !== "string"
+        || !BASE64_PATTERN.test(value.attestation.signature)
+        || Buffer.from(value.attestation.signature, "base64").byteLength !== 64
+      ) {
+        issues.push({
+          path: "$.attestation.signature",
+          message: "Expected a base64-encoded Ed25519 signature.",
+        });
+      }
     }
   }
 

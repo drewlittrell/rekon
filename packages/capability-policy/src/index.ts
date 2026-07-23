@@ -12,7 +12,11 @@ import {
 import { type Finding, createFindingReport } from "@rekon/kernel-findings";
 import type { CapabilityContract, CapabilityMap, OwnershipMap } from "@rekon/kernel-repo-model";
 import { assertRulebook, type Rulebook } from "@rekon/kernel-rulebook";
-import { type Evaluator, defineCapability } from "@rekon/sdk";
+import {
+  type ArtifactListOptions,
+  type Evaluator,
+  defineCapability,
+} from "@rekon/sdk";
 import { ANTI_PATTERN_RULE_ID, evaluateAntiPatterns } from "./anti-pattern.js";
 import { CAPABILITY_OVERLAP_RULE_ID, evaluateCapabilityOverlap } from "./capability-overlap.js";
 import { DEAD_CODE_RULE_ID, evaluateDeadCode, loadDeclaredRoots, loadGeneratedGlobs, loadDistImportExemptions, globLikeToRegExp, type DistImportExemption, loadDeclaredRootGlobs } from "./dead-code.js";
@@ -278,7 +282,7 @@ export const policyEvaluator: Evaluator = {
   id: "@rekon/capability-policy.evaluator",
   produces: ["FindingReport", "AssessmentReport"],
   async evaluate({ artifacts, input }) {
-    const evidenceRef = (await artifacts.list("EvidenceGraph")).at(-1);
+    const evidenceRef = await latestArtifactRef(artifacts, "EvidenceGraph");
 
     if (!evidenceRef) {
       throw new Error("@rekon/capability-policy requires an EvidenceGraph artifact.");
@@ -293,7 +297,7 @@ export const policyEvaluator: Evaluator = {
     const disabledRules = new Set(
       Array.isArray(input?.disabledRules) ? input.disabledRules.filter((rule): rule is string => typeof rule === "string") : [],
     );
-    const semanticDebtRef = (await artifacts.list("SemanticDebtJudgmentReport")).at(-1);
+    const semanticDebtRef = await latestArtifactRef(artifacts, "SemanticDebtJudgmentReport");
     const semanticDebtReport = semanticDebtRef
       ? await artifacts.read(semanticDebtRef)
       : undefined;
@@ -301,7 +305,7 @@ export const policyEvaluator: Evaluator = {
       ? await retainCurrentSemanticDebtEntries(semanticDebtReport, evaluateRepoRoot)
       : semanticDebtReport;
     const capabilityGraphRef = !disabledRules.has(EMBEDDING_DUPLICATION_RULE_ID)
-      ? (await artifacts.list("CapabilityEvidenceGraph")).at(-1)
+      ? await latestArtifactRef(artifacts, "CapabilityEvidenceGraph")
       : undefined;
     const embeddingDuplicationOpportunities = capabilityGraphRef
       ? evaluateEmbeddingDuplicationCandidates(await artifacts.read(capabilityGraphRef), capabilityGraphRef)
@@ -609,9 +613,16 @@ export default defineCapability({
 });
 
 type PolicyArtifactReader = {
-  list(type?: string): Promise<ArtifactRef[]>;
+  list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
   read(ref: ArtifactRef): Promise<unknown>;
 };
+
+async function latestArtifactRef(
+  artifacts: PolicyArtifactReader,
+  type: string,
+): Promise<ArtifactRef | undefined> {
+  return (await artifacts.list(type, { order: "newest", limit: 1 }))[0];
+}
 
 async function loadCurrentSemanticFileCandidates(
   artifacts: PolicyArtifactReader,
@@ -657,7 +668,10 @@ async function applyCurrentAssessmentJudgments(
   repoRoot: string,
   assessments: Assessment[],
 ): Promise<{ assessments: Assessment[]; inputRefs: ArtifactRef[] }> {
-  const refs = (await artifacts.list("AssessmentJudgmentReport")).slice().reverse().slice(0, 20);
+  const refs = await artifacts.list(
+    "AssessmentJudgmentReport",
+    { order: "newest", limit: 20 },
+  );
   let current = assessments;
   const inputRefs: ArtifactRef[] = [];
 
@@ -679,11 +693,11 @@ async function applyCurrentAssessmentJudgments(
 }
 
 async function declaredOwnershipFindings(
-  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+  artifacts: PolicyArtifactReader,
   disabledRules: ReadonlySet<string>,
 ): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
   const rulebookRefs = await artifacts.list("Rulebook");
-  const capabilityMapRef = (await artifacts.list("CapabilityMap")).at(-1);
+  const capabilityMapRef = await latestArtifactRef(artifacts, "CapabilityMap");
   if (rulebookRefs.length === 0 || !capabilityMapRef) return { findings: [], inputRefs: [] };
 
   const selectedBySupersession = new Map<string, { ref: ArtifactRef; rulebook: Rulebook }>();
@@ -705,7 +719,7 @@ async function declaredOwnershipFindings(
     ...selectedBySupersession.values(),
   ];
 
-  const ownershipMapRef = (await artifacts.list("OwnershipMap")).at(-1);
+  const ownershipMapRef = await latestArtifactRef(artifacts, "OwnershipMap");
   return evaluateDeclaredOwnershipRules({
     rulebooks,
     capabilityMap: await artifacts.read(capabilityMapRef) as CapabilityMap,
@@ -727,18 +741,20 @@ async function declaredOwnershipFindings(
 // ratified archetypes and the layered axes are inert by construction.
 async function capabilityOverlapFindings(
   graph: EvidenceGraphLike,
-  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+  artifacts: PolicyArtifactReader,
 ): Promise<{ findings: Finding[]; inputRefs: ArtifactRef[] }> {
-  const normalizationRef = (await artifacts.list("CapabilityNormalizationReport")).at(-1);
+  const normalizationRef = await latestArtifactRef(artifacts, "CapabilityNormalizationReport");
   const normalization = normalizationRef
     ? await artifacts.read(normalizationRef) as CapabilityNormalizationReportLike
     : undefined;
   const normalizedCapabilities = normalization ? stableNormalizedCapabilities(normalization) : [];
-  const mapRef = normalizationRef ? undefined : (await artifacts.list("CapabilityMap")).at(-1);
+  const mapRef = normalizationRef
+    ? undefined
+    : await latestArtifactRef(artifacts, "CapabilityMap");
   const map = mapRef ? await artifacts.read(mapRef) as CapabilityMap : undefined;
-  const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
+  const ownershipRef = await latestArtifactRef(artifacts, "OwnershipMap");
   const ownership = ownershipRef ? await artifacts.read(ownershipRef) as OwnershipMap : undefined;
-  const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
+  const contractRef = await latestArtifactRef(artifacts, "CapabilityContract");
   const contract = contractRef ? await artifacts.read(contractRef) as CapabilityContract : undefined;
   const capabilities = normalizationRef
     ? normalizedCapabilities
@@ -967,7 +983,7 @@ async function deadCodeFindings(
 async function grammarDivergenceSignals(
   graph: EvidenceGraphLike,
   input: Record<string, unknown> | undefined,
-  artifacts: { list: (type?: string) => Promise<ArtifactRef[]>; read: (ref: ArtifactRef) => Promise<unknown> },
+  artifacts: PolicyArtifactReader,
   evidenceRef: ArtifactRef,
 ): Promise<GrammarPolicySignals> {
   const repo = input?.repo as { root?: string } | undefined;
@@ -978,9 +994,9 @@ async function grammarDivergenceSignals(
     overridesPath: overrides.path,
   });
 
-  const ownershipRef = (await artifacts.list("OwnershipMap")).at(-1);
+  const ownershipRef = await latestArtifactRef(artifacts, "OwnershipMap");
   const ownership = ownershipRef ? await artifacts.read(ownershipRef) as { entries?: Array<{ path: string; ownerSystem: string }> } : undefined;
-  const contractRef = (await artifacts.list("CapabilityContract")).at(-1);
+  const contractRef = await latestArtifactRef(artifacts, "CapabilityContract");
   const contract = contractRef ? await artifacts.read(contractRef) as { contracts?: Array<Record<string, unknown>> } : undefined;
 
   // WO-13: the repo's compiled vocabulary (canon + overlays + overrides)

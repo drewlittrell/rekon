@@ -170,6 +170,11 @@ export type ChangeModelJudgment = {
 export type ChangePlacementVerificationEvidence = {
   ref: ArtifactRef;
   report: PlacementVerificationReport;
+  attestation: {
+    status: "trusted" | "untrusted";
+    reason: string;
+    keyId?: string;
+  };
 };
 
 export type ChangeValidationResult = {
@@ -944,6 +949,9 @@ function bindPlacementVerificationEvidence(
     }
     if (!report.verifier.independentOf.includes(ACTING_AGENT_VERIFIER_ID)) {
       invalidReasons.push("acting-agent independence is undeclared");
+    }
+    if (evidence.attestation.status !== "trusted") {
+      invalidReasons.push(`attestation is untrusted (${evidence.attestation.reason})`);
     }
     if (!currentSourceState) {
       invalidReasons.push("current source state is unavailable");

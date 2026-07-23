@@ -8,11 +8,23 @@ All notable changes to Rekon are documented here.
   obligations no longer accept the acting agent's `--judgment-json` or direct
   caller-supplied model proof. An indexed `PlacementVerificationReport` binds
   the exact flow contract, stage, changed paths, source-state digest, reviewed
-  source spans, verdict, and independent verifier provenance. CLI and MCP
-  accept explicit placement-report refs; stale, self-authored, or mismatched
-  reports remain unresolved, and counterevidence blocks completion. Proof
-  results preserve independent `service` verifier provenance. MCP interface
-  `1.4.3` and managed instructions `2.0.5` expose the new boundary.
+  source spans, verdict, and independent verifier provenance. Ed25519
+  attestations bind that payload to operator-configured trusted keys while the
+  private signer remains outside the acting agent. CLI and MCP accept explicit
+  placement-report refs; unsigned, untrusted, stale, self-authored, or
+  mismatched reports remain unresolved, and counterevidence blocks completion.
+  Proof results preserve independent `service` verifier provenance. MCP
+  interface `1.4.4` and managed instructions `2.0.6` expose the boundary.
+- Fixed current-generation selection in model, policy, docs, and benchmark
+  consumers. Artifact readers now request newest-first refs explicitly instead
+  of relying on index order or lexical IDs, so proof-gated refresh does not
+  publish from superseded projections.
+- Closed the independent placement canary with a source-free Sol/xhigh run.
+  The run passed the repository and hidden checks with exact source scope,
+  recorded truthful context claims, admitted one host-signed placement report,
+  satisfied the proof gate, and completed fresh maintenance. This single run
+  supports loop executability only, not reliability, time, token, cost, or
+  model-lift claims.
 - Added contract-derived verifier-on-edge requirements. Flow stages can declare
   path-scoped responsibilities, and handoffs can require current-diff
   regression evidence paths alongside exact tests. Task pacts deliver both

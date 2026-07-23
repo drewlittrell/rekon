@@ -41,7 +41,9 @@ mechanical blockers from typed pact, handoff, and check obligations. The acting
 agent judges only generic obligations that accept `model-judgment`. A changed
 flow-stage responsibility instead requires an indexed, source-bound
 `PlacementVerificationReport` from an independent verifier; the acting agent
-cannot self-certify placement. Materialize the returned checks with the same
+cannot create or self-certify placement proof. The host verifier signs the
+report with a private key unavailable to the actor, and the CLI checks it
+against root `rekon.config.json`. Materialize the returned checks with the same
 command plus `--prepare-verification`.
 Execute the returned plan with `rekon verify run` and derive its
 `VerificationResult`; validation itself does not execute checks. If a

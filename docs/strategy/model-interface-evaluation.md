@@ -186,7 +186,10 @@ required context, edit source, validate the change, prepare and execute the
 selected verification plan, derive a `VerificationResult`, validate again,
 record a satisfied `ProofGateReport`, and run proof-gated refresh. The
 benchmark verifies those steps from both Codex event order and newly written
-artifact lineage. It also requires the accepted refresh outcome, proof-linked
+artifact lineage. For stage-placement obligations, the parent harness keeps an
+ephemeral Ed25519 private key outside the acting model, signs the independent
+oracle verdict, and checks that the proof gate cites the trusted report. It
+also requires a context-use receipt, the accepted refresh outcome, proof-linked
 evidence, current managed instructions, successful refresh steps, and fresh
 latest-major artifacts. When an agent retries refresh, the latest attempt is
 authoritative; an earlier accepted refresh cannot hide a later failure. A
@@ -217,12 +220,12 @@ never source bodies, prompts, diffs, raw commands, MCP payloads, or free-form
 model text.
 
 A current Sol/xhigh canary completed the atomic-composition task with exact
-source scope, passing repository and hidden checks, full context adoption,
-stable typed verification, a satisfied proof gate, and accepted proof-gated
-refresh. The source-free record is
+source scope, passing repository and hidden checks, full context adoption, a
+linked context-use receipt, stable typed verification, one trusted placement
+report, a satisfied proof gate, and accepted proof-gated refresh. The
+source-free record is
 `tests/evals/model-interface-contracts/sol-product-loop-canary.json`. It is one
-managed run without a baseline. An earlier post-shim run reached the proof gate
-but failed during refresh projection, so the canary proves executability, not
+managed run without a baseline. It proves current loop executability, not
 completion reliability, time savings, token savings, or broader model lift.
 
 A clean-SHA two-repeat paired follow-up did not establish reliability or

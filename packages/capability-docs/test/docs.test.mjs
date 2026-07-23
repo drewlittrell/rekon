@@ -6,6 +6,59 @@ import test from "node:test";
 import docsCapability from "../dist/index.js";
 import { createRuntime } from "@rekon/runtime";
 
+test("docs publishers select current artifacts by recency rather than artifact id", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-docs-recency-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      capabilities: [docsCapability],
+    });
+    const header = (artifactType, artifactId, inputRefs = []) => ({
+      artifactType,
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: root },
+      producer: { id: "test", version: "1.0.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    });
+    const writeSnapshot = (artifactId) => runtime.artifacts.write({
+      header: header("IntelligenceSnapshot", artifactId),
+      repo: { id: "fixture", root },
+      inputs: {},
+      projections: {},
+      evaluations: {},
+      publications: {},
+      actions: {},
+      status: { freshness: "fresh", warnings: [], blockedReasons: [] },
+    });
+    const writeCapabilityMap = (artifactId) => runtime.artifacts.write({
+      header: header("CapabilityMap", artifactId),
+      entries: [],
+    });
+
+    await writeSnapshot("z-stale-snapshot");
+    await writeCapabilityMap("z-stale-capability-map");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+    const currentSnapshot = await writeSnapshot("a-current-snapshot");
+    const currentCapabilityMap = await writeCapabilityMap("a-current-capability-map");
+
+    const refs = await runtime.runPublish({
+      publisherId: "@rekon/capability-docs.architecture-summary",
+    });
+    const publication = await runtime.artifacts.read(refs[0]);
+    const inputKeys = publication.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`);
+
+    assert.ok(inputKeys.includes(`IntelligenceSnapshot:${currentSnapshot.id}`));
+    assert.ok(inputKeys.includes(`CapabilityMap:${currentCapabilityMap.id}`));
+    assert.ok(!inputKeys.some((key) => key.includes("z-stale")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("docs publisher writes metadata-bearing publication artifacts", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-docs-"));
 

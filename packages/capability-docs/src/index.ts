@@ -40,7 +40,11 @@ import {
   type VerificationProofWarning,
   summarizeVerificationProofSurface,
 } from "@rekon/capability-intent";
-import { type Publisher, defineCapability } from "@rekon/sdk";
+import {
+  type ArtifactListOptions,
+  type Publisher,
+  defineCapability,
+} from "@rekon/sdk";
 import {
   REKON_AGENT_CLI_FALLBACKS,
   REKON_AGENT_MCP_BOUNDARY,
@@ -275,9 +279,9 @@ export const docsPublisher: Publisher = {
 
     const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
     const resolverRefs = includeIntentLineage
-      ? await artifacts.list("ResolverPacket")
+      ? await artifacts.list("ResolverPacket", { order: "newest", limit: 1 })
       : [];
-    const latestResolverRef = latestById(resolverRefs);
+    const latestResolverRef = resolverRefs[0];
     const latestResolver = latestResolverRef
       ? await artifacts.read(latestResolverRef) as ResolverPacketLike
       : undefined;
@@ -864,7 +868,7 @@ export const proofReportPublisher: Publisher = {
 
 async function checkVerificationRunExists(
   artifacts: {
-    list(type?: string): Promise<ArtifactRef[]>;
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
     read(ref: ArtifactRef): Promise<unknown>;
   },
   verificationResult: VerificationResultLike | undefined,
@@ -1523,14 +1527,12 @@ function renderRepoSummary(snapshot: IntelligenceSnapshot, snapshotRef: Artifact
 }
 
 async function latestRef(
-  artifacts: { list(type?: string): Promise<ArtifactRef[]> },
+  artifacts: {
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
+  },
   type: string,
 ): Promise<ArtifactRef | undefined> {
-  return latestById(await artifacts.list(type));
-}
-
-function latestById(refs: ArtifactRef[]): ArtifactRef | undefined {
-  return [...refs].sort((left, right) => right.id.localeCompare(left.id))[0];
+  return (await artifacts.list(type, { order: "newest", limit: 1 }))[0];
 }
 
 type GovernanceFreshness = {
@@ -1553,17 +1555,19 @@ type GovernanceFreshness = {
 
 async function detectGovernanceFreshness(
   artifacts: {
-    list(type?: string): Promise<ArtifactRef[]>;
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
     read(ref: ArtifactRef): Promise<unknown>;
   },
 ): Promise<GovernanceFreshness> {
   const warnings: string[] = [];
 
-  const adjudicationEntries = await artifacts.list("IssueAdjudicationReport");
-  const latestAdjudication = latestById(adjudicationEntries);
+  const latestAdjudication = (
+    await artifacts.list("IssueAdjudicationReport", { order: "newest", limit: 1 })
+  )[0];
 
-  const lifecycleEntries = await artifacts.list("FindingLifecycleReport");
-  const latestLifecycle = latestById(lifecycleEntries);
+  const latestLifecycle = (
+    await artifacts.list("FindingLifecycleReport", { order: "newest", limit: 1 })
+  )[0];
 
   const adjudication: GovernanceFreshness["adjudication"] = {
     status: "missing",
@@ -1597,8 +1601,9 @@ async function detectGovernanceFreshness(
     }
   }
 
-  const coherencyEntries = await artifacts.list("CoherencyDelta");
-  const latestCoherency = latestById(coherencyEntries);
+  const latestCoherency = (
+    await artifacts.list("CoherencyDelta", { order: "newest", limit: 1 })
+  )[0];
 
   const coherency: GovernanceFreshness["coherency"] = {
     status: "missing",
@@ -1695,7 +1700,7 @@ function resolveRepoRoot(input: Record<string, unknown> | undefined): string | u
 
 async function readLatestArtifact<T>(
   artifacts: {
-    list(type?: string): Promise<ArtifactRef[]>;
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
     read(ref: ArtifactRef): Promise<unknown>;
   },
   type: string,
@@ -1724,7 +1729,7 @@ type EffectiveRepositoryLaw = {
 
 async function readEffectiveRepositoryLaw(
   artifacts: {
-    list(type?: string): Promise<ArtifactRef[]>;
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
     read(ref: ArtifactRef): Promise<unknown>;
   },
   inputRefs: ArtifactRef[],
@@ -1759,14 +1764,12 @@ function sameRefIdentity(left: ArtifactRef, right: ArtifactRef): boolean {
 
 async function readLatestWorkOrdersByFlavor(
   artifacts: {
-    list(type?: string): Promise<ArtifactRef[]>;
+    list(type?: string, options?: ArtifactListOptions): Promise<ArtifactRef[]>;
     read(ref: ArtifactRef): Promise<unknown>;
   },
   inputRefs: ArtifactRef[],
 ): Promise<{ remediation?: WorkOrderLike; resolver?: WorkOrderLike }> {
-  const refs = [...await artifacts.list("WorkOrder")].sort((left, right) =>
-    right.id.localeCompare(left.id),
-  );
+  const refs = await artifacts.list("WorkOrder", { order: "newest" });
   let remediation: WorkOrderLike | undefined;
   let resolver: WorkOrderLike | undefined;
 

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
 import test from "node:test";
 
 import { createSourceStateBinding } from "@rekon/kernel-artifacts";
 import {
   createPlacementVerificationReport,
+  signPlacementVerificationReport,
   validatePlacementVerificationReport,
+  verifyPlacementVerificationAttestation,
 } from "../dist/index.js";
 
 const sourceDigest = "a".repeat(64);
@@ -118,4 +121,62 @@ test("placement verification rejects self-described independence", () => {
   assert.equal(validation.ok, false);
   assert.ok(validation.issues.some((issue) =>
     issue.path === "$.verifier.independentOf" && /independent of itself/u.test(issue.message)));
+});
+
+test("placement verification accepts a trusted Ed25519 attestation", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const signed = signPlacementVerificationReport(
+    createPlacementVerificationReport(report()),
+    {
+      algorithm: "ed25519",
+      keyId: "placement-judge-1",
+      privateKeyPkcs8: privateKey.export({ format: "der", type: "pkcs8" }).toString("base64"),
+    },
+  );
+  const trust = verifyPlacementVerificationAttestation(signed, [{
+    algorithm: "ed25519",
+    keyId: "placement-judge-1",
+    verifierId: signed.verifier.id,
+    publicKeySpki: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+  }]);
+
+  assert.deepEqual(trust, {
+    trusted: true,
+    keyId: "placement-judge-1",
+    verifierId: signed.verifier.id,
+  });
+});
+
+test("placement verification rejects unsigned, tampered, and untrusted attestations", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const unsigned = createPlacementVerificationReport(report());
+  assert.deepEqual(
+    verifyPlacementVerificationAttestation(unsigned, []),
+    { trusted: false, reason: "attestation-missing" },
+  );
+
+  const signed = signPlacementVerificationReport(unsigned, {
+    algorithm: "ed25519",
+    keyId: "placement-judge-1",
+    privateKeyPkcs8: privateKey.export({ format: "der", type: "pkcs8" }).toString("base64"),
+  });
+  assert.deepEqual(
+    verifyPlacementVerificationAttestation(signed, []),
+    { trusted: false, reason: "trusted-key-missing" },
+  );
+
+  const trustedKeys = [{
+    algorithm: "ed25519",
+    keyId: "placement-judge-1",
+    verifierId: signed.verifier.id,
+    publicKeySpki: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+  }];
+  const tampered = {
+    ...signed,
+    explanation: `${signed.explanation} Tampered after signing.`,
+  };
+  assert.deepEqual(
+    verifyPlacementVerificationAttestation(tampered, trustedKeys),
+    { trusted: false, reason: "payload-digest-mismatch" },
+  );
 });

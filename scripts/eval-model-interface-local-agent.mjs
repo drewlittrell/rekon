@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFile, execFileSync, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { appendFile, chmod, cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
@@ -23,6 +23,7 @@ import { MCP_SERVER_VERSION, REKON_AGENT_MCP_STEPS } from "@rekon/mcp";
 import { createLocalArtifactStore } from "@rekon/runtime";
 
 import {
+  assessIndependentPlacementOutcome,
   assessRekonContextUse,
   classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
@@ -34,6 +35,7 @@ import {
   normalizeLocalAgentResponse,
   parseCodexJsonl,
   parseGitStatusPaths,
+  selectContextUsageForChange,
   scoreLocalAgentOutcome,
   summarizeCodexExploration,
   summarizeContextSelection,
@@ -43,9 +45,19 @@ import {
   summarizeRekonAdoption,
   summarizeRekonProductLoop,
 } from "./lib/model-interface-local-agent-eval.mjs";
+import {
+  createSourceStateBinding,
+} from "@rekon/kernel-artifacts";
+import {
+  createPlacementVerificationReport,
+  signPlacementVerificationReport,
+  verifyPlacementVerificationAttestation,
+} from "@rekon/kernel-repo-model";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const INDEPENDENT_PLACEMENT_JUDGE_ID = "@rekon/benchmark-independent-placement-judge";
+const INDEPENDENT_PLACEMENT_JUDGE_VERSION = "1.0.0";
 const options = parseArgs(process.argv.slice(2));
 const fixturePath = join(root, corpusFixturePath(options.corpus));
 const fixture = await loadFixture(fixturePath);
@@ -99,11 +111,14 @@ if (options.dryRun) {
         "prepare verification",
         "execute verification",
         "record VerificationResult",
+        "independent hidden-oracle placement judgment",
+        "trusted placement attestation",
         "final validation",
         "record ProofGateReport",
         "proof-gated refresh",
       ],
       outcomeOracle: "independent hidden behavior, scope, and repository checks",
+      placementTrust: "ephemeral Ed25519 key held by the parent harness; the acting model receives only the public key",
     },
     contextSelections: preparedCases.map(({ entry, contextSelection }) => ({
       caseId: entry.id,
@@ -231,6 +246,11 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
   const schemaPath = join(tempRoot, "response.schema.json");
   const finalPath = join(tempRoot, "final.json");
   const cliShimDir = join(tempRoot, "bin");
+  const independentJudge = options.productLoop
+    && options.delivery === "managed"
+    && condition === "rekon"
+    ? createIndependentPlacementJudge()
+    : undefined;
   let error;
   try {
     await cp(fixtureRepoRoot, worktree, { recursive: true });
@@ -240,6 +260,9 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       await writeFile(sourcePath, `${JSON.stringify(source.document, null, 2)}\n`);
     }
     if (options.delivery === "managed" && condition === "rekon") {
+      if (independentJudge) {
+        await installPlacementTrustPolicy(worktree, independentJudge.trustedKey);
+      }
       await prepareManagedRekonWorktree(worktree);
       await prepareBenchmarkCliShim(cliShimDir);
     }
@@ -277,8 +300,34 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       sourcePaths: sourceModifiedPaths,
       generatedPaths: generatedModifiedPaths,
     } = classifyBenchmarkModifiedPaths(modifiedPaths);
+    const requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
+    const oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
+    const independentCompletion = independentJudge
+      ? await completeManagedProductLoopWithIndependentJudge({
+          worktree,
+          task: caseEntry.task,
+          sourceModifiedPaths,
+          oracle: caseEntry.oracle,
+          requiredChecks,
+          oracleChecks,
+          judge: independentJudge,
+          initialArtifactKeys,
+          inspectedPaths: exploration.inspectedPaths,
+          reportedContextPaths: normalizedFinal.ok
+            ? normalizedFinal.response.contextPaths
+            : [],
+        })
+      : undefined;
+    const productLoopEvents = [
+      ...parsed.events,
+      ...(independentCompletion?.events ?? []),
+    ];
     const inspectedProductLoopArtifacts = options.delivery === "managed" && condition === "rekon"
-      ? await inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys)
+      ? await inspectManagedProductLoopArtifacts(
+          worktree,
+          initialArtifactKeys,
+          independentJudge ? [independentJudge.trustedKey] : [],
+        )
       : undefined;
     let verifiedCommands = [];
     let productLoopArtifacts;
@@ -290,18 +339,22 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       verifiedCommands = inspectedVerifiedCommands;
       productLoopArtifacts = publicArtifactEvidence;
     }
+    const effectiveFinal = normalizedFinal.ok
+      ? {
+          ...normalizedFinal.response,
+          ...(independentCompletion?.status === "passed" ? { status: "complete" } : {}),
+        }
+      : undefined;
     const productLoop = productLoopArtifacts
-      ? summarizeRekonProductLoop(parsed.events, productLoopArtifacts, {
+      ? summarizeRekonProductLoop(productLoopEvents, productLoopArtifacts, {
         required: options.productLoop,
-        terminalStatus: normalizedFinal.ok ? normalizedFinal.response.status : "blocked",
+        terminalStatus: effectiveFinal?.status ?? "blocked",
       })
       : undefined;
     const agentCommands = mergeAgentCommands(parsed.events
       .filter((event) => event.type === "item.completed" && event.item?.type === "command_execution")
       .map((event) => event.item.command)
       .filter((command) => typeof command === "string"), verifiedCommands);
-    const requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
-    const oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
     const contextUse = condition === "rekon"
       ? summarizeContextUse(contextSelection, exploration, normalizedFinal.response, sourceModifiedPaths)
       : undefined;
@@ -321,7 +374,11 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       repeat,
       condition,
       status: result.exitCode === 0 && normalizedFinal.ok ? "ok" : "error",
-      final: normalizedFinal.ok ? normalizedFinal.response : undefined,
+      final: effectiveFinal,
+      ...(independentCompletion ? {
+        actorTerminalStatus: normalizedFinal.ok ? normalizedFinal.response.status : "blocked",
+        independentJudge: independentCompletion.summary,
+      } : {}),
       modifiedPaths,
       sourceModifiedPaths,
       generatedModifiedPaths,
@@ -366,6 +423,492 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
   } finally {
     if (!options.keepWorkdirs) await rm(tempRoot, { recursive: true, force: true });
     else process.stderr.write(`[model-interface-local-agent] retained ${tempRoot}\n`);
+  }
+}
+
+function createIndependentPlacementJudge() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const publicKeySpki = publicKey.export({ format: "der", type: "spki" }).toString("base64");
+  const keyId = `benchmark-${createHash("sha256").update(publicKeySpki).digest("hex").slice(0, 16)}`;
+  return {
+    signingKey: {
+      algorithm: "ed25519",
+      keyId,
+      privateKeyPkcs8: privateKey.export({ format: "der", type: "pkcs8" }).toString("base64"),
+    },
+    trustedKey: {
+      algorithm: "ed25519",
+      keyId,
+      verifierId: INDEPENDENT_PLACEMENT_JUDGE_ID,
+      publicKeySpki,
+    },
+  };
+}
+
+async function installPlacementTrustPolicy(worktree, trustedKey) {
+  const configPath = join(worktree, "rekon.config.json");
+  const existing = await readJson(configPath);
+  const config = existing && typeof existing === "object" && !Array.isArray(existing)
+    ? existing
+    : {};
+  await writeFile(configPath, `${JSON.stringify({
+    ...config,
+    placementVerification: {
+      trustedKeys: [trustedKey],
+    },
+  }, null, 2)}\n`);
+}
+
+async function completeManagedProductLoopWithIndependentJudge({
+  worktree,
+  task,
+  sourceModifiedPaths,
+  oracle,
+  requiredChecks,
+  oracleChecks,
+  judge,
+  initialArtifactKeys,
+  inspectedPaths,
+  reportedContextPaths,
+}) {
+  const events = [];
+  const assessment = assessIndependentPlacementOutcome({
+    sourceModifiedPaths,
+    oracle,
+    requiredChecks,
+    oracleChecks,
+  });
+  const summary = {
+    attempted: true,
+    verdict: assessment.verdict,
+    signedPlacementReports: 0,
+    actorPlacementReportsRejected: 0,
+    proofGateSatisfied: false,
+    refreshCompleted: false,
+    status: "failed",
+    reasons: assessment.reasons,
+  };
+
+  try {
+    if (sourceModifiedPaths.length === 0) {
+      throw new Error("independent judge found no source change to validate");
+    }
+    const store = createLocalArtifactStore(worktree);
+    await store.init();
+    const actorReports = (await store.list("PlacementVerificationReport"))
+      .filter((ref) => !initialArtifactKeys.has(`${ref.type}:${ref.id}`));
+    summary.actorPlacementReportsRejected = actorReports.length;
+    const contextUsage = await loadContextUsageForChange(store, {
+      initialArtifactKeys,
+      sourceModifiedPaths,
+      inspectedPaths,
+      reportedContextPaths,
+    });
+    if (!contextUsage) {
+      throw new Error("independent judge found no post-baseline task context for the changed source");
+    }
+    if (!Object.values(contextUsage.claims).includes("read")) {
+      throw new Error("independent judge found no observed or reported read of delivered context");
+    }
+    const validationTask = contextUsage.taskText;
+    const contextArgs = [
+      "--context-usage",
+      `${contextUsage.ref.type}:${contextUsage.ref.id}`,
+      "--context-claims-json",
+      JSON.stringify(contextUsage.claims),
+    ];
+    const changedPathArgs = sourceModifiedPaths.flatMap((path) => ["--changed-path", path]);
+    const preparedStep = await requireIndependentCliStep(
+      events,
+      [
+        "context", "validate-change",
+        "--task", validationTask,
+        ...changedPathArgs,
+        "--base-ref", "HEAD",
+        ...contextArgs,
+        "--prepare-verification",
+        "--root", worktree,
+        "--json",
+      ],
+      worktree,
+    );
+    const planRef = preparedStep.payload?.verificationPlan;
+    if (!planRef?.type || !planRef?.id) {
+      throw new Error("independent judge validation produced no VerificationPlan");
+    }
+    const runStep = await requireIndependentCliStep(
+      events,
+      [
+        "verify", "run",
+        "--plan", `${planRef.type}:${planRef.id}`,
+        "--execute",
+        "--root", worktree,
+        "--json",
+      ],
+      worktree,
+    );
+    const runRef = runStep.payload?.artifact;
+    if (!runRef?.type || !runRef?.id) {
+      throw new Error("independent judge verification produced no VerificationRun");
+    }
+    const resultStep = await requireIndependentCliStep(
+      events,
+      [
+        "verify", "result", "from-run",
+        "--run", `${runRef.type}:${runRef.id}`,
+        "--root", worktree,
+        "--json",
+      ],
+      worktree,
+    );
+    const verificationRef = resultStep.payload?.artifact;
+    if (!verificationRef?.type || !verificationRef?.id) {
+      throw new Error("independent judge verification produced no VerificationResult");
+    }
+
+    const sourceState = await buildBenchmarkSourceState(worktree, sourceModifiedPaths);
+    const placementObligations = (preparedStep.payload?.proofGate?.obligations ?? [])
+      .filter((obligation) =>
+        typeof obligation?.id === "string"
+        && /\.stage\.[^.]+\.responsibility\.\d+$/u.test(obligation.id)
+        && Array.isArray(obligation.requiredEvidence)
+        && obligation.requiredEvidence.includes("model-judgment"));
+    const placementRefs = [];
+    const placementIds = new Set();
+    for (const obligation of placementObligations) {
+      const report = await buildSignedPlacementReport({
+        worktree,
+        store,
+        task: validationTask,
+        sourceModifiedPaths,
+        sourceState,
+        verificationRef,
+        obligation,
+        verdict: assessment.verdict,
+        judge,
+      });
+      if (!report) continue;
+      const ref = await store.write(report, { category: "actions" });
+      placementRefs.push(ref);
+      placementIds.add(obligation.id);
+    }
+    summary.signedPlacementReports = placementRefs.length;
+    if (placementObligations.length > 0 && placementRefs.length !== placementObligations.length) {
+      throw new Error("independent judge could not bind every placement obligation");
+    }
+
+    const judgments = (preparedStep.payload?.proofGate?.obligations ?? [])
+      .filter((obligation) =>
+        obligation?.required === true
+        && Array.isArray(obligation.requiredEvidence)
+        && obligation.requiredEvidence.includes("model-judgment")
+        && !placementIds.has(obligation.id))
+      .map((obligation) => ({
+        obligationId: obligation.id,
+        verdict: assessment.verdict,
+        explanation: assessment.verdict === "supported"
+          ? "The independent benchmark oracle found exact source scope and passing repository and hidden checks."
+          : `The independent benchmark oracle refuted this change: ${assessment.reasons.join("; ")}`,
+        verifier: {
+          id: INDEPENDENT_PLACEMENT_JUDGE_ID,
+          version: INDEPENDENT_PLACEMENT_JUDGE_VERSION,
+        },
+      }));
+    const finalStep = await requireIndependentCliStep(
+      events,
+      [
+        "context", "validate-change",
+        "--task", validationTask,
+        ...changedPathArgs,
+        "--base-ref", "HEAD",
+        ...contextArgs,
+        "--verification-result", `${verificationRef.type}:${verificationRef.id}`,
+        ...placementRefs.flatMap((ref) => [
+          "--placement-verification",
+          `${ref.type}:${ref.id}`,
+        ]),
+        ...(judgments.length > 0
+          ? ["--judgment-json", JSON.stringify(judgments)]
+          : []),
+        ...(assessment.verdict === "supported" ? ["--record-proof"] : []),
+        "--root", worktree,
+        "--json",
+      ],
+      worktree,
+    );
+
+    if (assessment.verdict !== "supported") {
+      summary.status = "blocked";
+      return { status: "blocked", events, summary };
+    }
+    if (
+      finalStep.payload?.status !== "passed"
+      || finalStep.payload?.proofGate?.evaluation?.status !== "satisfied"
+      || !finalStep.payload?.proofArtifact?.type
+      || !finalStep.payload?.proofArtifact?.id
+    ) {
+      throw new Error("independent judge final validation did not produce a satisfied proof gate");
+    }
+    summary.proofGateSatisfied = true;
+    const proofRef = finalStep.payload.proofArtifact;
+    const refreshStep = await requireIndependentCliStep(
+      events,
+      [
+        "refresh",
+        "--proof-gate", `${proofRef.type}:${proofRef.id}`,
+        "--root", worktree,
+        "--json",
+      ],
+      worktree,
+    );
+    if (refreshStep.payload?.status !== "passed") {
+      throw new Error("independent judge proof-gated refresh did not pass");
+    }
+    summary.refreshCompleted = true;
+    summary.status = "passed";
+    return { status: "passed", events, summary };
+  } catch (error) {
+    summary.reasons = [...new Set([
+      ...summary.reasons,
+      error instanceof Error ? error.message : String(error),
+    ])];
+    return { status: "failed", events, summary };
+  }
+}
+
+async function loadContextUsageForChange(store, options) {
+  const records = [];
+  for (const ref of await store.list("ContextUsageEvent", { order: "newest" })) {
+    const usage = await store.read(ref);
+    records.push({ ref, usage });
+  }
+  return selectContextUsageForChange(records, options);
+}
+
+async function buildSignedPlacementReport({
+  worktree,
+  store,
+  task,
+  sourceModifiedPaths,
+  sourceState,
+  verificationRef,
+  obligation,
+  verdict,
+  judge,
+}) {
+  const match = obligation.id.match(/^constraint:(.+)\.stage\.([^.]+)\.responsibility\.(\d+)$/u);
+  if (!match) return undefined;
+  const [, flowId, stageId] = match;
+  const flowRef = (obligation.sourceRefs ?? []).find((ref) => ref?.type === "FlowContract");
+  if (!flowRef) return undefined;
+  const flow = await store.read(flowRef);
+  if (flow?.contractId !== flowId || !Array.isArray(flow?.stages)) return undefined;
+  const stage = flow.stages.find((candidate) => candidate?.id === stageId);
+  if (!stage || !Array.isArray(stage.paths)) return undefined;
+  const changedSourcePaths = sourceModifiedPaths.filter((path) =>
+    stage.paths.some((pattern) => benchmarkPathMatches(path, pattern)));
+  if (changedSourcePaths.length === 0) return undefined;
+  const sourceEvidence = [];
+  for (const path of changedSourcePaths) {
+    const evidence = await buildBenchmarkSourceEvidence(worktree, sourceState, path);
+    if (!evidence) return undefined;
+    sourceEvidence.push(evidence);
+  }
+  const contractRef = {
+    type: flow.header.artifactType,
+    id: flow.header.artifactId,
+    schemaVersion: flow.header.schemaVersion,
+  };
+  const artifactId = `placement-verification-${createHash("sha256").update(JSON.stringify({
+    task,
+    obligationId: obligation.id,
+    sourceDigest: sourceState.digest,
+    keyId: judge.trustedKey.keyId,
+  })).digest("hex").slice(0, 20)}`;
+  const report = createPlacementVerificationReport({
+    header: {
+      artifactType: "PlacementVerificationReport",
+      artifactId,
+      schemaVersion: "1.0.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: worktree, paths: sourceModifiedPaths },
+      producer: {
+        id: INDEPENDENT_PLACEMENT_JUDGE_ID,
+        version: INDEPENDENT_PLACEMENT_JUDGE_VERSION,
+      },
+      inputRefs: [contractRef, verificationRef],
+      freshness: { status: "fresh" },
+      provenance: {
+        confidence: 1,
+        notes: ["Independent benchmark scope, repository-check, and hidden-oracle judgment."],
+      },
+    },
+    task: { text: task, paths: sourceModifiedPaths },
+    obligation: {
+      id: obligation.id,
+      assertion: obligation.assertion,
+      contractRef,
+      flowId,
+      stageId,
+      stagePaths: stage.paths,
+      changedSourcePaths,
+    },
+    sourceState,
+    sourceEvidence,
+    verdict,
+    explanation: verdict === "supported"
+      ? "The independently verified change is located in the stage that owns this responsibility."
+      : "The independent benchmark oracle found that the change does not satisfy the required placement.",
+    verifier: {
+      kind: "service",
+      id: INDEPENDENT_PLACEMENT_JUDGE_ID,
+      version: INDEPENDENT_PLACEMENT_JUDGE_VERSION,
+      independentOf: ["rekon-managed-agent"],
+    },
+  });
+  return signPlacementVerificationReport(report, judge.signingKey);
+}
+
+async function buildBenchmarkSourceState(worktree, paths) {
+  const baseRef = commandOutput("git", ["rev-parse", "HEAD"], worktree);
+  const files = [];
+  for (const path of paths) {
+    const before = await gitFile(worktree, "HEAD", path);
+    const after = await readFile(join(worktree, path)).catch(() => undefined);
+    const status = before === undefined
+      ? "added"
+      : after === undefined
+        ? "deleted"
+        : "modified";
+    files.push({
+      path,
+      status,
+      ...(before ? { beforeSha256: createHash("sha256").update(before).digest("hex") } : {}),
+      ...(after ? { afterSha256: createHash("sha256").update(after).digest("hex") } : {}),
+    });
+  }
+  return createSourceStateBinding({ baseRef, files });
+}
+
+async function gitFile(worktree, ref, path) {
+  try {
+    const { stdout } = await execFileAsync("git", ["show", `${ref}:${path}`], {
+      cwd: worktree,
+      encoding: null,
+      maxBuffer: 10_000_000,
+    });
+    return stdout;
+  } catch {
+    return undefined;
+  }
+}
+
+async function buildBenchmarkSourceEvidence(worktree, sourceState, path) {
+  const file = sourceState.files.find((entry) => entry.path === path);
+  if (!file?.afterSha256) return undefined;
+  const content = await readFile(join(worktree, path), "utf8");
+  const lines = content.split(/\r?\n/u);
+  const diff = rawCommandOutput(
+    "git",
+    ["diff", "--unified=0", "HEAD", "--", path],
+    worktree,
+  );
+  const changedLines = [];
+  for (const match of diff.matchAll(/@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gu)) {
+    const start = Number.parseInt(match[1], 10);
+    const count = match[2] === undefined ? 1 : Number.parseInt(match[2], 10);
+    if (count > 0) changedLines.push({ start, end: start + count - 1 });
+  }
+  const firstChangedLine = changedLines.length > 0
+    ? Math.min(...changedLines.map((entry) => entry.start))
+    : 1;
+  const lastChangedLine = changedLines.length > 0
+    ? Math.max(...changedLines.map((entry) => entry.end))
+    : 1;
+  let lineStart = Math.max(1, firstChangedLine - 2);
+  let lineEnd = Math.min(
+    lines.length,
+    lastChangedLine + 2,
+  );
+  let excerpt = lines.slice(lineStart - 1, lineEnd).join("\n");
+  while (excerpt.length > 6_000 && lineEnd > lineStart) {
+    lineEnd -= 1;
+    excerpt = lines.slice(lineStart - 1, lineEnd).join("\n");
+  }
+  if (!excerpt || excerpt.length > 6_000) return undefined;
+  return {
+    path,
+    sha256: file.afterSha256,
+    lineStart,
+    lineEnd,
+    excerpt,
+  };
+}
+
+function benchmarkPathMatches(path, pattern) {
+  const normalized = String(pattern).replace(/\\/gu, "/").replace(/^\.\//u, "");
+  if (normalized.endsWith("/**")) {
+    const prefix = normalized.slice(0, -3);
+    return path === prefix || path.startsWith(`${prefix}/`);
+  }
+  return path === normalized;
+}
+
+async function requireIndependentCliStep(events, args, cwd) {
+  const step = await runIndependentCliStep(args, cwd);
+  events.push(step.event);
+  if (!step.ok) {
+    throw new Error(step.error ?? `independent CLI step failed: ${args.slice(0, 2).join(" ")}`);
+  }
+  return step;
+}
+
+async function runIndependentCliStep(args, cwd) {
+  const command = `rekon ${args.map(shellQuote).join(" ")}`;
+  try {
+    const { stdout } = await execFileAsync(process.execPath, [cliEntry, ...args], {
+      cwd: root,
+      timeout: options.timeoutMs,
+      maxBuffer: 20_000_000,
+    });
+    const payload = JSON.parse(stdout);
+    return {
+      ok: true,
+      payload,
+      event: benchmarkCommandEvent(command, stdout, 0),
+    };
+  } catch (error) {
+    const stdout = typeof error?.stdout === "string" ? error.stdout : "";
+    const stderr = typeof error?.stderr === "string" ? error.stderr : "";
+    return {
+      ok: false,
+      payload: await parseJsonText(stdout),
+      error: [stderr.trim(), stdout.trim(), error instanceof Error ? error.message : String(error)]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 2_000),
+      event: benchmarkCommandEvent(command, stdout || stderr, Number(error?.code) || 1),
+    };
+  }
+}
+
+function benchmarkCommandEvent(command, output, exitCode) {
+  return {
+    type: "item.completed",
+    item: {
+      type: "command_execution",
+      command,
+      aggregated_output: output,
+      exit_code: exitCode,
+    },
+  };
+}
+
+async function parseJsonText(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
   }
 }
 
@@ -544,7 +1087,9 @@ async function prepareManagedRekonWorktree(worktree) {
   });
 
   const store = createLocalArtifactStore(worktree);
-  const evidenceRef = (await store.list("EvidenceGraph")).at(-1);
+  const evidenceRef = (
+    await store.list("EvidenceGraph", { order: "newest", limit: 1 })
+  )[0];
   if (!evidenceRef) throw new Error("managed adoption fixture refresh produced no EvidenceGraph");
 
   const graphRef = await store.write({
@@ -703,7 +1248,11 @@ async function captureArtifactKeys(worktree) {
   return new Set((await store.list()).map((entry) => `${entry.type}:${entry.id}`));
 }
 
-async function inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys) {
+async function inspectManagedProductLoopArtifacts(
+  worktree,
+  initialArtifactKeys,
+  trustedPlacementKeys = [],
+) {
   const store = createLocalArtifactStore(worktree);
   await store.init();
   const entries = (await store.list())
@@ -720,6 +1269,27 @@ async function inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys)
   const proof = records.findLast((record) =>
     record.entry.type === "ProofGateReport"
     && record.body?.evaluation?.status === "satisfied");
+  const placementObligationIds = new Set((proof?.body?.obligations ?? [])
+    .filter((obligation) =>
+      typeof obligation?.id === "string"
+      && /\.stage\.[^.]+\.responsibility\.\d+$/u.test(obligation.id))
+    .map((obligation) => obligation.id));
+  const trustedPlacementRefs = new Set();
+  const untrustedPlacementRefs = new Set();
+  for (const record of records.filter((candidate) =>
+    candidate.entry.type === "PlacementVerificationReport" && candidate.body)) {
+    const trust = verifyPlacementVerificationAttestation(record.body, trustedPlacementKeys);
+    const key = `${record.entry.type}:${record.entry.id}`;
+    (trust.trusted ? trustedPlacementRefs : untrustedPlacementRefs).add(key);
+  }
+  const placementResults = (proof?.body?.results ?? []).filter((result) =>
+    placementObligationIds.has(result?.obligationId));
+  const placementVerificationTrusted = placementObligationIds.size === 0
+    || [...placementObligationIds].every((obligationId) =>
+      placementResults.some((result) =>
+        result.obligationId === obligationId
+        && [...(result.evidenceRefs ?? []), ...(result.counterEvidenceRefs ?? [])].some((ref) =>
+          trustedPlacementRefs.has(`${ref?.type}:${ref?.id}`))));
   const verificationResultRef = proof?.body?.header?.inputRefs?.find((ref) =>
     ref?.type === "VerificationResult");
   const verificationResult = findRecordByRef(records, verificationResultRef);
@@ -791,6 +1361,10 @@ async function inspectManagedProductLoopArtifacts(worktree, initialArtifactKeys)
       && verificationRun.body.sourceState.beforeDigest === verificationRun.body.sourceState.afterDigest,
     verificationResultPassed: verificationResult?.body?.status === "passed",
     verificationLineageComplete,
+    placementVerificationRequired: placementObligationIds.size > 0,
+    placementVerificationTrusted,
+    trustedPlacementReports: trustedPlacementRefs.size,
+    untrustedPlacementReports: untrustedPlacementRefs.size,
     proofGateSatisfied: proof?.body?.evaluation?.status === "satisfied",
     proofGateLinkedVerification: Boolean(
       proof

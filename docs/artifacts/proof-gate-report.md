@@ -73,8 +73,10 @@ A changed flow-stage responsibility requires both its selected test and a
 `PlacementVerificationReport`. The acting agent's judgment input and direct
 caller-supplied proof results are rejected for that obligation. The report must
 match the current contract, stage, changed paths, source-state digest, and
-reviewed source spans. Its ref is retained in the final gate's evidence or
-counterevidence.
+reviewed source spans. Its Ed25519 attestation must verify against the host's
+configured public key and verifier identity. Unsigned and untrusted reports do
+not satisfy the obligation. Its ref is retained in the final gate's evidence
+or counterevidence.
 
 A selected check exposes `proofObligationIds`. An exact handoff check binds
 only to its own `:edge` obligation; it cannot prove a sibling edge. Legacy

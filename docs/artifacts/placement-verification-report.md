@@ -7,8 +7,9 @@ it does not replace the stage's required test.
 ## Produced By
 
 An independent model or service creates the report with
-`createPlacementVerificationReport()` and writes it to the Rekon artifact
-store. The verifier must not be the agent that made the change.
+`createPlacementVerificationReport()`, signs it with
+`signPlacementVerificationReport()`, and writes it to the Rekon artifact store.
+The verifier must not be the agent that made the change.
 
 ## Consumed By
 
@@ -29,7 +30,8 @@ The report binds:
 - bounded source spans whose file digests match that source state;
 - a `supported`, `refuted`, or `unresolved` verdict and explanation;
 - verifier identity, version, and the acting-agent identity from which it is
-  independent.
+  independent;
+- an Ed25519 attestation over the normalized report payload.
 
 ```json
 {
@@ -73,6 +75,12 @@ The report binds:
     "id": "independent-placement-judge",
     "version": "1.0.0",
     "independentOf": ["rekon-managed-agent"]
+  },
+  "attestation": {
+    "algorithm": "ed25519",
+    "keyId": "placement-judge-2026",
+    "payloadDigest": "<sha256>",
+    "signature": "<base64>"
   }
 }
 ```
@@ -82,9 +90,30 @@ The report binds:
 Validation accepts a report only when its task, paths, assertion, contract,
 flow, stage, source state, and verifier independence match the current
 responsibility obligation. The CLI also verifies cited source excerpts against
-the current regular, in-repository files. Generic `--judgment-json`, direct
-`ProofResult` input, stale reports, and reports attributed to the acting agent
-cannot satisfy placement.
+the current regular, in-repository files and verifies its signature against an
+operator-configured key. Generic `--judgment-json`, direct `ProofResult` input,
+unsigned or untrusted reports, stale reports, and reports attributed to the
+acting agent cannot satisfy placement.
+
+Trusted public keys live in root `rekon.config.json`:
+
+```json
+{
+  "placementVerification": {
+    "trustedKeys": [{
+      "algorithm": "ed25519",
+      "keyId": "placement-judge-2026",
+      "verifierId": "independent-placement-judge",
+      "publicKeySpki": "<base64 DER>"
+    }]
+  }
+}
+```
+
+The private signing key belongs to the host verifier and must not be stored in
+the repository or exposed to the acting agent. Source-controlled trust policy
+makes key changes reviewable; it is not process isolation. An unsigned report
+remains a valid draft artifact, but it is not admissible proof.
 
 A supported report supplies the semantic half of the stage-responsibility
 gate. The matching declared test must still pass. A refuted report blocks the

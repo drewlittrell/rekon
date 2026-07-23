@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -18,6 +18,7 @@ import {
   createRuntimeGraphObservationReport,
   createSystemContract,
   createTaskPact,
+  signPlacementVerificationReport,
   assertOutcomeEvent,
 } from "@rekon/kernel-repo-model";
 import { createSourceStateBinding, digestJson } from "@rekon/kernel-artifacts";
@@ -654,11 +655,26 @@ test("proof-gated change validation requires current-diff regression evidence de
 test("CLI stage placement cannot be self-certified and requires current independent source review", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-placement-review-"));
   const evidencePath = "test/bootstrap.test.mjs";
+  const verifierId = "codex-independent-placement-judge";
+  const keyId = "placement-judge-1";
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const signingKey = {
+    algorithm: "ed25519",
+    keyId,
+    privateKeyPkcs8: privateKey.export({ format: "der", type: "pkcs8" }).toString("base64"),
+  };
+  const trustedKey = {
+    algorithm: "ed25519",
+    keyId,
+    verifierId,
+    publicKeySpki: publicKey.export({ format: "der", type: "spki" }).toString("base64"),
+  };
 
   try {
     const fixture = await createFixture(root, {
       stageResponsibilities: ["Normalize bootstrap input before runtime dispatch."],
       requiredEvidencePaths: [evidencePath],
+      trustedPlacementVerificationKeys: [trustedKey],
     });
     await writeFile(
       join(root, evidencePath),
@@ -774,13 +790,38 @@ test("CLI stage placement cannot be self-certified and requires current independ
       explanation: "The bootstrap change remains in the stage that owns normalization before runtime dispatch.",
       verifier: {
         kind: "model",
-        id: "codex-independent-placement-judge",
+        id: verifierId,
         version: "1.0.0",
         independentOf: ["rekon-managed-agent"],
       },
     });
     const store = createLocalArtifactStore(root);
-    const placementRef = await store.write(placementReport, { category: "actions" });
+    const unsignedRef = await store.write(placementReport, { category: "actions" });
+
+    const unsigned = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--placement-verification", `${unsignedRef.type}:${unsignedRef.id}`,
+      "--judgment-json", JSON.stringify(genericJudgments),
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(unsigned.status, "needs-judgment");
+    assert.ok(unsigned.proofGate.warnings.some((warning) =>
+      warning.includes("attestation is untrusted (attestation-missing)")));
+
+    const signedPlacementReport = signPlacementVerificationReport({
+      ...placementReport,
+      header: {
+        ...placementReport.header,
+        artifactId: "placement-review-bootstrap-signed",
+      },
+    }, signingKey);
+    const placementRef = await store.write(signedPlacementReport, { category: "actions" });
 
     const completed = runCliJson([
       "context", "validate-change",
@@ -830,6 +871,7 @@ async function createFixture(root, options = {}) {
   const requiredChecks = options.requiredChecks ?? [selectedCheck];
   const stageResponsibilities = options.stageResponsibilities ?? [];
   const requiredEvidencePaths = options.requiredEvidencePaths ?? [];
+  const trustedPlacementVerificationKeys = options.trustedPlacementVerificationKeys ?? [];
   await mkdir(join(root, "src"), { recursive: true });
   await mkdir(join(root, "rekon", "contracts"), { recursive: true });
   if (requiredEvidencePaths.length > 0) {
@@ -847,6 +889,17 @@ async function createFixture(root, options = {}) {
   }, null, 2)}\n`, "utf8");
   await writeFile(join(root, "src/index.ts"), "export const bootstrap = 'stable';\n", "utf8");
   await writeFile(join(root, "src/runtime.ts"), "export const runtime = 'stable';\n", "utf8");
+  if (trustedPlacementVerificationKeys.length > 0) {
+    await writeFile(
+      join(root, "rekon.config.json"),
+      `${JSON.stringify({
+        placementVerification: {
+          trustedKeys: trustedPlacementVerificationKeys,
+        },
+      }, null, 2)}\n`,
+      "utf8",
+    );
+  }
   for (const path of requiredEvidencePaths) {
     await writeFile(
       join(root, path),
@@ -1033,6 +1086,7 @@ async function createFixture(root, options = {}) {
 
   const baselinePaths = ["package.json", "src", "rekon/contracts"];
   if (requiredEvidencePaths.length > 0) baselinePaths.push("test");
+  if (trustedPlacementVerificationKeys.length > 0) baselinePaths.push("rekon.config.json");
   for (const args of [
     ["init", "-q"],
     ["add", ...baselinePaths],

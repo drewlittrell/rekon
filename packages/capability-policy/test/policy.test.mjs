@@ -33,6 +33,83 @@ import { createRuntime } from "@rekon/runtime";
 
 const silentLogger = { info() {}, warn() {}, error() {} };
 
+test("policy evaluator selects current evidence by recency rather than artifact id", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-policy-recency-"));
+
+  try {
+    const runtime = await createRuntime({
+      repoRoot: root,
+      repoId: "fixture",
+      capabilities: [policyCapability],
+      logger: silentLogger,
+    });
+    const header = (artifactType, artifactId, inputRefs = []) => ({
+      artifactType,
+      artifactId,
+      schemaVersion: "0.1.0",
+      generatedAt: new Date().toISOString(),
+      subject: { repoId: "fixture" },
+      producer: { id: "test", version: "1.0.0" },
+      inputRefs,
+      freshness: { status: "fresh" },
+    });
+    const writeEvidence = (artifactId) => runtime.artifacts.write({
+      header: header("EvidenceGraph", artifactId),
+      facts: [],
+    });
+    const writeCapabilityGraph = (artifactId, evidenceRef) => runtime.artifacts.write({
+      header: header("CapabilityEvidenceGraph", artifactId, [evidenceRef]),
+      schemaVersion: "0.1.0",
+      status: { value: "built", reason: "test" },
+      nodes: [],
+      evidence: [],
+      claims: [],
+      capabilities: [],
+      summary: {
+        files: 0,
+        symbols: 0,
+        capabilities: 0,
+        facts: 0,
+        inferences: 0,
+        recommendations: 0,
+        evidence: 0,
+      },
+      boundaries: {
+        usedLlm: false,
+        generatedEmbeddings: false,
+        executedCommands: false,
+        wroteSourceFiles: false,
+        createdPreparedIntentPlan: false,
+        createdWorkOrder: false,
+        createdVerificationPlan: false,
+        ranCirce: false,
+        implementedIntentGo: false,
+      },
+    });
+
+    const staleEvidence = await writeEvidence("z-stale-evidence");
+    await writeCapabilityGraph("z-stale-capability-graph", staleEvidence);
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+    const currentEvidence = await writeEvidence("a-current-evidence");
+    const currentCapabilityGraph = await writeCapabilityGraph(
+      "a-current-capability-graph",
+      currentEvidence,
+    );
+
+    const refs = await runtime.runEvaluate();
+    const assessmentReport = await runtime.artifacts.read(
+      refs.find((ref) => ref.type === "AssessmentReport"),
+    );
+    const inputKeys = assessmentReport.header.inputRefs.map((ref) => `${ref.type}:${ref.id}`);
+
+    assert.ok(inputKeys.includes(`EvidenceGraph:${currentEvidence.id}`));
+    assert.ok(inputKeys.includes(`CapabilityEvidenceGraph:${currentCapabilityGraph.id}`));
+    assert.ok(!inputKeys.some((key) => key.includes("z-stale")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("policy evaluator emits a FindingReport from EvidenceGraph", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-policy-"));
 

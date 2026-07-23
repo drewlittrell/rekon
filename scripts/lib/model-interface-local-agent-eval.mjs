@@ -144,6 +144,54 @@ export function classifyBenchmarkModifiedPaths(paths) {
   return { sourcePaths, generatedPaths };
 }
 
+export function selectContextUsageForChange(records, options = {}) {
+  const initialArtifactKeys = options.initialArtifactKeys instanceof Set
+    ? options.initialArtifactKeys
+    : new Set(strings(options.initialArtifactKeys));
+  const changedPaths = new Set(strings(options.sourceModifiedPaths).map(normalizeRepoPath));
+  const readPaths = new Set([
+    ...strings(options.inspectedPaths),
+    ...strings(options.reportedContextPaths),
+  ].map(normalizeRepoPath));
+  const candidates = [...(Array.isArray(records) ? records : [])]
+    .filter((record) => isRecord(record) && isRecord(record.ref) && isRecord(record.usage))
+    .sort((left, right) =>
+      String(right.ref.writtenAt ?? "").localeCompare(String(left.ref.writtenAt ?? "")));
+
+  for (const { ref, usage } of candidates) {
+    const artifactKey = `${String(ref.type ?? "")}:${String(ref.id ?? "")}`;
+    if (initialArtifactKeys.has(artifactKey)) continue;
+    if (ref.type !== "ContextUsageEvent" || typeof ref.id !== "string") continue;
+    if (!Array.isArray(usage.claims) || usage.claims.length > 0) continue;
+    if (!["mcp", "cli"].includes(usage.delivery?.channel)) continue;
+    if (typeof usage.task?.text !== "string" || usage.task.text.trim().length === 0) continue;
+
+    const itemIds = unique(strings(usage.delivery?.itemIds).map(normalizeRepoPath));
+    if (itemIds.length === 0) continue;
+    const scopedPaths = new Set([
+      ...strings(usage.task?.paths),
+      ...strings(usage.header?.subject?.paths),
+      ...itemIds,
+    ].map(normalizeRepoPath));
+    if (
+      changedPaths.size > 0
+      && ![...changedPaths].some((path) => scopedPaths.has(path))
+    ) {
+      continue;
+    }
+
+    return {
+      ref,
+      taskText: usage.task.text.trim(),
+      claims: Object.fromEntries(itemIds.map((itemId) => [
+        itemId,
+        readPaths.has(itemId) ? "read" : "ignored",
+      ])),
+    };
+  }
+  return undefined;
+}
+
 export function mergeAgentCommands(eventCommands, verifiedCommands) {
   return unique([
     ...strings(eventCommands),
@@ -360,6 +408,9 @@ export function summarizeRekonProductLoop(events, artifactEvidence = {}, options
     verificationRunPassed: artifactEvidence.verificationRunPassed === true,
     verificationSourceStable: artifactEvidence.verificationSourceStable === true,
     verificationResultPassed: artifactEvidence.verificationResultPassed === true,
+    ...(artifactEvidence.placementVerificationRequired === true ? {
+      placementVerificationTrusted: artifactEvidence.placementVerificationTrusted === true,
+    } : {}),
     proofGateSatisfied: artifactEvidence.proofGateSatisfied === true,
     proofGateLinkedVerification: artifactEvidence.proofGateLinkedVerification === true,
     validationOutcomeVerified: artifactEvidence.validationOutcomeVerified === true,
@@ -722,6 +773,46 @@ export function scoreLocalAgentOutcome(run, oracle) {
   };
 }
 
+export function assessIndependentPlacementOutcome({
+  sourceModifiedPaths,
+  oracle,
+  requiredChecks,
+  oracleChecks,
+}) {
+  const modifiedPaths = unique(strings(sourceModifiedPaths));
+  const requiredPaths = unique(strings(oracle?.requiredModifyPaths));
+  const allowedPaths = unique(strings(
+    oracle?.allowedModifyPaths ?? oracle?.requiredModifyPaths,
+  ));
+  const protectedPaths = new Set(unique(strings(oracle?.protectedPaths)));
+  const missingRequiredPaths = requiredPaths.filter((path) => !modifiedPaths.includes(path));
+  const unexpectedModifiedPaths = modifiedPaths.filter((path) => !allowedPaths.includes(path));
+  const protectedPathViolations = modifiedPaths.filter((path) => protectedPaths.has(path));
+  const failedRequiredChecks = (requiredChecks ?? [])
+    .filter((entry) => entry?.exitCode !== 0)
+    .map((entry) => entry.command);
+  const failedOracleChecks = (oracleChecks ?? [])
+    .filter((entry) => entry?.exitCode !== 0)
+    .map((entry) => entry.command);
+  const reasons = [
+    ...missingRequiredPaths.map((path) => `missing required change: ${path}`),
+    ...unexpectedModifiedPaths.map((path) => `unexpected source change: ${path}`),
+    ...protectedPathViolations.map((path) => `protected source changed: ${path}`),
+    ...failedRequiredChecks.map((command) => `required check failed: ${command}`),
+    ...failedOracleChecks.map((command) => `hidden oracle failed: ${command}`),
+  ];
+
+  return {
+    verdict: reasons.length === 0 ? "supported" : "refuted",
+    reasons,
+    missingRequiredPaths,
+    unexpectedModifiedPaths,
+    protectedPathViolations,
+    failedRequiredChecks,
+    failedOracleChecks,
+  };
+}
+
 export function compareLocalAgentPair(baseline, rekon) {
   if (!baseline?.score || !rekon?.score || baseline.status !== "ok" || rekon.status !== "ok") {
     return { decision: "inconclusive", reasons: ["one or both isolated runs did not complete"] };
@@ -778,6 +869,8 @@ export function compactLocalAgentRun(run) {
     repeat: run.repeat,
     condition: run.condition,
     status: run.status,
+    ...(run.actorTerminalStatus ? { actorTerminalStatus: run.actorTerminalStatus } : {}),
+    ...(run.independentJudge ? { independentJudge: run.independentJudge } : {}),
     final: run.final ? {
       status: run.final.status,
       contextPaths: run.final.contextPaths,
@@ -1261,6 +1354,10 @@ function strings(value) {
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+function normalizeRepoPath(value) {
+  return String(value).replace(/\\/gu, "/").replace(/^\.\//u, "");
 }
 
 function average(values) {

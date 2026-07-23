@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 
-import modelCapability, { buildCapabilityEvidenceGraph } from "../dist/index.js";
+import modelCapability, {
+  buildCapabilityEvidenceGraph,
+  modelProjector,
+} from "../dist/index.js";
 import { createRuntime } from "@rekon/runtime";
 
 const silentLogger = {
@@ -166,4 +169,86 @@ test("model capability projects only high-confidence semantic capabilities with 
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("model projector requests the newest optional artifacts instead of trusting list order", async () => {
+  const evidenceRef = {
+    type: "EvidenceGraph",
+    id: "evidence-current",
+    schemaVersion: "0.1.0",
+  };
+  const currentGraphRef = {
+    type: "CapabilityEvidenceGraph",
+    id: "capability-evidence-graph-current",
+    schemaVersion: "0.1.0",
+  };
+  const staleGraphRef = {
+    type: "CapabilityEvidenceGraph",
+    id: "model-interface-adoption-graph",
+    schemaVersion: "0.1.0",
+  };
+  const artifactsById = new Map([
+    [evidenceRef.id, {
+      header: {
+        artifactType: evidenceRef.type,
+        artifactId: evidenceRef.id,
+        schemaVersion: evidenceRef.schemaVersion,
+        generatedAt: "2026-07-23T00:00:00.000Z",
+        subject: { repoId: "fixture" },
+        producer: { id: "test", version: "1.0.0" },
+        inputRefs: [],
+      },
+      facts: [],
+    }],
+    [currentGraphRef.id, {
+      evidence: [],
+      capabilities: [],
+    }],
+    // This intentionally represents an obsolete pre-current shape. The
+    // projector must never read it when a newer graph is available.
+    [staleGraphRef.id, {
+      capabilities: [],
+    }],
+  ]);
+  const listCalls = [];
+  const writes = [];
+  const artifacts = {
+    async list(type, options) {
+      listCalls.push({ type, options });
+      if (type === "EvidenceGraph") return [evidenceRef];
+      if (type === "CapabilityPhraseReport") return [];
+      if (type === "CapabilityEvidenceGraph") {
+        return options?.order === "newest" && options?.limit === 1
+          ? [currentGraphRef]
+          : [currentGraphRef, staleGraphRef];
+      }
+      return [];
+    },
+    async read(ref) {
+      return artifactsById.get(ref.id);
+    },
+    async write(type, value) {
+      writes.push({ type, value });
+      return {
+        type,
+        id: value.header.artifactId,
+        schemaVersion: value.header.schemaVersion,
+      };
+    },
+  };
+
+  await modelProjector.project({
+    artifacts,
+    input: { repoRoot: "/fixture" },
+  });
+
+  assert.equal(writes.length, 3);
+  assert.deepEqual(
+    listCalls,
+    [
+      { type: "EvidenceGraph", options: { order: "newest", limit: 1 } },
+      { type: "CapabilityPhraseReport", options: { order: "newest", limit: 1 } },
+      { type: "CapabilityEvidenceGraph", options: { order: "newest", limit: 1 } },
+    ],
+  );
 });

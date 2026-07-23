@@ -73,7 +73,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.4.3";
+export const MCP_SERVER_VERSION = "1.4.4";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -2041,7 +2041,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "Call `context_for_task` at task start, after compaction, or when scope changes; keep its `contextUsageRef` and batch-read every `readFirst` path before editing.",
   "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with the retained ref, task, paths, base ref, and `contextClaims` (`applied`, `read`, or `ignored`). Use `applied` only for context that shaped the change; claims route proof but are not proof. Judge only generic `model-judgment` obligations. Stage placement requires an independent source-bound `PlacementVerificationReport`; never self-certify it. Prepare and execute checks with CLI `--prepare-verification`; repair failures from `correctiveContext` before `escalation: validation-failed`.",
+  "After editing, call `validate_change` with the retained ref, task, paths, base ref, and `contextClaims`. Use `applied` only for context that shaped the change; claims route proof but are not proof. Judge only generic `model-judgment` obligations. Stage placement requires an independently signed, source-bound `PlacementVerificationReport`; do not create or sign it. Stop for the host verifier. Prepare checks with CLI `--prepare-verification`; repair from `correctiveContext` before `escalation: validation-failed`.",
   "Validate again with explicit VerificationResult refs, required independent placement reports, runtime observations, and remaining judgments. Completion requires `proofGate.status: satisfied`; failed/stale/skipped/self-authored/unbound evidence is not proof.",
   "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags; it refreshes knowledge and rechecks gated source bytes. Any digest, gate, refresh, or contract-drift failure is incomplete.",
 ]);

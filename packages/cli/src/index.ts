@@ -384,6 +384,7 @@ import {
   type FlowContractSource,
   type FlowContract,
   type PlacementVerificationReport,
+  type PlacementVerificationTrustedKey,
   type ProofGateReport,
   type RepositoryContractSourceDocument,
   type SystemContractSource,
@@ -398,6 +399,7 @@ import {
   assertContextUsageEvent,
   assertOutcomeEvent,
   assertPlacementVerificationReport,
+  verifyPlacementVerificationAttestation,
   assertTaskContextReport,
   assertTaskPact,
   createContractAdoptionReport,
@@ -13589,6 +13591,65 @@ async function readConfig(root: string): Promise<RekonConfig> {
   }
 }
 
+async function readPlacementVerificationTrustedKeys(
+  root: string,
+): Promise<PlacementVerificationTrustedKey[]> {
+  const configPath = resolve(root, "rekon.config.json");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(configPath, "utf8"));
+  } catch (error) {
+    if (
+      error instanceof Error
+      && "code" in error
+      && (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return [];
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load placement-verifier trust policy from ${configPath}: ${detail}`);
+  }
+  if (!isRecordValue(parsed)) {
+    throw new Error(`${configPath} must be a JSON object.`);
+  }
+  const placementVerification = parsed.placementVerification;
+  if (placementVerification === undefined) return [];
+  if (!isRecordValue(placementVerification)) {
+    throw new Error(`${configPath} placementVerification must be an object.`);
+  }
+  const trustedKeys = placementVerification.trustedKeys;
+  if (!Array.isArray(trustedKeys)) {
+    throw new Error(`${configPath} placementVerification.trustedKeys must be an array.`);
+  }
+
+  const seen = new Set<string>();
+  return trustedKeys.map((value, index) => {
+    const path = `placementVerification.trustedKeys[${index}]`;
+    if (!isRecordValue(value)) {
+      throw new Error(`${configPath} ${path} must be an object.`);
+    }
+    if (value.algorithm !== "ed25519") {
+      throw new Error(`${configPath} ${path}.algorithm must be "ed25519".`);
+    }
+    for (const key of ["keyId", "verifierId", "publicKeySpki"] as const) {
+      if (typeof value[key] !== "string" || value[key].trim().length === 0) {
+        throw new Error(`${configPath} ${path}.${key} must be a non-empty string.`);
+      }
+    }
+    const keyId = (value.keyId as string).trim();
+    if (seen.has(keyId)) {
+      throw new Error(`${configPath} contains duplicate placement verifier keyId ${keyId}.`);
+    }
+    seen.add(keyId);
+    return {
+      algorithm: "ed25519",
+      keyId,
+      verifierId: (value.verifierId as string).trim(),
+      publicKeySpki: (value.publicKeySpki as string).trim(),
+    };
+  });
+}
+
 type ConfigRulebookSyncResult = {
   configured: boolean;
   changed: boolean;
@@ -15585,6 +15646,9 @@ async function validateRepositoryChange(
 
   const currentSourceState = currentChangeSourceState(evidence);
   const latestSourceMtime = await latestChangedSourceMtime(root, evidence.files);
+  const trustedPlacementVerificationKeys = (input.placementVerificationRefs?.length ?? 0) > 0
+    ? await readPlacementVerificationTrustedKeys(root)
+    : [];
   const placementVerificationEvidence: ChangePlacementVerificationEvidence[] = [];
   for (const requested of input.placementVerificationRefs ?? []) {
     const entry = await findArtifactEntry(store, requested);
@@ -15596,10 +15660,24 @@ async function validateRepositoryChange(
     if (currentSourceState?.digest === report.sourceState.digest) {
       await assertPlacementVerificationSourceEvidence(root, report);
     }
+    const attestation = verifyPlacementVerificationAttestation(
+      report,
+      trustedPlacementVerificationKeys,
+    );
     addValidationSource(sources, report);
     placementVerificationEvidence.push({
       ref: artifactIndexRef(entry),
       report,
+      attestation: attestation.trusted
+        ? {
+            status: "trusted",
+            reason: "trusted-ed25519-signature",
+            keyId: attestation.keyId,
+          }
+        : {
+            status: "untrusted",
+            reason: attestation.reason,
+          },
     });
   }
 

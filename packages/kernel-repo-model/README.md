@@ -85,7 +85,10 @@ obligations without changing the source contracts.
 `PlacementVerificationReport` is the source-bound independent semantic proof
 for a changed flow-stage responsibility. It binds the exact contract, stage,
 task paths, source-state digest, reviewed spans, verdict, and verifier
-provenance. It is not repository law and cannot replace the stage's test.
+provenance. Public helpers normalize its signing payload, add an Ed25519
+attestation, and verify that attestation against an operator-provided trusted
+key. An unsigned report is a draft, not admissible proof. The report is not
+repository law and cannot replace the stage's test.
 `ProofObligation`, `ProofResult`, and `ProofGateReport` define post-edit
 completion gates. Tests, runtime observations, static evidence, and model
 judgment count only when the obligation declares that method. Counterevidence
@@ -98,8 +101,8 @@ Stages may also declare path-scoped responsibilities. A handoff verifier may
 name `requiredEvidencePaths`, normally focused regression tests, only alongside
 an accepted `test` method and at least one exact check. This declares current
 diff evidence; it does not replace execution of the check. Stage placement
-requires a current independent `PlacementVerificationReport`; the acting
-agent's generic model judgment cannot satisfy it.
+requires a current, trusted independent `PlacementVerificationReport`; the
+acting agent's generic model judgment cannot satisfy it.
 `ContractCandidateReport.evidenceInventory` distinguishes successful inventory
 of supported evidence from actual runtime and isolated-coverage availability.
 It is optional when reading earlier v1 reports; current discovery producers

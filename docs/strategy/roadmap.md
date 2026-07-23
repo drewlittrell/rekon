@@ -73,8 +73,9 @@ verification recording, reconciliation planning, and artifact validation.
   policies may require current-diff regression evidence paths. Task pacts carry
   both into model context. A changed stage requires its exact test plus an
   indexed, source-bound `PlacementVerificationReport` from a verifier that
-  declares independence from the acting agent. Direct proof results and the
-  acting agent's `--judgment-json` cannot satisfy placement. The evidence-path
+  declares independence from the acting agent and signs the report with a
+  host-held Ed25519 key. Direct proof results, unsigned reports, and the acting
+  agent's `--judgment-json` cannot satisfy placement. The evidence-path
   obligation remains deterministic and cannot be self-approved. Existing
   contracts without either declaration keep their prior proof behavior.
 - Targeted verification now preserves declared task and contract checks, fills

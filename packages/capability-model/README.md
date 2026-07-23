@@ -95,10 +95,12 @@ retain the compatible test/runtime/model fallback.
 Path-scoped stage responsibilities compile into the `TaskPact` and require both
 the matching declared test and an indexed, source-bound
 `PlacementVerificationReport` from a verifier independent of the acting agent.
-Generic model judgment and direct proof input cannot satisfy placement. A
-handoff's `requiredEvidencePaths` become required context and a deterministic
-current-diff obligation. Model judgment cannot satisfy that obligation, and
-changing the evidence path does not replace running its exact test.
+The host must also verify its attestation against configured trust policy.
+Generic model judgment, unsigned reports, and direct proof input cannot satisfy
+placement. A handoff's `requiredEvidencePaths` become required context and a
+deterministic current-diff obligation. Model judgment cannot satisfy that
+obligation, and changing the evidence path does not replace running its exact
+test.
 Checks come from task guidance and the system, flow, and capability contracts
 intersected by the observed diff. If scoped contract bodies are unavailable,
 the helper retains the complete TaskPact check set and marks that fallback in

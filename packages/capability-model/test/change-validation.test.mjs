@@ -107,6 +107,11 @@ function placementEvidence({
   const contractRef = ref("FlowContract", flow.header.artifactId);
   return {
     ref: ref("PlacementVerificationReport", `placement-${verdict}`),
+    attestation: {
+      status: "trusted",
+      reason: "test-trusted-attestation",
+      keyId: "placement-judge-1",
+    },
     report: {
       header: {
         ...header("PlacementVerificationReport", `placement-${verdict}`),
@@ -766,6 +771,27 @@ test("stage responsibility requires its declared test and independent placement 
     "satisfied",
   );
 
+  const untrustedEvidence = placementEvidence({
+    flow,
+    obligationId: responsibilityId,
+    assertion: obligation.assertion,
+  });
+  untrustedEvidence.attestation = {
+    status: "untrusted",
+    reason: "attestation-missing",
+  };
+  const untrusted = validateChange({
+    ...baseline,
+    placementVerificationEvidence: [untrustedEvidence],
+  });
+  assert.equal(
+    untrusted.proofGate.evaluation.decisions.find((entry) =>
+      entry.obligationId === responsibilityId)?.verdict,
+    "unresolved",
+  );
+  assert.ok(untrusted.proofGate.warnings.some((warning) =>
+    warning.includes("attestation is untrusted (attestation-missing)")));
+
   const refuted = validateChange({
     ...baseline,
     placementVerificationEvidence: [placementEvidence({
@@ -862,6 +888,11 @@ test("independent placement review blocks the wrong-placement benchmark case", (
     ...baseline,
     placementVerificationEvidence: [{
       ref: ref("PlacementVerificationReport", "wrong-placement-review"),
+      attestation: {
+        status: "trusted",
+        reason: "test-trusted-attestation",
+        keyId: "placement-judge-1",
+      },
       report: {
         header: {
           ...header("PlacementVerificationReport", "wrong-placement-review"),

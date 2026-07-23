@@ -145,6 +145,25 @@ stale task-local lineage; the maintained proof report cites the accepted gate.
 Artifact integrity and freshness run before a final source-digest check.
 Confirmed contract drift or a mid-refresh edit fails the refresh.
 
+Placement reports are admitted only when their Ed25519 signature matches a
+trusted public key in root `rekon.config.json`:
+
+```json
+{
+  "placementVerification": {
+    "trustedKeys": [{
+      "algorithm": "ed25519",
+      "keyId": "placement-judge-2026",
+      "verifierId": "independent-placement-judge",
+      "publicKeySpki": "<base64 DER>"
+    }]
+  }
+}
+```
+
+Keep the private signing key outside the repository and outside the acting
+agent. `.rekon/config.json` cannot grant placement trust.
+
 Executed verification captures the plan's bounded source state before and
 after commands. A command that changes those bytes makes the run non-proof and
 returns a nonzero CLI result even when the command itself exits zero. Derived

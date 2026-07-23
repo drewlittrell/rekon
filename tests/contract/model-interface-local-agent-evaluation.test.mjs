@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import {
+  assessIndependentPlacementOutcome,
   assessRekonContextUse,
   classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
@@ -16,6 +17,7 @@ import {
   parseCodexJsonl,
   parseGitStatusPaths,
   scoreLocalAgentOutcome,
+  selectContextUsageForChange,
   summarizeCodexExploration,
   summarizeContextSelection,
   summarizeContextUse,
@@ -116,6 +118,132 @@ function completeProductLoopArtifactEvidence() {
     },
   };
 }
+
+test("independent placement outcome is supported only by exact scope and passing checks", () => {
+  const supported = assessIndependentPlacementOutcome({
+    sourceModifiedPaths: ["src/domain/user-service.ts", "tests/user-service.test.ts"],
+    oracle,
+    requiredChecks: [{ command: "npm test", exitCode: 0 }],
+    oracleChecks: [{ command: "hidden:user-service", exitCode: 0 }],
+  });
+  assert.equal(supported.verdict, "supported");
+  assert.deepEqual(supported.reasons, []);
+
+  const wrongPlacement = assessIndependentPlacementOutcome({
+    sourceModifiedPaths: ["src/api/user-controller.ts", "tests/user-service.test.ts"],
+    oracle,
+    requiredChecks: [{ command: "npm test", exitCode: 0 }],
+    oracleChecks: [{ command: "hidden:user-service", exitCode: 1 }],
+  });
+  assert.equal(wrongPlacement.verdict, "refuted");
+  assert.ok(wrongPlacement.reasons.includes(
+    "missing required change: src/domain/user-service.ts",
+  ));
+  assert.ok(wrongPlacement.reasons.includes(
+    "unexpected source change: src/api/user-controller.ts",
+  ));
+  assert.ok(wrongPlacement.reasons.includes(
+    "protected source changed: src/api/user-controller.ts",
+  ));
+  assert.ok(wrongPlacement.reasons.includes(
+    "hidden oracle failed: hidden:user-service",
+  ));
+});
+
+test("context lineage follows the newest post-baseline delivery that covers the change", () => {
+  const selected = selectContextUsageForChange([
+    {
+      ref: {
+        type: "ContextUsageEvent",
+        id: "current",
+        writtenAt: "2026-07-23T16:25:28.840Z",
+      },
+      usage: {
+        task: {
+          text: "Refined task wording from the acting model.",
+          paths: ["src/domain/user-service.ts", "tests/user-service.test.ts"],
+        },
+        delivery: {
+          channel: "mcp",
+          itemIds: [
+            "src/domain/user-service.ts",
+            "src/data/user-repository.ts",
+            "tests/user-service.test.ts",
+          ],
+        },
+        claims: [],
+      },
+    },
+    {
+      ref: {
+        type: "ContextUsageEvent",
+        id: "baseline",
+        writtenAt: "2026-07-23T16:25:29.840Z",
+      },
+      usage: {
+        task: {
+          text: "Fixture task wording.",
+          paths: ["src/domain/user-service.ts"],
+        },
+        delivery: {
+          channel: "mcp",
+          itemIds: ["src/domain/user-service.ts"],
+        },
+        claims: [],
+      },
+    },
+  ], {
+    initialArtifactKeys: new Set(["ContextUsageEvent:baseline"]),
+    sourceModifiedPaths: [
+      "src/domain/user-service.ts",
+      "tests/user-service.test.ts",
+    ],
+    inspectedPaths: ["src/domain/user-service.ts"],
+    reportedContextPaths: ["tests/user-service.test.ts"],
+  });
+
+  assert.equal(selected?.ref.id, "current");
+  assert.equal(selected?.taskText, "Refined task wording from the acting model.");
+  assert.deepEqual(selected?.claims, {
+    "src/domain/user-service.ts": "read",
+    "src/data/user-repository.ts": "ignored",
+    "tests/user-service.test.ts": "read",
+  });
+});
+
+test("context lineage rejects unrelated and already-claimed deliveries", () => {
+  const selected = selectContextUsageForChange([
+    {
+      ref: {
+        type: "ContextUsageEvent",
+        id: "claimed",
+        writtenAt: "2026-07-23T16:25:29.840Z",
+      },
+      usage: {
+        task: { text: "Relevant", paths: ["src/domain/user-service.ts"] },
+        delivery: { channel: "mcp", itemIds: ["src/domain/user-service.ts"] },
+        claims: [{ itemId: "src/domain/user-service.ts", disposition: "read" }],
+      },
+    },
+    {
+      ref: {
+        type: "ContextUsageEvent",
+        id: "unrelated",
+        writtenAt: "2026-07-23T16:25:28.840Z",
+      },
+      usage: {
+        task: { text: "Unrelated", paths: ["src/notifications/user-notifier.ts"] },
+        delivery: { channel: "cli", itemIds: ["src/notifications/user-notifier.ts"] },
+        claims: [],
+      },
+    },
+  ], {
+    sourceModifiedPaths: ["src/domain/user-service.ts"],
+    inspectedPaths: ["src/domain/user-service.ts"],
+  });
+
+  assert.equal(selected, undefined);
+});
 
 test("Codex JSONL parsing ignores runner diagnostics and summarizes bounded exploration", () => {
   const text = [
@@ -403,6 +531,22 @@ test("managed product-loop scoring exposes missing proof and refresh without wea
   const comparison = compareManagedLocalAgentPair(baseline, correctDiff);
   assert.equal(comparison.decision, "discard");
   assert.match(comparison.reasons.join("\n"), /did not complete the required product loop/u);
+});
+
+test("managed product-loop scoring rejects untrusted required placement evidence", () => {
+  const evidence = {
+    ...completeProductLoopArtifactEvidence(),
+    placementVerificationRequired: true,
+    placementVerificationTrusted: false,
+  };
+  const loop = summarizeRekonProductLoop([], evidence, {
+    required: true,
+    terminalStatus: "complete",
+  });
+
+  assert.equal(loop.passed, false);
+  assert.equal(loop.checks.placementVerificationTrusted, false);
+  assert.ok(loop.missing.includes("placementVerificationTrusted"));
 });
 
 test("managed product-loop scoring requires the latest refresh and terminal status to pass", () => {
@@ -1460,10 +1604,16 @@ test("product-loop dry run records a reproducible campaign without invoking a mo
   assert.equal(output.campaign.reasoningEffort, "xhigh");
   assert.match(output.campaign.corpusDigest, /^[a-f0-9]{64}$/u);
   assert.match(output.campaign.interface.digest, /^[a-f0-9]{64}$/u);
-  assert.equal(output.campaign.interface.managedInstructionsVersion, "2.0.5");
+  assert.equal(output.campaign.interface.managedInstructionsVersion, "2.0.6");
   assert.equal(output.campaign.environment.node, process.version);
   assert.equal(output.isolatedRuns, 1);
   assert.equal(output.productLoop.timeoutMs, 900_000);
+  assert.match(output.productLoop.placementTrust, /parent harness/u);
+  assert.match(output.productLoop.placementTrust, /only the public key/u);
+  assert.ok(output.productLoop.sequence.includes(
+    "independent hidden-oracle placement judgment",
+  ));
+  assert.ok(output.productLoop.sequence.includes("trusted placement attestation"));
 });
 
 test("mixed-layout dry runs keep direct and managed context selections complete and precise", () => {
@@ -1703,11 +1853,32 @@ test("Sol subscription token calibration records exploration gain without claimi
   }
 });
 
-test("Sol product-loop canary records complete proof-gated execution without making benchmark claims", () => {
-  const fixture = JSON.parse(readFileSync(
+test("Sol product-loop canary records trusted proof-gated execution without making benchmark claims", () => {
+  const fixtureOverlay = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-contracts/cases.json"),
     "utf8",
   ));
+  const fixtureContext = JSON.parse(readFileSync(
+    resolve(
+      repoRoot,
+      "tests/evals/model-interface-contracts",
+      fixtureOverlay.contextFixture,
+    ),
+    "utf8",
+  ));
+  const fixture = {
+    ...fixtureContext,
+    ...fixtureOverlay,
+    repository: {
+      ...(fixtureContext.repository ?? {}),
+      ...(fixtureOverlay.repository ?? {}),
+    },
+    graph: fixtureOverlay.graph ?? fixtureContext.graph,
+    repositoryContractSources:
+      fixtureOverlay.repositoryContractSources
+      ?? fixtureContext.repositoryContractSources,
+    cases: fixtureOverlay.cases,
+  };
   const canary = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-contracts/sol-product-loop-canary.json"),
     "utf8",
@@ -1715,7 +1886,8 @@ test("Sol product-loop canary records complete proof-gated execution without mak
 
   assert.equal(canary.status, "canary");
   assert.equal(canary.runner.model, "gpt-5.6-sol");
-  assert.equal(canary.campaign.managedInstructionsVersion, "2.0.4");
+  assert.equal(canary.campaign.managedInstructionsVersion, "2.0.6");
+  assert.equal(canary.campaign.mcpServerVersion, "1.4.4");
   assert.equal(
     canary.campaign.corpusDigest,
     createHash("sha256").update(JSON.stringify(fixture)).digest("hex"),
@@ -1725,10 +1897,15 @@ test("Sol product-loop canary records complete proof-gated execution without mak
   assert.equal(canary.outcome.qualityScore, 1);
   assert.equal(canary.adoption.passed, true);
   assert.equal(canary.productLoop.passed, true);
+  assert.equal(canary.productLoop.contextClaimReceiptRecorded, true);
   assert.equal(canary.productLoop.verificationSourceStable, true);
+  assert.equal(canary.productLoop.placementVerificationTrusted, true);
+  assert.equal(canary.productLoop.trustedPlacementReports, 1);
+  assert.equal(canary.productLoop.untrustedPlacementReports, 0);
   assert.equal(canary.productLoop.proofGateSatisfied, true);
   assert.equal(canary.productLoop.refreshOutcomeAccepted, true);
-  assert.equal(canary.observerCorrection.postCorrectionPassed, true);
+  assert.equal(canary.independentPlacement.verdict, "supported");
+  assert.equal(canary.independentPlacement.privateKeyExposedToActor, false);
   assert.ok(canary.limitations.some((entry) => /one managed run/iu.test(entry)));
   assert.ok(canary.limitations.some((entry) => /reliability is not established/iu.test(entry)));
   assert.ok(canary.limitations.some((entry) => /does not support token/iu.test(entry)));
