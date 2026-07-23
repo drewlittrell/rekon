@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { type ArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  type ArtifactHeader,
+  type ArtifactRef,
+  validateArtifactRef,
+} from "@rekon/kernel-artifacts";
 import {
   type CoherencyDelta,
   type FindingFilterHealthReport,
@@ -25,6 +29,7 @@ import {
   type FlowContract,
   type ObservedRepo,
   type OwnershipMap,
+  type ProofGateReport,
   type SystemContract,
 } from "@rekon/kernel-repo-model";
 import { type IntelligenceSnapshot } from "@rekon/kernel-snapshot";
@@ -260,7 +265,8 @@ type CapabilityPhraseReportLike = {
 export const docsPublisher: Publisher = {
   id: "@rekon/capability-docs.publisher",
   produces: ["Publication"],
-  async publish({ artifacts }) {
+  async publish({ artifacts, input }) {
+    const includeIntentLineage = input?.includeIntentLineage !== false;
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
 
     if (!snapshotRef) {
@@ -268,7 +274,9 @@ export const docsPublisher: Publisher = {
     }
 
     const snapshot = await artifacts.read(snapshotRef) as IntelligenceSnapshot;
-    const resolverRefs = await artifacts.list("ResolverPacket");
+    const resolverRefs = includeIntentLineage
+      ? await artifacts.list("ResolverPacket")
+      : [];
     const latestResolverRef = latestById(resolverRefs);
     const latestResolver = latestResolverRef
       ? await artifacts.read(latestResolverRef) as ResolverPacketLike
@@ -421,11 +429,13 @@ export const architectureSummaryPublisher: Publisher = {
     const workOrders = includeIntentLineage
       ? await readLatestWorkOrdersByFlavor(artifacts, inputRefs)
       : {};
-    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
-      artifacts,
-      "ReconciliationPlan",
-      inputRefs,
-    );
+    const reconciliationPlan = includeIntentLineage
+      ? await readLatestArtifact<ReconciliationPlanLike>(
+          artifacts,
+          "ReconciliationPlan",
+          inputRefs,
+        )
+      : undefined;
     const latestVerificationPlanRef = includeIntentLineage
       ? await latestRef(artifacts, "VerificationPlan")
       : undefined;
@@ -652,10 +662,23 @@ export const architectureSummaryPublisher: Publisher = {
   },
 };
 
+function parsePublisherArtifactRef(
+  value: unknown,
+  expectedType: string,
+): ArtifactRef | undefined {
+  if (value === undefined) return undefined;
+  const validation = validateArtifactRef(value);
+  if (!validation.ok || validation.value.type !== expectedType) {
+    throw new Error(`Publisher input proofGateRef must be a valid ${expectedType} artifact ref.`);
+  }
+  return validation.value;
+}
+
 export const proofReportPublisher: Publisher = {
   id: "@rekon/capability-docs.proof-report",
   produces: ["Publication"],
-  async publish({ artifacts }) {
+  async publish({ artifacts, input }) {
+    const includeIntentLineage = input?.includeIntentLineage !== false;
     const inputRefs: ArtifactRef[] = [];
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
     const snapshot = snapshotRef
@@ -666,8 +689,20 @@ export const proofReportPublisher: Publisher = {
       inputRefs.push(snapshotRef);
     }
 
-    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
-    const verificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const proofGateRef = parsePublisherArtifactRef(input?.proofGateRef, "ProofGateReport");
+    const proofGate = proofGateRef
+      ? (await artifacts.read(proofGateRef)) as ProofGateReport
+      : undefined;
+    if (proofGateRef) {
+      inputRefs.push(proofGateRef);
+    }
+
+    const workOrders = includeIntentLineage
+      ? await readLatestWorkOrdersByFlavor(artifacts, inputRefs)
+      : {};
+    const verificationPlanRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationPlan")
+      : undefined;
     const verificationPlan = verificationPlanRef
       ? (await artifacts.read(verificationPlanRef)) as VerificationPlanLike
       : undefined;
@@ -676,7 +711,9 @@ export const proofReportPublisher: Publisher = {
       inputRefs.push(verificationPlanRef);
     }
 
-    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResultRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationResult")
+      : undefined;
     const verificationResult = verificationResultRef
       ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
       : undefined;
@@ -698,11 +735,13 @@ export const proofReportPublisher: Publisher = {
       "CoherencyDelta",
       inputRefs,
     );
-    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
-      artifacts,
-      "ReconciliationPlan",
-      inputRefs,
-    );
+    const reconciliationPlan = includeIntentLineage
+      ? await readLatestArtifact<ReconciliationPlanLike>(
+          artifacts,
+          "ReconciliationPlan",
+          inputRefs,
+        )
+      : undefined;
     const lifecycleReport = await readLatestArtifact<FindingLifecycleReport>(
       artifacts,
       "FindingLifecycleReport",
@@ -759,6 +798,7 @@ export const proofReportPublisher: Publisher = {
     const generatedAt = new Date().toISOString();
     const subject = pickProofReportSubject({
       snapshot,
+      proofGate,
       verificationPlan,
       remediationWorkOrder: workOrders.remediation,
       resolverWorkOrder: workOrders.resolver,
@@ -782,7 +822,7 @@ export const proofReportPublisher: Publisher = {
       provenance: {
         confidence: 1,
         notes: [
-          "Proof reports are publications. Canonical evidence lives in VerificationResult artifacts.",
+          "Proof reports are publications. Canonical evidence lives in ProofGateReport and VerificationResult artifacts.",
         ],
       },
     };
@@ -794,6 +834,9 @@ export const proofReportPublisher: Publisher = {
       format: "markdown",
       content: renderProofReport({
         generatedAt,
+        proofGate,
+        proofGateRef,
+        includeIntentLineage,
         remediationWorkOrder: workOrders.remediation,
         resolverWorkOrder: workOrders.resolver,
         verificationPlan,
@@ -846,6 +889,7 @@ export const agentContractPublisher: Publisher = {
   id: "@rekon/capability-docs.agent-contract",
   produces: ["Publication"],
   async publish({ artifacts, input }) {
+    const includeIntentLineage = input?.includeIntentLineage !== false;
     const snapshotRef = await latestRef(artifacts, "IntelligenceSnapshot");
 
     if (!snapshotRef) {
@@ -941,13 +985,19 @@ export const agentContractPublisher: Publisher = {
       currentFingerprint: currentPolicies?.fingerprint,
       filterReport: findingFilterReport,
     });
-    const workOrders = await readLatestWorkOrdersByFlavor(artifacts, inputRefs);
-    const reconciliationPlan = await readLatestArtifact<ReconciliationPlanLike>(
-      artifacts,
-      "ReconciliationPlan",
-      inputRefs,
-    );
-    const latestVerificationPlanRef = await latestRef(artifacts, "VerificationPlan");
+    const workOrders = includeIntentLineage
+      ? await readLatestWorkOrdersByFlavor(artifacts, inputRefs)
+      : {};
+    const reconciliationPlan = includeIntentLineage
+      ? await readLatestArtifact<ReconciliationPlanLike>(
+          artifacts,
+          "ReconciliationPlan",
+          inputRefs,
+        )
+      : undefined;
+    const latestVerificationPlanRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationPlan")
+      : undefined;
     const verificationPlan = latestVerificationPlanRef
       ? ((await artifacts.read(latestVerificationPlanRef)) as VerificationPlanLike)
       : undefined;
@@ -956,7 +1006,9 @@ export const agentContractPublisher: Publisher = {
       inputRefs.push(latestVerificationPlanRef);
     }
 
-    const verificationResultRef = await latestRef(artifacts, "VerificationResult");
+    const verificationResultRef = includeIntentLineage
+      ? await latestRef(artifacts, "VerificationResult")
+      : undefined;
     const verificationResult = verificationResultRef
       ? (await artifacts.read(verificationResultRef)) as VerificationResultLike
       : undefined;
@@ -1101,11 +1153,13 @@ export const agentContractPublisher: Publisher = {
     ) {
       inputRefs.push(findingReportRef);
     }
-    const memorySelection = await readLatestArtifact<MemorySelectionLike>(
-      artifacts,
-      "MemorySelection",
-      inputRefs,
-    );
+    const memorySelection = includeIntentLineage
+      ? await readLatestArtifact<MemorySelectionLike>(
+          artifacts,
+          "MemorySelection",
+          inputRefs,
+        )
+      : undefined;
     const memoryCurationReport = await readLatestArtifact<MemoryCurationReportLike>(
       artifacts,
       "MemoryCurationReport",
@@ -1194,6 +1248,7 @@ export default defineCapability({
       "ReconciliationPlan",
       "VerificationPlan",
       "VerificationResult",
+      "ProofGateReport",
       "PathFreshnessReport",
       "CapabilityOntologySuggestionReport",
       "CapabilityPhraseReport",
@@ -1253,12 +1308,13 @@ export default defineCapability({
       {
         id: "proof-loop.changed",
         description:
-          "Regenerate the architecture summary when the proof loop changes (work orders, reconciliation plans, verification plans/results).",
+          "Regenerate proof publications when the proof loop changes (work orders, reconciliation plans, verification plans/results, or an accepted proof gate).",
         inputs: [
           "WorkOrder",
           "ReconciliationPlan",
           "VerificationPlan",
           "VerificationResult",
+          "ProofGateReport",
         ],
       },
       {
@@ -2702,6 +2758,9 @@ function pickNextProofLoopCommand(state: {
 
 type ProofReportInputs = {
   generatedAt: string;
+  proofGate?: ProofGateReport;
+  proofGateRef?: ArtifactRef;
+  includeIntentLineage: boolean;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
   verificationPlan?: VerificationPlanLike;
@@ -2790,10 +2849,21 @@ function renderVerificationProofSummarySection(
 
 function pickProofReportSubject(input: {
   snapshot?: IntelligenceSnapshot;
+  proofGate?: ProofGateReport;
   verificationPlan?: VerificationPlanLike;
   remediationWorkOrder?: WorkOrderLike;
   resolverWorkOrder?: WorkOrderLike;
 }): ArtifactHeader["subject"] {
+  if (input.proofGate) {
+    return {
+      repoId: input.proofGate.header.subject.repoId,
+      ref: input.proofGate.header.subject.ref,
+      commit: input.proofGate.header.subject.commit,
+      paths: input.proofGate.header.subject.paths,
+      systems: input.proofGate.header.subject.systems,
+    };
+  }
+
   if (input.snapshot) {
     return {
       repoId: input.snapshot.repo.id,
@@ -2822,6 +2892,9 @@ function pickProofReportSubject(input: {
 function renderProofReport(input: ProofReportInputs): string {
   const {
     generatedAt,
+    proofGate,
+    proofGateRef,
+    includeIntentLineage,
     remediationWorkOrder,
     resolverWorkOrder,
     verificationPlan,
@@ -2843,9 +2916,22 @@ function renderProofReport(input: ProofReportInputs): string {
   sections.push(`Generated: ${generatedAt}`);
   sections.push("");
   sections.push(
-    "Proof reports are publications. Canonical evidence lives in VerificationResult artifacts.",
+    "Proof reports are publications. Canonical evidence lives in ProofGateReport and VerificationResult artifacts.",
   );
   sections.push("");
+
+  if (proofGate && proofGateRef) {
+    sections.push("## Change Proof Gate");
+    sections.push("");
+    sections.push("| Gate | Status | Required | Satisfied | Blocked | Unresolved |");
+    sections.push("| --- | --- | --- | --- | --- | --- |");
+    sections.push(
+      `| ${formatRef(proofGateRef)} | ${proofGate.evaluation.status} | ${proofGate.evaluation.summary.required} | ${proofGate.evaluation.summary.satisfied} | ${proofGate.evaluation.summary.blocked} | ${proofGate.evaluation.summary.unresolved} |`,
+    );
+    sections.push("");
+    sections.push(`Task: ${proofGate.task.text}`);
+    sections.push("");
+  }
 
   // Issue Merge Decision Context — P1.1
   // issue-merge-publication-detail-polish v2. Always
@@ -2860,9 +2946,9 @@ function renderProofReport(input: ProofReportInputs): string {
   );
 
   if (!verificationPlan) {
-    sections.push(
-      "No VerificationPlan found. Run `rekon intent work-order` or `rekon intent remediation` first.",
-    );
+    sections.push(includeIntentLineage
+      ? "No VerificationPlan found. Run `rekon intent work-order` or `rekon intent remediation` first."
+      : "Task-local WorkOrder and VerificationPlan lineage is omitted from this maintained repository report.");
     sections.push("");
 
     // Working Tree Freshness Context — surface

@@ -439,6 +439,12 @@ test("protocol: initialize + tools/list expose the model context tools with sche
   const validation = list.result.tools.find((tool) => tool.name === "validate_change");
   assert.deepEqual(validation.inputSchema.required, ["task", "changedPaths"]);
   assert.equal(validation.inputSchema.properties.contextUsageRef.type, "string");
+  assert.equal(validation.inputSchema.properties.contextClaims.type, "object");
+  assert.deepEqual(validation.inputSchema.properties.contextClaims.additionalProperties.enum, [
+    "read",
+    "applied",
+    "ignored",
+  ]);
   assert.deepEqual(validation.inputSchema.properties.judgments.items.required, ["obligationId", "verdict", "explanation"]);
 });
 
@@ -946,6 +952,7 @@ test("validate_change records a grounded outcome without running checks", async 
   const contextUsageRef = context.contextUsageRef.value;
   assert.match(contextUsageRef, /^ContextUsageEvent:context-usage-/u);
   let recordedOutcomeRef;
+  let recordedClaimReceiptRef;
   try {
     writeFileSync(sourcePath, `${original}\n// post-edit validation fixture\n`, "utf8");
     const result = await server.rpc("tools/call", {
@@ -955,6 +962,7 @@ test("validate_change records a grounded outcome without running checks", async 
         changedPaths: ["src/index.ts"],
         baseRef: "HEAD",
         contextUsageRef,
+        contextClaims: { "src/index.ts": "applied" },
       },
     });
     const payload = toolPayload(result);
@@ -965,6 +973,9 @@ test("validate_change records a grounded outcome without running checks", async 
     assert.match(validation.outcomeRef.value, /^OutcomeEvent:outcome-validation-/u);
     assert.equal(validation.outcomeRef.trust, "deterministic");
     recordedOutcomeRef = validation.outcomeRef.value;
+    assert.match(validation.contextClaimReceiptRef.value, /^ContextUsageEvent:context-usage-claim-/u);
+    assert.equal(validation.contextClaimReceiptRef.trust, "operator");
+    recordedClaimReceiptRef = validation.contextClaimReceiptRef.value;
     assert.equal(validation.proofGate.status.value, "incomplete");
     assert.ok(validation.proofGate.obligations.length > 0);
     assert.ok(validation.unresolvedSemanticObligations.some((entry) =>
@@ -980,6 +991,7 @@ test("validate_change records a grounded outcome without running checks", async 
     assert.deepEqual(Object.keys(validation).sort(), [
       "blockingViolations",
       "checkSelection",
+      "contextClaimReceiptRef",
       "correctiveContext",
       "outcomeRef",
       "proofGate",
@@ -1003,6 +1015,8 @@ test("validate_change records a grounded outcome without running checks", async 
       "HEAD",
       "--context-usage",
       contextUsageRef,
+      "--context-claims-json",
+      JSON.stringify({ "src/index.ts": "read" }),
       "--json",
     ], { encoding: "utf8", timeout: 15000 });
     assert.equal(cli.status, 0, cli.stderr || cli.stdout);
@@ -1011,6 +1025,7 @@ test("validate_change records a grounded outcome without running checks", async 
     assert.deepEqual(Object.keys(cliValidation).sort(), [
       "blockingViolations",
       "checkSelection",
+      "contextClaimReceipt",
       "correctiveContext",
       "outcomeArtifact",
       "proofGate",
@@ -1018,6 +1033,7 @@ test("validate_change records a grounded outcome without running checks", async 
       "status",
       "unresolvedSemanticObligations",
     ]);
+    assert.match(cliValidation.contextClaimReceipt.id, /^context-usage-claim-/u);
     assert.deepEqual(cliValidation.requiredChecks, validation.requiredChecks.value);
   } finally {
     writeFileSync(sourcePath, original, "utf8");
@@ -1032,9 +1048,18 @@ test("validate_change records a grounded outcome without running checks", async 
   assert.equal(outcome.status, "incomplete");
   assert.deepEqual(
     outcome.contextUsageRefs.map((ref) => `${ref.type}:${ref.id}`),
-    [contextUsageRef],
+    [recordedClaimReceiptRef],
   );
   assert.ok(outcome.header.inputRefs.some((entry) => entry.type === "TaskContextReport"));
+  const claimReceiptEntry = afterIndex.find((entry) =>
+    `${entry.type}:${entry.id}` === recordedClaimReceiptRef);
+  assert.ok(claimReceiptEntry);
+  const claimReceipt = await store.read(claimReceiptEntry);
+  assert.deepEqual(claimReceipt.claims.map((claim) => [claim.itemId, claim.disposition]), [
+    ["src/index.ts", "applied"],
+  ]);
+  assert.ok(claimReceipt.header.inputRefs.some((entry) =>
+    `${entry.type}:${entry.id}` === contextUsageRef));
 });
 
 test("CLI validate-change does not initialize Rekon in an unscanned Git repository", () => {

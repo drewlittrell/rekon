@@ -464,7 +464,10 @@ export {
 
 export {
   type BuildContextUsageEventInput,
+  type BuildClaimedContextUsageEventInput,
+  type ContextUsageClaimInput,
   buildContextUsageEvent,
+  buildClaimedContextUsageEvent,
 } from "./context-usage.js";
 
 export {

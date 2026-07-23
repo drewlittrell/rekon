@@ -172,6 +172,8 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       "--task", taskText,
       "--changed-path", "src/index.ts",
       "--base-ref", "HEAD",
+      "--context-usage", `${delivered.contextUsage.type}:${delivered.contextUsage.id}`,
+      "--context-claims-json", JSON.stringify({ [`memory:${memoryRef.id}`]: "applied" }),
       "--verification-result", `${futureVerificationRef.type}:${futureVerificationRef.id}`,
       "--judgment-json", JSON.stringify(judgments),
       "--record-proof",
@@ -185,6 +187,7 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(completed.proofGate.evaluation.summary.unresolved, 0);
     assert.equal(completed.proofArtifact.type, "ProofGateReport");
     assert.equal(completed.outcomeArtifact.type, "OutcomeEvent");
+    assert.equal(completed.contextClaimReceipt.type, "ContextUsageEvent");
 
     const edgeObligation = completed.proofGate.obligations.find((entry) => entry.id.endsWith(":edge"));
     assert.ok(edgeObligation);
@@ -205,6 +208,48 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(verifiedOutcome.status, "verified");
     assert.equal(verifiedOutcome.proofGateRef.id, completed.proofArtifact.id);
     assert.equal(verifiedOutcome.sourceState.digest, report.sourceState.digest);
+    assert.deepEqual(
+      verifiedOutcome.contextUsageRefs.map((entry) => `${entry.type}:${entry.id}`),
+      [`${completed.contextClaimReceipt.type}:${completed.contextClaimReceipt.id}`],
+    );
+
+    const currentSnapshotRef = (await store.list("IntelligenceSnapshot"))
+      .sort((left, right) => right.writtenAt.localeCompare(left.writtenAt))[0];
+    assert.ok(currentSnapshotRef);
+    const staleResolverRef = await store.write({
+      header: {
+        artifactType: "ResolverPacket",
+        artifactId: "preflight-zz-stale-lineage",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: root, paths: ["src/index.ts"] },
+        producer: { id: "@rekon/test.stale-lineage", version: "1.0.0" },
+        inputRefs: [currentSnapshotRef],
+        supersession: { key: "stale-lineage" },
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1 },
+      },
+      relevantFindings: [],
+      relevantAssessments: [],
+    }, { category: "resolver-packets" });
+    const staleWorkOrderRef = await store.write({
+      header: {
+        artifactType: "WorkOrder",
+        artifactId: "work-order-zz-stale-lineage",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: root, paths: ["src/index.ts"] },
+        producer: { id: "@rekon/test.stale-lineage", version: "1.0.0" },
+        inputRefs: [staleResolverRef],
+        supersession: { key: "stale-lineage" },
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1 },
+      },
+      goal: "Historical task-local work",
+      paths: ["src/index.ts"],
+      ownerSystems: ["src"],
+      source: "resolver",
+    }, { category: "actions" });
 
     const foreignReport = structuredClone(report);
     foreignReport.header.artifactId = "proof-gate-foreign-repository";
@@ -236,7 +281,10 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       "--json",
     ]);
     assert.equal(refresh.status, "passed");
+    assert.equal(refresh.freshness.latestMajor.every((entry) => entry.status === "fresh"), true);
     assert.ok(refresh.artifacts.some((entry) => entry.type === "ProofGateReport"));
+    const preacceptStep = refresh.steps.find((step) => step.id === "proof-gate.preaccept");
+    assert.equal(preacceptStep?.status, "passed");
     assert.equal(refresh.steps.find((step) => step.id === "proof-gate.revalidate")?.status, "passed");
     const outcomeStep = refresh.steps.find((step) => step.id === "outcome.record");
     assert.equal(outcomeStep?.status, "passed");
@@ -244,6 +292,8 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     assert.equal(acceptedOutcome.phase, "proof-gated-refresh");
     assert.equal(acceptedOutcome.status, "accepted");
     assert.equal(acceptedOutcome.proofGateRef.id, completed.proofArtifact.id);
+    assert.equal(acceptedOutcome.header.inputRefs.some((entry) =>
+      entry.type === "IntelligenceSnapshot" || entry.type === "Publication"), false);
     assert.ok(acceptedOutcome.header.inputRefs.some((entry) =>
       entry.type === "OutcomeEvent" && entry.id === completed.outcomeArtifact.id));
     const memoryStep = refresh.steps.find((step) => step.id === "memory.curate");
@@ -264,7 +314,19 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
     const curatedMemory = curation.items.find((entry) => entry.memoryEntryId === memoryRef.id);
     assert.equal(curatedMemory?.recommendation, "keep");
     assert.equal(curatedMemory?.groundedStatus, "suggestive");
+    assert.ok(refresh.steps.indexOf(preacceptStep) < refresh.steps.indexOf(outcomeStep));
     assert.ok(refresh.steps.indexOf(outcomeStep) < refresh.steps.indexOf(memoryStep));
+    const snapshotStep = refresh.steps.find((step) => step.id === "snapshot");
+    const firstPublicationStep = refresh.steps.find((step) => step.id === "publish.guidance");
+    const freshnessStep = refresh.steps.find((step) => step.id === "artifacts.freshness");
+    const finalGateStep = refresh.steps.find((step) => step.id === "proof-gate.revalidate");
+    assert.ok(refresh.steps.indexOf(memoryStep) < refresh.steps.indexOf(snapshotStep));
+    assert.ok(refresh.steps.indexOf(snapshotStep) < refresh.steps.indexOf(firstPublicationStep));
+    assert.ok(refresh.steps.indexOf(freshnessStep) < refresh.steps.indexOf(finalGateStep));
+    assert.ok(
+      refresh.steps.indexOf(refresh.steps.find((step) => step.id === "agent-instructions.sync"))
+        < refresh.steps.indexOf(refresh.steps.find((step) => step.id === "observe")),
+    );
 
     const repeatedContext = runCliJson([
       "context", "task",
@@ -312,12 +374,19 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       publicationKinds.add(publication.kind);
       assert.ok(publication.header.inputRefs.some((entry) =>
         entry.type === snapshotRef.type && entry.id === snapshotRef.id));
+      assert.equal(publication.header.inputRefs.some((entry) =>
+        (entry.type === staleResolverRef.type && entry.id === staleResolverRef.id)
+        || (entry.type === staleWorkOrderRef.type && entry.id === staleWorkOrderRef.id)), false);
+      if (publication.kind === "proof-report") {
+        assert.ok(publication.header.inputRefs.some((entry) =>
+          entry.type === completed.proofArtifact.type && entry.id === completed.proofArtifact.id));
+        assert.match(publication.content, /## Change Proof Gate/u);
+      }
     }
     assert.deepEqual(
       [...publicationKinds].sort(),
       ["agent-contract", "agents", "architecture-summary", "proof-report", "repo-summary"],
     );
-
     const contractSourcePath = join(root, "rekon/contracts/proof.json");
     const contractSource = await readFile(contractSourcePath, "utf8");
     await writeFile(contractSourcePath, `${contractSource.trimEnd()}\n\n`, "utf8");

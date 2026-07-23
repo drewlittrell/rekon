@@ -120,6 +120,47 @@ test("paths outside direct and contract scope fail deterministically", () => {
   assert.ok(result.blockingViolations.some((entry) => entry.code === "change.outside-task-pact"));
 });
 
+test("repository documentation remains law-governed without requiring source ownership", () => {
+  const result = validateChange({
+    task: "document context attribution",
+    changedPaths: ["docs/concepts/context.md", "packages/example/README.md", "CHANGELOG.md"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: {
+        text: "document context attribution",
+        paths: ["docs/concepts/context.md", "packages/example/README.md", "CHANGELOG.md"],
+      },
+    }),
+    ownershipMap,
+    files: [
+      { path: "docs/concepts/context.md", status: "modified", beforeSha256: "a", afterSha256: "b" },
+      { path: "packages/example/README.md", status: "modified", beforeSha256: "c", afterSha256: "d" },
+      { path: "CHANGELOG.md", status: "modified", beforeSha256: "e", afterSha256: "f" },
+    ],
+  });
+
+  assert.equal(result.status, "passed");
+  assert.ok(!result.unresolvedSemanticObligations.some((entry) =>
+    entry.id.startsWith("ownership-unresolved:")));
+});
+
+test("unowned non-documentation paths still require ownership proof", () => {
+  const result = validateChange({
+    task: "change release automation",
+    changedPaths: ["scripts/release.mjs"],
+    baseRef: "HEAD",
+    taskPact: pact({
+      task: { text: "change release automation", paths: ["scripts/release.mjs"] },
+    }),
+    ownershipMap,
+    files: [{ path: "scripts/release.mjs", status: "modified", beforeSha256: "a", afterSha256: "b" }],
+  });
+
+  assert.equal(result.status, "needs-judgment");
+  assert.ok(result.unresolvedSemanticObligations.some((entry) =>
+    entry.id === "ownership-unresolved:scripts/release.mjs"));
+});
+
 test("flow and baton clauses become agent-owned semantic obligations", () => {
   const flowRef = ref("FlowContract", "bootstrap-flow");
   const taskPact = pact({

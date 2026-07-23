@@ -806,6 +806,14 @@ const CANONICAL_INPUT_TYPES = new Set([
   "IssueMergeDecisionLedger",
 ]);
 
+// These artifacts record what was delivered or observed at a point in time.
+// Their upstream repository state may later be superseded without changing
+// the historical fact represented by the event.
+const HISTORICAL_RECORD_TYPES = new Set([
+  "ContextUsageEvent",
+  "OutcomeEvent",
+]);
+
 export async function validateArtifactFreshness(
   store: ArtifactStore,
   options: ArtifactFreshnessOptions = {},
@@ -934,6 +942,10 @@ async function validateArtifactFreshnessInternal(
           inputType: ref.type,
           inputId: ref.id,
         });
+        continue;
+      }
+
+      if (HISTORICAL_RECORD_TYPES.has(entry.type)) {
         continue;
       }
 
@@ -1171,6 +1183,9 @@ async function propagateInputFreshness(
           continue;
         }
         const input = freshnessByKey.get(`${ref.type}:${ref.id}`);
+        if (HISTORICAL_RECORD_TYPES.has(artifact.type) && input?.status === "stale") {
+          continue;
+        }
         if (!input || input.status === "fresh" || !shouldPropagateInputStatus(input)) {
           continue;
         }

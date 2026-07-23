@@ -20,7 +20,7 @@ import {
 } from "@rekon/kernel-repo-model";
 import { createLocalArtifactStore, createRuntime } from "@rekon/runtime";
 
-test("grounded curation counts shared proof once and lets counterevidence dominate", async () => {
+test("grounded curation counts shared proof once without treating task failure as item refutation", async () => {
   const root = await mkdtemp(join(tmpdir(), "rekon-grounded-memory-"));
   try {
     const store = createLocalArtifactStore(root);
@@ -43,7 +43,7 @@ test("grounded curation counts shared proof once and lets counterevidence domina
         checkDigests: [],
         truncated: false,
       },
-      claims: [],
+      claims: [appliedClaim(`memory:${memoryEntryId}`)],
     });
     const usageRef = await store.write(usage, { category: "actions" });
 
@@ -116,9 +116,203 @@ test("grounded curation counts shared proof once and lets counterevidence domina
 
     evaluation = await buildGroundedContextOutcomeEvaluation({ artifacts: store, repoId: root });
     item = evaluation.items.find((candidate) => candidate.subject.id === memoryEntryId);
-    assert.equal(item.status, "refuted");
-    assert.equal(item.refutingRootKeys.length, 1);
-    assert.equal(deriveMemoryCuration([memoryEntry(memoryEntryId, root)], [], evaluation)[0].recommendation, "deprecate");
+    assert.equal(item.status, "corroborated");
+    assert.equal(item.refutingRootKeys.length, 0);
+    assert.ok(item.reasons.includes("negative-outcome-not-item-specific"));
+    assert.equal(deriveMemoryCuration([memoryEntry(memoryEntryId, root)], [], evaluation)[0].recommendation, "reinforce");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("blocked outcomes leave unclaimed, read, and ignored context association-only", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-grounded-unclaimed-block-"));
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const task = createContextTaskIdentity("change bootstrap", ["src/index.ts"]);
+    const reportRef = ref("TaskContextReport", "context-unclaimed-block");
+    const usageRef = await store.write(createContextUsageEvent({
+      header: header("ContextUsageEvent", "usage-unclaimed-block", root, [reportRef]),
+      task,
+      contextReportRef: reportRef,
+      delivery: {
+        channel: "mcp",
+        deliveredAt: "2026-01-01T00:00:00.000Z",
+        profile: "compact",
+        projectionDigest: "projection-unclaimed-block",
+        itemIds: [
+          "memory:memory-unclaimed",
+          "memory:memory-read",
+          "memory:memory-ignored",
+        ],
+        sourceSpanKeys: [],
+        constraintDigests: [],
+        checkDigests: [],
+        truncated: false,
+      },
+      claims: [{
+        itemId: "memory:memory-read",
+        disposition: "read",
+        assertedAt: "2026-01-01T00:01:00.000Z",
+        assertedBy: "rekon-test-agent",
+        evidenceRefs: [],
+      }, {
+        itemId: "memory:memory-ignored",
+        disposition: "ignored",
+        assertedAt: "2026-01-01T00:01:00.000Z",
+        assertedBy: "rekon-test-agent",
+        evidenceRefs: [],
+      }],
+    }), { category: "actions" });
+    const proofRoot = await store.write(
+      { header: header("VerificationRun", "run-unclaimed-block", root, []) },
+      { category: "actions" },
+    );
+    const failedVerification = await store.write(
+      { header: header("VerificationResult", "result-unclaimed-block", root, [proofRoot]) },
+      { category: "actions" },
+    );
+    await store.write(outcome({
+      id: "blocked-unclaimed",
+      root,
+      task,
+      usageRef,
+      status: "blocked",
+      verificationRefs: [failedVerification],
+    }), { category: "actions" });
+
+    const evaluation = await buildGroundedContextOutcomeEvaluation({ artifacts: store, repoId: root });
+    assert.deepEqual(evaluation.items.map((item) => [item.subject.id, item.status]), [
+      ["memory-ignored", "associated"],
+      ["memory-read", "associated"],
+      ["memory-unclaimed", "associated"],
+    ]);
+    assert.ok(evaluation.items.every((item) => item.refutingRootKeys.length === 0));
+    assert.ok(evaluation.items.every((item) => item.reasons.includes("no-applied-context-claim")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("grounded curation counts an immutable delivery and its claim receipt once", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-grounded-receipt-"));
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const task = createContextTaskIdentity("change bootstrap", ["src/index.ts"]);
+    const reportRef = ref("TaskContextReport", "context-receipt");
+    const delivery = {
+      channel: "mcp",
+      deliveredAt: "2026-01-01T00:00:00.000Z",
+      profile: "compact",
+      projectionDigest: "projection-receipt",
+      itemIds: ["memory:memory-receipt"],
+      sourceSpanKeys: [],
+      constraintDigests: [],
+      checkDigests: [],
+      truncated: false,
+    };
+    const originalRef = await store.write(createContextUsageEvent({
+      header: header("ContextUsageEvent", "usage-original", root, [reportRef]),
+      task,
+      contextReportRef: reportRef,
+      delivery,
+      claims: [],
+    }), { category: "actions" });
+    const receiptRef = await store.write(createContextUsageEvent({
+      header: header("ContextUsageEvent", "usage-receipt", root, [originalRef]),
+      task,
+      contextReportRef: reportRef,
+      delivery,
+      claims: [appliedClaim("memory:memory-receipt")],
+    }), { category: "actions" });
+    const proofRoot = await store.write(
+      { header: header("VerificationRun", "run-receipt", root, []) },
+      { category: "actions" },
+    );
+    const verificationRef = await store.write(
+      { header: header("VerificationResult", "result-receipt", root, [proofRoot]) },
+      { category: "actions" },
+    );
+    await store.write(outcome({
+      id: "verified-receipt",
+      root,
+      task,
+      usageRef: receiptRef,
+      status: "verified",
+      verificationRefs: [verificationRef],
+    }), { category: "actions" });
+
+    const evaluation = await buildGroundedContextOutcomeEvaluation({ artifacts: store, repoId: root });
+    const item = evaluation.items.find((candidate) => candidate.subject.id === "memory-receipt");
+    assert.equal(item.status, "suggestive");
+    assert.equal(item.contextUsageRefs.length, 2);
+    assert.ok(item.reasons.includes("deliveries: 1"));
+    assert.ok(item.reasons.includes("usage-artifact-refs: 2"));
+    assert.ok(item.reasons.includes("applied-deliveries: 1"));
+    assert.ok(item.reasons.includes("unclaimed-deliveries: 0"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a later claim receipt does not retroactively attribute an earlier outcome", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-grounded-retroactive-"));
+  try {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const task = createContextTaskIdentity("change bootstrap", ["src/index.ts"]);
+    const reportRef = ref("TaskContextReport", "context-retroactive");
+    const delivery = {
+      channel: "mcp",
+      deliveredAt: "2026-01-01T00:00:00.000Z",
+      profile: "compact",
+      projectionDigest: "projection-retroactive",
+      itemIds: ["memory:memory-retroactive"],
+      sourceSpanKeys: [],
+      constraintDigests: [],
+      checkDigests: [],
+      truncated: false,
+    };
+    const originalRef = await store.write(createContextUsageEvent({
+      header: header("ContextUsageEvent", "usage-retroactive-original", root, [reportRef]),
+      task,
+      contextReportRef: reportRef,
+      delivery,
+      claims: [],
+    }), { category: "actions" });
+    const proofRoot = await store.write(
+      { header: header("VerificationRun", "run-retroactive", root, []) },
+      { category: "actions" },
+    );
+    const verificationRef = await store.write(
+      { header: header("VerificationResult", "result-retroactive", root, [proofRoot]) },
+      { category: "actions" },
+    );
+    await store.write(outcome({
+      id: "verified-before-claim",
+      root,
+      task,
+      usageRef: originalRef,
+      status: "verified",
+      verificationRefs: [verificationRef],
+    }), { category: "actions" });
+    await store.write(createContextUsageEvent({
+      header: header("ContextUsageEvent", "usage-retroactive-receipt", root, [originalRef]),
+      task,
+      contextReportRef: reportRef,
+      delivery,
+      claims: [appliedClaim("memory:memory-retroactive")],
+    }), { category: "actions" });
+
+    const evaluation = await buildGroundedContextOutcomeEvaluation({ artifacts: store, repoId: root });
+    const item = evaluation.items.find((candidate) => candidate.subject.id === "memory-retroactive");
+    assert.equal(item.status, "associated");
+    assert.equal(item.supportingRootKeys.length, 0);
+    assert.ok(item.reasons.includes("deliveries: 1"));
+    assert.ok(item.reasons.includes("applied-deliveries: 1"));
+    assert.ok(item.reasons.includes("associated-without-grounded-verdict"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -146,7 +340,7 @@ test("grounded curation collapses partially overlapping proof lineage across out
         checkDigests: [],
         truncated: false,
       },
-      claims: [],
+      claims: [appliedClaim("memory:memory-overlap")],
     }), { category: "actions" });
     const sharedRoot = await store.write(
       { header: header("VerificationRun", "run-shared", root, []) },
@@ -218,7 +412,7 @@ test("self-reported outcomes cannot reinforce delivered memory", async () => {
         checkDigests: [],
         truncated: false,
       },
-      claims: [],
+      claims: [appliedClaim("memory:memory-entry-1")],
     }), { category: "actions" });
     const event = createOutcomeEvent({
       header: header("OutcomeEvent", "self-report-1", root, [usageRef]),
@@ -319,7 +513,7 @@ test("a later incomplete lineage downgrades earlier supporting associations", as
         checkDigests: [],
         truncated: false,
       },
-      claims: [],
+      claims: [appliedClaim("memory:memory-supported")],
     }), { category: "actions" });
     const proofRoot = await store.write(
       { header: header("VerificationRun", "run-supported", root, []) },
@@ -354,7 +548,7 @@ test("a later incomplete lineage downgrades earlier supporting associations", as
         checkDigests: [],
         truncated: false,
       },
-      claims: [],
+      claims: [appliedClaim("memory:memory-incomplete")],
     }), { category: "actions" });
     await store.write(outcome({
       id: "outcome-incomplete",
@@ -607,6 +801,16 @@ function outcome(input) {
     },
     notes: [],
   });
+}
+
+function appliedClaim(itemId) {
+  return {
+    itemId,
+    disposition: "applied",
+    assertedAt: "2026-01-01T00:01:00.000Z",
+    assertedBy: "rekon-test-agent",
+    evidenceRefs: [],
+  };
 }
 
 function memoryEntry(id, repoId) {

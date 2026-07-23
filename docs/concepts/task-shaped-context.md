@@ -175,7 +175,18 @@ proof-gated refresh records the accepted outcome before running memory
 curation. The context response returns its exact usage ref; passing it to
 `validate_change` preserves delivery lineage when pathless resolution found a
 broader scope than the final diff. Delivery alone never counts as use, and a
-model's self-report cannot promote memory.
+model's self-report alone cannot promote memory.
+
+The caller may return a `contextClaims` map during validation. Rekon preserves
+the original delivery and writes a derived receipt. Only items marked
+`applied` can receive supporting associations from independent proof. `read`,
+`ignored`, and absent claims remain attribution-neutral. A blocked task does
+not refute context without item-specific counterevidence.
+
+Post-edit ownership gates apply to source and operational paths. Repository
+documentation under `docs/` and conventional repository/package guidance files
+remain subject to TaskPact and repository-law review, but do not require a
+synthetic source owner when the `OwnershipMap` has no matching entry.
 
 ## Route Semantics
 

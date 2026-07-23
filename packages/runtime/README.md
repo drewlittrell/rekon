@@ -52,6 +52,11 @@ honor that scope.
 applies the limit after ordering. The SDK exposes the same option to capability
 handlers; artifact ids are identities, not timestamps.
 
+Freshness treats `ContextUsageEvent` and `OutcomeEvent` as immutable historical
+records. Their exact refs remain integrity-checked, while current-state
+staleness from an older repository generation does not propagate through the
+event into a newly computed learning report.
+
 Contract source discovery rejects traversal, symlinks, generated workspaces,
 duplicate source IDs, and invalid documents.
 

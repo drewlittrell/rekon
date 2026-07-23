@@ -29,7 +29,10 @@ authority boundaries.
    changes.
 7. After editing, call `validate_change` with the `contextUsageRef` returned by
    `context_for_task`, the original task, every changed path, and the pre-edit
-   Git base ref. Resolve blocking violations. Judge only
+   Git base ref. Include a `contextClaims` map: mark context `applied` only when
+   it shaped the change, `read` when considered but not applied, and `ignored`
+   only when intentionally unused. These claims route proof but are not proof.
+   Resolve blocking violations. Judge only
    obligations that accept `model-judgment`. Materialize the returned checks
    with the equivalent CLI call plus `--prepare-verification`, execute the
    returned plan, and derive its `VerificationResult`. If the failure remains unexplained, request
@@ -90,8 +93,8 @@ rekon mcp serve --root .
 rekon scan --root <repo> --json
 rekon context task --root <repo> --task "<task>" --path <path> --model-context
 rekon context refine --root <repo> --question "<question>" --target <source-identifier> --relationship dependency --anchor-path <path> --already-read <path> --model-context
-rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --json
-rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --verification-result <ref> --judgment-json '<json>' --record-proof --json
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '{"<item-id>":"applied"}' --json
+rekon context validate-change --root <repo> --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '{"<item-id>":"applied"}' --verification-result <ref> --judgment-json '<json>' --record-proof --json
 rekon refresh --root <repo> --proof-gate <ProofGateReport:id> --json
 rekon contracts maintain --root <repo> --json
 rekon resolve preflight --root <repo> --path <path> --goal "<goal>" --json

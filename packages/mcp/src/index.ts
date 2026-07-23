@@ -73,7 +73,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.4.1";
+export const MCP_SERVER_VERSION = "1.4.2";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -1587,6 +1587,7 @@ export function buildChangeValidationResponse(
   result: ChangeValidationResult,
   sources: SourceRef[] = [],
   outcomeRef?: ArtifactRef,
+  contextClaimReceiptRef?: ArtifactRef,
 ): McpToolResponse {
   const checkSelection = result.checkSelection ?? {
     strategy: "changed-scope" as const,
@@ -1719,6 +1720,9 @@ export function buildChangeValidationResponse(
           status: tag(result.status, "deterministic"),
           ...(outcomeRef
             ? { outcomeRef: tag(`${outcomeRef.type}:${outcomeRef.id}`, "deterministic") }
+            : {}),
+          ...(contextClaimReceiptRef
+            ? { contextClaimReceiptRef: tag(`${contextClaimReceiptRef.type}:${contextClaimReceiptRef.id}`, "operator") }
             : {}),
           blockingViolations: violations.map((entry) => ({
             code: tag(entry.code, "deterministic"),
@@ -1969,8 +1973,7 @@ const MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "validate_change",
-    description:
-      "Validate the post-edit change and its edge proof against repository law without running checks or writing source.",
+    description: "Validate a post-edit change against repository law and edge proof.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1978,6 +1981,10 @@ const MCP_TOOL_DEFINITIONS = [
         changedPaths: { type: "array", items: { type: "string" } },
         baseRef: { type: "string" },
         contextUsageRef: { type: "string" },
+        contextClaims: {
+          type: "object",
+          additionalProperties: { enum: ["read", "applied", "ignored"] },
+        },
         verificationResults: {
           type: "array",
           items: { type: "string" },
@@ -2030,7 +2037,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
   "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Keep its `contextUsageRef`; follow its operation and batch-read every `readFirst` path before editing.",
   "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with that ref, the original task, every changed path, and pre-edit Git ref. Resolve blockers and judge only obligations accepting `model-judgment`. Materialize checks with CLI `--prepare-verification`, execute the returned plan, and derive its VerificationResult. For failed checks, use `correctiveContext` to inspect only the listed paths, obligations, and redacted diagnostic; repair and rerun before escalating an unexplained failure with `escalation: validation-failed`.",
+  "After editing, call `validate_change` with the retained ref, task, paths, base ref, and a `contextClaims` map from item ID to `applied`, `read`, or `ignored`. Use `applied` only for context that shaped the change; claims route proof but are not proof. Resolve blockers and judge only `model-judgment` obligations. Prepare checks with CLI `--prepare-verification` and execute them. On failure, use only `correctiveContext`; repair and rerun before `escalation: validation-failed`.",
   "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
   "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags. It refreshes maintained knowledge and rechecks gated source bytes; digest, gate, refresh, or contract-drift failure means incomplete.",
 ]);
@@ -2038,7 +2045,7 @@ export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
   "rekon context task --task \"<task>\" --path <path> --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
-  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
+  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '<json-map>' [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
   "rekon artifacts freshness --json",
 ]);
@@ -2095,6 +2102,12 @@ export function callTool(
       && (typeof args.contextUsageRef !== "string" || args.contextUsageRef.trim().length === 0)
     ) {
       return failClosed("validate_change contextUsageRef must be a non-empty artifact ref when supplied.", "n/a (input error)");
+    }
+    if (args.contextClaims !== undefined && !validContextClaims(args.contextClaims)) {
+      return failClosed(
+        "validate_change contextClaims must contain unique delivered item IDs with read, applied, or ignored dispositions.",
+        "n/a (input error)",
+      );
     }
     return failClosed(
       "validate_change requires the CLI-hosted MCP server so it can compare read-only Git and current-source evidence.",
@@ -2161,6 +2174,17 @@ export function callTool(
   }
 
   return failClosed(`Unknown tool "${name}".`, "n/a (unknown tool)");
+}
+
+function validContextClaims(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return false;
+  for (const [itemId, disposition] of entries) {
+    if (itemId.trim().length === 0) return false;
+    if (disposition !== "read" && disposition !== "applied" && disposition !== "ignored") return false;
+  }
+  return true;
 }
 
 export {

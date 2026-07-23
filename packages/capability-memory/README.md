@@ -19,7 +19,9 @@ selection, usage, grounded outcome evaluation, and curation artifacts.
 
 Runs during `Learn`. Refresh curates recorded context outcomes. Task context
 may try one matching, unobserved entry once; only task-scoped suggestive or
-corroborated memory repeats.
+corroborated memory repeats. An item becomes eligible for either status only
+when a validation receipt marks it applied and independent outcome proof is
+linked.
 
 ## Public Surface
 
@@ -31,4 +33,4 @@ The default export is a Rekon capability definition with learner handlers.
 
 Memory can enrich task context and resolver packets, but it does not rewrite
 ownership, rules, findings, contracts, or other architecture facts. Delivery
-and self-report alone cannot reinforce an entry.
+and self-report alone cannot reinforce or refute an entry.

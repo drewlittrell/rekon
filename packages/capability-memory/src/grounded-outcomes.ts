@@ -12,7 +12,7 @@ import {
 } from "@rekon/kernel-repo-model";
 import { resolveArtifactLineage, type ArtifactReader } from "@rekon/sdk";
 
-export const GROUNDED_CONTEXT_OUTCOME_POLICY_VERSION = "grounded-context-outcomes.v1";
+export const GROUNDED_CONTEXT_OUTCOME_POLICY_VERSION = "grounded-context-outcomes.v2";
 
 type ArtifactRecord<T> = {
   ref: ArtifactRef;
@@ -30,6 +30,12 @@ type OutcomeGrounding = {
 type WorkingEvaluationItem = ContextOutcomeEvaluationItem & {
   supportRootSets: string[][];
   refuteRootSets: string[][];
+  deliveries: number;
+  appliedDeliveries: number;
+  readDeliveries: number;
+  ignoredDeliveries: number;
+  unclaimedDeliveries: number;
+  negativeAppliedOutcomes: number;
 };
 
 export async function buildGroundedContextOutcomeEvaluation(input: {
@@ -54,6 +60,7 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
   );
   const usageRecords = usageRead.records;
   const outcomeRecords = outcomeRead.records;
+  const usageGroups = groupUsageRecords(usageRecords);
   const outcomeByUsage = new Map<string, ArtifactRecord<OutcomeEvent>[]>();
   for (const outcome of outcomeRecords) {
     for (const usageRef of outcome.value.contextUsageRefs) {
@@ -72,9 +79,14 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
   if (usageRead.truncated || outcomeRead.truncated) issueCodes.add("event-window-truncated");
   const items = new Map<string, WorkingEvaluationItem>();
 
-  for (const usage of usageRecords) {
-    const outcomes = outcomeByUsage.get(artifactRefKey(usage.ref)) ?? [];
-    for (const itemId of usage.value.delivery.itemIds) {
+  for (const usageGroup of usageGroups) {
+    const outcomes = dedupeRecords(
+      usageGroup.flatMap((usage) => outcomeByUsage.get(artifactRefKey(usage.ref)) ?? []),
+    );
+    const deliveredItemIds = unique(
+      usageGroup.flatMap((usage) => usage.value.delivery.itemIds),
+    );
+    for (const itemId of deliveredItemIds) {
       const subject = evaluationSubject(itemId);
       const key = subjectKey(subject);
       const existing = items.get(key) ?? {
@@ -87,11 +99,31 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
         reasons: [],
         supportRootSets: [],
         refuteRootSets: [],
+        deliveries: 0,
+        appliedDeliveries: 0,
+        readDeliveries: 0,
+        ignoredDeliveries: 0,
+        unclaimedDeliveries: 0,
+        negativeAppliedOutcomes: 0,
       };
-      existing.contextUsageRefs.push(usage.ref);
+      existing.contextUsageRefs.push(...usageGroup.map((usage) => usage.ref));
+      existing.deliveries += 1;
+      const disposition = claimDisposition(usageGroup, itemId);
+      if (disposition === "applied") existing.appliedDeliveries += 1;
+      else if (disposition === "read") existing.readDeliveries += 1;
+      else if (disposition === "ignored") existing.ignoredDeliveries += 1;
+      else existing.unclaimedDeliveries += 1;
 
       for (const outcome of outcomes) {
         existing.outcomeRefs.push(outcome.ref);
+        const linkedUsageRecords = usageGroup.filter((usage) =>
+          outcome.value.contextUsageRefs.some((usageRef) =>
+            artifactRefKey(usageRef) === artifactRefKey(usage.ref)));
+        if (claimDisposition(linkedUsageRecords, itemId) !== "applied") continue;
+        if (outcome.value.status === "blocked" || outcome.value.status === "regressed") {
+          existing.negativeAppliedOutcomes += 1;
+          continue;
+        }
         let grounding = groundingByOutcome.get(artifactRefKey(outcome.ref));
         if (!grounding) {
           grounding = await evaluateOutcomeGrounding(input.artifacts, outcome.value);
@@ -119,7 +151,17 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
   }
 
   const evaluatedItems = [...items.values()].map((workingItem) => {
-    const { supportRootSets, refuteRootSets, ...item } = workingItem;
+    const {
+      supportRootSets,
+      refuteRootSets,
+      deliveries,
+      appliedDeliveries,
+      readDeliveries,
+      ignoredDeliveries,
+      unclaimedDeliveries,
+      negativeAppliedOutcomes,
+      ...item
+    } = workingItem;
     const groupedItem: ContextOutcomeEvaluationItem = {
       ...item,
       supportingRootKeys: connectedLineageGroupKeys(supportRootSets),
@@ -128,7 +170,14 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
     return {
       ...groupedItem,
       status: associationStatus(groupedItem, lineageComplete),
-      reasons: associationReasons(groupedItem, lineageComplete),
+      reasons: associationReasons(groupedItem, lineageComplete, {
+        deliveries,
+        appliedDeliveries,
+        readDeliveries,
+        ignoredDeliveries,
+        unclaimedDeliveries,
+        negativeAppliedOutcomes,
+      }),
     };
   });
   const inputRefs = dedupeRefs([
@@ -158,6 +207,8 @@ export async function buildGroundedContextOutcomeEvaluation(input: {
         notes: [
           "Associations are not causal claims.",
           "Shared proof roots count once; self-reported outcomes cannot reinforce context.",
+          "Only explicitly applied context can receive a grounded association from successful proof.",
+          "A blocked or regressed task is not item-specific counterevidence and cannot refute context by itself.",
         ],
       },
     },
@@ -216,10 +267,9 @@ async function evaluateOutcomeGrounding(
     return rootKeys.length > 0 ? [rootKeys] : [];
   });
   const supports = outcome.status === "accepted" || outcome.status === "verified";
-  const refutes = outcome.status === "blocked" || outcome.status === "regressed";
   return {
     supportRootSets: supports ? rootSets : [],
-    refuteRootSets: refutes ? rootSets : [],
+    refuteRootSets: [],
     complete: lineage.complete,
     sharedRootKeys: lineage.sharedRootKeys,
     issueCodes: unique(lineage.issues.map((issue) => issue.code)),
@@ -263,19 +313,81 @@ function associationStatus(
 function associationReasons(
   item: ContextOutcomeEvaluationItem,
   lineageComplete: boolean,
+  dispositions: {
+    deliveries: number;
+    appliedDeliveries: number;
+    readDeliveries: number;
+    ignoredDeliveries: number;
+    unclaimedDeliveries: number;
+    negativeAppliedOutcomes: number;
+  },
 ): string[] {
   const reasons = [
-    `deliveries: ${item.contextUsageRefs.length}`,
+    `deliveries: ${dispositions.deliveries}`,
+    `usage-artifact-refs: ${item.contextUsageRefs.length}`,
     `associated-outcomes: ${item.outcomeRefs.length}`,
+    `applied-deliveries: ${dispositions.appliedDeliveries}`,
+    `read-deliveries: ${dispositions.readDeliveries}`,
+    `ignored-deliveries: ${dispositions.ignoredDeliveries}`,
+    `unclaimed-deliveries: ${dispositions.unclaimedDeliveries}`,
+    `negative-applied-outcomes: ${dispositions.negativeAppliedOutcomes}`,
     `independent-support-groups: ${item.supportingRootKeys.length}`,
     `independent-refuting-groups: ${item.refutingRootKeys.length}`,
   ];
   if (!lineageComplete) reasons.push("artifact-lineage-incomplete");
+  if (dispositions.appliedDeliveries === 0) reasons.push("no-applied-context-claim");
+  if (dispositions.negativeAppliedOutcomes > 0) reasons.push("negative-outcome-not-item-specific");
   if (item.refutingRootKeys.length > 0) reasons.push("counterevidence-dominates");
   if (item.outcomeRefs.length > 0 && item.supportingRootKeys.length === 0 && item.refutingRootKeys.length === 0) {
     reasons.push("associated-without-grounded-verdict");
   }
   return reasons;
+}
+
+function claimDisposition(
+  usages: Array<ArtifactRecord<ContextUsageEvent>>,
+  itemId: string,
+): "read" | "applied" | "ignored" | undefined {
+  const claims = usages.flatMap((usage) => usage.value.claims
+    .filter((claim) => claim.itemId === itemId)
+    .map((claim) => ({
+      claim,
+      usageGeneratedAt: usage.value.header.generatedAt,
+      usageKey: artifactRefKey(usage.ref),
+    })));
+  claims.sort((left, right) =>
+    right.claim.assertedAt.localeCompare(left.claim.assertedAt)
+    || right.usageGeneratedAt.localeCompare(left.usageGeneratedAt)
+    || right.usageKey.localeCompare(left.usageKey)
+    || right.claim.disposition.localeCompare(left.claim.disposition));
+  return claims[0]?.claim.disposition;
+}
+
+function groupUsageRecords(
+  records: Array<ArtifactRecord<ContextUsageEvent>>,
+): Array<Array<ArtifactRecord<ContextUsageEvent>>> {
+  const groups = new Map<string, Array<ArtifactRecord<ContextUsageEvent>>>();
+  for (const record of records) {
+    const key = digestJson({
+      task: record.value.task.fingerprint,
+      contextReportRef: artifactRefKey(record.value.contextReportRef),
+      channel: record.value.delivery.channel,
+      deliveredAt: record.value.delivery.deliveredAt,
+      projectionDigest: record.value.delivery.projectionDigest,
+    });
+    const group = groups.get(key) ?? [];
+    group.push(record);
+    groups.set(key, group);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, group]) => group.sort((left, right) =>
+      artifactRefKey(left.ref).localeCompare(artifactRefKey(right.ref))));
+}
+
+function dedupeRecords<T>(records: Array<ArtifactRecord<T>>): Array<ArtifactRecord<T>> {
+  return [...new Map(records.map((record) => [artifactRefKey(record.ref), record])).values()]
+    .sort((left, right) => artifactRefKey(left.ref).localeCompare(artifactRefKey(right.ref)));
 }
 
 function evaluationSubject(itemId: string): ContextOutcomeEvaluationSubject {

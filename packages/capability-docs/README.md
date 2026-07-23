@@ -16,6 +16,11 @@ The package uses the public `@rekon/sdk` publisher API. It consumes an
 `IntelligenceSnapshot` and optional resolver packets, then writes `Publication`
 artifacts that contain markdown content and metadata.
 
+Direct publish commands may render the latest task-local resolver and intent
+lineage. Maintained publications produced by proof-gated refresh omit that
+lineage after the repository generation advances; the maintained proof report
+cites the accepted `ProofGateReport` instead.
+
 ## Lifecycle Fit
 
 Runs during `Publish`, creating durable docs from typed artifacts.

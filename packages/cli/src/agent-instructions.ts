@@ -7,7 +7,7 @@ import {
   REKON_AGENT_MCP_STEPS,
 } from "@rekon/mcp";
 
-export const AGENT_INSTRUCTIONS_VERSION = "2.0.3";
+export const AGENT_INSTRUCTIONS_VERSION = "2.0.4";
 export const AGENT_INSTRUCTIONS_TARGET = "AGENTS.md";
 export const AGENT_INSTRUCTIONS_START =
   `<!-- rekon:agent-instructions:start version="${AGENT_INSTRUCTIONS_VERSION}" -->`;
@@ -34,7 +34,7 @@ export function renderAgentInstructionsBlock(): string {
     AGENT_INSTRUCTIONS_START,
     "## Rekon",
     "",
-    "This repository uses Rekon for repository context and change governance.",
+    "This repository uses Rekon for context and change governance.",
     "Before the first repository command, search, read, or edit, use Rekon MCP when available. Do not probe for the CLI first.",
     "After context compaction or restart, and whenever the task goal or path scope changes, request fresh task context before continuing.",
     "",

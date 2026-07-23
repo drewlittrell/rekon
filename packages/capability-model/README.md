@@ -109,6 +109,9 @@ readers; adapters must not maintain a separate selection policy.
 `excludeStaleTaskContextSourceEvidence()` applies the shared pure gate after a
 host checks exact source digests. Stale excerpts and their dependent graph
 routes cannot remain deterministic task context.
+`buildClaimedContextUsageEvent()` derives an immutable caller-use receipt from
+an exact delivery event. It rejects undelivered item IDs; its claims route
+later independent proof but do not establish effectiveness.
 Task-scoped memory enters only as supporting context. It keeps a stable
 `memory:<entry-id>` identity and `memory` trust. One unobserved entry may be
 tried once; only suggestive or corroborated entries repeat. Memory never

@@ -34,9 +34,12 @@ can update local Rekon artifacts.
   for each affected contract edge. Selected checks include the exact proof
   obligation IDs they can satisfy. Pass the `contextUsageRef` returned by
   `context_for_task` to retain exact delivery-to-outcome lineage when final
-  changed paths differ from the initially resolved scope. It does not execute
-  checks. The CLI host records the grounded `OutcomeEvent`; the read-only MCP
-  package does not write artifacts itself.
+  changed paths differ from the initially resolved scope. `contextClaims` maps
+  delivered item IDs to `applied`, `read`, or `ignored`; only applied items can
+  receive grounded positive attribution, and general task failure cannot
+  refute an item. It does not execute checks. The CLI
+  host records the use receipt and `OutcomeEvent`; the read-only MCP package
+  does not write artifacts itself.
 
 The server still accepts the earlier `orientation`, `where_does_this_belong`,
 `preflight_change`, and `refine_task_context` names for compatibility. They are
@@ -76,7 +79,9 @@ When the MCP tools are available to an agent:
 5. Treat unavailable or stale responses as missing evidence. Do not expand
    context merely because another repository relationship may exist.
 6. After editing, call `validate_change` with the retained `contextUsageRef`,
-   original task, every changed path, and the pre-edit base ref. Resolve
+   original task, every changed path, the pre-edit base ref, and a
+   `contextClaims` map. Mark only context that shaped the change as `applied`;
+   claims route proof but do not replace it. Resolve
    deterministic violations, judge only obligations that accept
    `model-judgment`. Run the equivalent CLI call with `--context-usage` and
    `--prepare-verification`, execute its returned plan, and derive the

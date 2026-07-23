@@ -75,3 +75,16 @@ after commands; a derived `VerificationResult` inherits the stable post-run
 digest. `validate_change` compares that digest with the current change state.
 Artifact timestamps remain provenance and display metadata and do not make
 proof fresh.
+
+`ContextUsageEvent` and `OutcomeEvent` are immutable historical records. Their
+exact input refs must remain readable, but later repository generations do not
+rewrite what was delivered or observed at that time. Current-state staleness
+therefore stops at those event boundaries. Grounded evaluation remains a
+derived artifact and must be regenerated when new events are accepted.
+
+Proof-gated refresh synchronizes the managed instruction block before source
+observation, records the accepted outcome, curates memory, and then writes the
+snapshot and maintained publications. Repo-wide publications omit unrelated
+task-local resolver, work-order, verification, and memory-selection lineage.
+The maintained proof report cites the explicit `ProofGateReport` instead. A
+final digest check still runs after artifact validation and freshness.

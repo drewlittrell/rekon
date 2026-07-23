@@ -345,6 +345,7 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
   for (const path of normalizedPaths) {
     const owner = ownerByPath.get(path);
     if (!owner) {
+      if (isRepositoryDocumentationSurface(path)) continue;
       addObligation(obligations, {
         id: `ownership-unresolved:${path}`,
         kind: "ownership",
@@ -1486,6 +1487,20 @@ function normalizePath(value: string): string {
   const segments = path.split("/");
   if (segments.some((segment) => !segment || segment === "." || segment === "..")) return "";
   return segments.join("/");
+}
+
+function isRepositoryDocumentationSurface(path: string): boolean {
+  if (path === "docs" || path.startsWith("docs/")) return true;
+  const basename = path.split("/").at(-1)?.toLowerCase() ?? "";
+  return new Set([
+    "agents.md",
+    "changelog.md",
+    "code_of_conduct.md",
+    "contributing.md",
+    "governance.md",
+    "readme.md",
+    "security.md",
+  ]).has(basename);
 }
 
 function normalizeTerm(value: string): string {

@@ -3,6 +3,7 @@ import {
   createContextTaskIdentity,
   createContextUsageEvent,
   type ContextDeliveryChannel,
+  type ContextUsageClaimDisposition,
   type ContextUsageEvent,
   type TaskContextReport,
 } from "@rekon/kernel-repo-model";
@@ -22,6 +23,20 @@ export type BuildContextUsageEventInput = {
   channel: ContextDeliveryChannel;
   taskPactRef?: ArtifactRef;
   deliveredAt?: string;
+};
+
+export type ContextUsageClaimInput = {
+  itemId: string;
+  disposition: ContextUsageClaimDisposition;
+  evidenceRefs?: ArtifactRef[];
+};
+
+export type BuildClaimedContextUsageEventInput = {
+  usage: ContextUsageEvent;
+  usageRef: ArtifactRef;
+  claims: ContextUsageClaimInput[];
+  assertedBy: string;
+  assertedAt?: string;
 };
 
 export function buildContextUsageEvent(input: BuildContextUsageEventInput): ContextUsageEvent {
@@ -81,5 +96,87 @@ export function buildContextUsageEvent(input: BuildContextUsageEventInput): Cont
       truncated: input.packet.truncated,
     },
     claims: [],
+  });
+}
+
+/**
+ * Preserve the immutable delivery event and derive a receipt for caller-reported
+ * use. Claims route later proof to an item; they are not proof themselves.
+ */
+export function buildClaimedContextUsageEvent(
+  input: BuildClaimedContextUsageEventInput,
+): ContextUsageEvent {
+  const assertedAt = input.assertedAt ?? new Date().toISOString();
+  const assertedBy = input.assertedBy.trim();
+  if (assertedBy.length === 0) {
+    throw new Error("Context usage claims require a non-empty assertedBy identity.");
+  }
+  if (
+    input.usageRef.type !== input.usage.header.artifactType
+    || input.usageRef.id !== input.usage.header.artifactId
+    || input.usageRef.schemaVersion !== input.usage.header.schemaVersion
+  ) {
+    throw new Error("Context usage claims require the exact ref for the supplied delivery event.");
+  }
+  if (input.claims.length === 0) {
+    throw new Error("Context usage claims require at least one delivered item disposition.");
+  }
+  const deliveredItems = new Set(input.usage.delivery.itemIds);
+  const normalizedClaims = input.claims.map((claim, index) => {
+    const itemId = claim.itemId.trim();
+    if (itemId.length === 0) {
+      throw new Error(`Context usage claim ${index + 1} requires a non-empty itemId.`);
+    }
+    if (!deliveredItems.has(itemId)) {
+      throw new Error(`Context usage claim ${index + 1} references undelivered item ${itemId}.`);
+    }
+    return {
+      itemId,
+      disposition: claim.disposition,
+      assertedAt,
+      assertedBy,
+      evidenceRefs: claim.evidenceRefs ?? [],
+    };
+  });
+  const dispositionByItem = new Map<string, ContextUsageClaimDisposition>();
+  for (const claim of normalizedClaims) {
+    const prior = dispositionByItem.get(claim.itemId);
+    if (prior && prior !== claim.disposition) {
+      throw new Error(`Context usage item ${claim.itemId} cannot have conflicting dispositions.`);
+    }
+    dispositionByItem.set(claim.itemId, claim.disposition);
+  }
+  const claims = [
+    ...input.usage.claims,
+    ...normalizedClaims,
+  ];
+  const claimEvidenceRefs = normalizedClaims.flatMap((claim) => claim.evidenceRefs);
+  const identity = digestJson({
+    usageRef: input.usageRef,
+    claims: normalizedClaims,
+    assertedAt,
+    assertedBy,
+  });
+
+  return createContextUsageEvent({
+    ...input.usage,
+    header: {
+      ...input.usage.header,
+      artifactId: `context-usage-claim-${identity.slice(0, 24)}`,
+      generatedAt: assertedAt,
+      producer: {
+        id: "@rekon/capability-model.context-usage-claim",
+        version: "1.0.0",
+      },
+      inputRefs: [input.usageRef, ...claimEvidenceRefs],
+      provenance: {
+        confidence: 0.5,
+        notes: [
+          "Caller-reported use receipt derived from an immutable delivery event.",
+          "A use claim routes independent outcome proof but is not proof of effectiveness or causation.",
+        ],
+      },
+    },
+    claims,
   });
 }

@@ -69,9 +69,19 @@ The same boundary maintains scoped learning. Hosts record the exact context
 delivered for a task; validation and accepted refresh record separately
 grounded outcomes. Curation collapses shared proof roots so repeated artifacts
 from one observation do not look independent. One matching, unobserved memory
-entry may be tried once as unresolved context; only suggestive or corroborated
+entry may be tried once as unresolved context. A derived use receipt identifies
+which delivered items shaped the change; only applied items can inherit
+support from independent proof. General task failure cannot refute an item;
+refutation requires item-specific counterevidence. Suggestive or corroborated
 memory repeats, and refutation removes it from selection. These associations
 improve future context without becoming repository truth.
+
+Task deliveries and outcomes are immutable historical records. Later source
+generations may supersede their repository inputs without changing the event
+that occurred. Proof refresh revalidates the gate, records that accepted event,
+curates learning, and only then creates the new snapshot and repo-wide
+publications. Those publications do not adopt stale resolver or intent lineage
+merely because it is the latest task record in the store.
 
 Models enter this loop through a stable bootstrap in `AGENTS.md`. The bootstrap
 directs them to a shared context compiler exposed through MCP and CLI. The

@@ -4,6 +4,24 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Corrected proof-gated refresh ordering for lived-in repositories. Managed
+  instructions are synchronized before observation; accepted outcomes and
+  grounded curation now precede the new snapshot and publications; and
+  repo-wide publications omit stale task-local resolver and intent lineage.
+  Maintained proof reports cite the accepted `ProofGateReport`. Freshness now
+  treats context-delivery and outcome events as immutable historical records,
+  while still requiring their exact referenced artifacts to exist.
+- Added explicit context-use receipts. `validate_change` and CLI
+  `--context-claims-json` accept an item-to-`applied`/`read`/`ignored` map and
+  write an immutable `ContextUsageEvent` derived from the original delivery.
+  Grounded-outcome policy `v2` routes successful proof only to items claimed as
+  applied; read, ignored, and unclaimed context remains association-only. A
+  blocked or regressed task cannot refute an item without item-specific
+  counterevidence. MCP interface `1.4.2` and managed instructions `2.0.4`
+  expose the same contract without increasing their byte ceilings.
+- Kept repository documentation inside post-edit repository-law review without
+  requiring synthetic source ownership for `docs/` and conventional guidance
+  files when the `OwnershipMap` has no matching entry.
 - Added grounded context learning. CLI and MCP task delivery now records the
   exact bounded projection, post-edit validation and accepted refresh record
   separately grounded outcomes, and memory curation collapses connected shared
@@ -17,8 +35,9 @@ All notable changes to Rekon are documented here.
   `contextUsageRef` lineage; CLI validation accepts the same ref through
   `--context-usage`. Pathless lexical anchors now become the report's exact
   resolved task scope instead of remaining context-only paths.
-- Updated managed agent instructions to `2.0.3` so agents retain the task
-  delivery ref and return it during post-edit validation.
+- Updated managed agent instructions to `2.0.4` so agents retain the task
+  delivery ref, return it during post-edit validation, and distinguish context
+  that shaped the change from context merely read or ignored.
 - Added bounded chronological artifact listing to the public SDK and runtime.
   Grounded outcome evaluation and one-time memory trials now read the newest
   retained events by `writtenAt` instead of relying on artifact-id order.

@@ -257,6 +257,69 @@ test("source drift propagates through artifact lineage", async () => {
   });
 });
 
+test("immutable task-history events stop current-state freshness propagation", async () => {
+  await withFixture(async (root) => {
+    const store = createLocalArtifactStore(root);
+    await store.init();
+    const context = await store.write({
+      header: {
+        artifactType: "TaskContextReport",
+        artifactId: "task-context-history-1",
+        schemaVersion: "0.1.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: "freshness-history-test" },
+        producer: { id: "@rekon/test.history", version: "1.0.0" },
+        inputRefs: [],
+        invalidation: {
+          inputs: [{ kind: "source", path: "src/index.ts", digest: "0".repeat(64) }],
+        },
+        supersession: { key: "task:history" },
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1 },
+      },
+    });
+    const usage = await writeSyntheticArtifact(
+      store,
+      "ContextUsageEvent",
+      "context-usage-history-1",
+      "task:history:delivery",
+      [context],
+    );
+    const outcome = await writeSyntheticArtifact(
+      store,
+      "OutcomeEvent",
+      "outcome-history-1",
+      "task:history:outcome",
+      [usage],
+    );
+    const evaluation = await writeSyntheticArtifact(
+      store,
+      "ContextOutcomeEvaluationReport",
+      "context-outcome-history-1",
+      "context-outcome-evaluation",
+      [usage, outcome],
+    );
+    const missingUsage = await writeSyntheticArtifact(
+      store,
+      "ContextUsageEvent",
+      "context-usage-history-missing",
+      "task:history:missing",
+      [{ type: "TaskContextReport", id: "missing-context", schemaVersion: "0.1.0" }],
+    );
+
+    const result = await validateArtifactFreshness(store);
+    const freshness = (ref) => result.artifacts.find(
+      (entry) => entry.type === ref.type && entry.id === ref.id,
+    );
+
+    assert.equal(freshness(context)?.status, "stale");
+    assert.equal(freshness(usage)?.status, "fresh");
+    assert.equal(freshness(outcome)?.status, "fresh");
+    assert.equal(freshness(evaluation)?.status, "fresh");
+    assert.equal(freshness(missingUsage)?.status, "partial");
+  });
+});
+
 test("supersession keys isolate independent artifact streams", async () => {
   await withFixture(async (root) => {
     const store = createLocalArtifactStore(root);

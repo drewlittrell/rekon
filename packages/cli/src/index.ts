@@ -201,6 +201,7 @@ import modelCapability, {
   selectSemanticReportsForGraph,
   type SemanticReportForGraph,
   buildEmbeddingChunks,
+  buildClaimedContextUsageEvent,
   buildContextUsageEvent,
   classifyEmbeddingChunks,
   computeEmbeddingIndexKey,
@@ -388,6 +389,7 @@ import {
   type TaskContextReport,
   type TaskPact,
   type ContextUsageEvent,
+  type ContextUsageClaimDisposition,
   type OutcomeEvent,
   assertContractCandidateReport,
   assertContractJudgmentReport,
@@ -2454,6 +2456,7 @@ export async function main(argv: string[]): Promise<void> {
       parsed.flags["context-usage"],
       "rekon context validate-change --context-usage",
     );
+    const contextUsageClaims = parseContextUsageClaims(parsed.flags["context-claims-json"]);
     const modelJudgments = parseChangeModelJudgments(parsed.flags["judgment-json"]);
     const prepareVerification = parsed.flags["prepare-verification"] === true;
     if (prepareVerification && parsed.flags["record-proof"] === true) {
@@ -2466,6 +2469,8 @@ export async function main(argv: string[]): Promise<void> {
       verificationResultRefs,
       runtimeObservationRefs,
       contextUsageRef,
+      contextUsageClaims,
+      contextUsageClaimant: "rekon-cli-caller",
       modelJudgments,
     });
     let verificationPlan: ArtifactRef | undefined;
@@ -2494,6 +2499,9 @@ export async function main(argv: string[]): Promise<void> {
           } : {}),
           ...(proofArtifact ? { proofArtifact } : {}),
           ...(outcomeArtifact ? { outcomeArtifact } : {}),
+          ...(validation.contextClaimReceiptRef
+            ? { contextClaimReceipt: validation.contextClaimReceiptRef }
+            : {}),
         }
       : [
           renderChangeValidation(validation.result),
@@ -2503,6 +2511,9 @@ export async function main(argv: string[]): Promise<void> {
           ] : []),
           ...(proofArtifact ? [`Proof gate: ${proofArtifact.type}:${proofArtifact.id}`] : []),
           ...(outcomeArtifact ? [`Outcome: ${outcomeArtifact.type}:${outcomeArtifact.id}`] : []),
+          ...(validation.contextClaimReceiptRef
+            ? [`Context use receipt: ${validation.contextClaimReceiptRef.type}:${validation.contextClaimReceiptRef.id}`]
+            : []),
         ].join("\n"), json);
     return;
   }
@@ -6103,6 +6114,7 @@ export async function main(argv: string[]): Promise<void> {
           const verificationResultRefs = parseMcpArtifactRefList(args.verificationResults, "verificationResults");
           const runtimeObservationRefs = parseMcpArtifactRefList(args.runtimeObservations, "runtimeObservations");
           const contextUsageRef = parseMcpOptionalArtifactRef(args.contextUsageRef, "contextUsageRef");
+          const contextUsageClaims = parseContextUsageClaims(args.contextClaims);
           const modelJudgments = parseChangeModelJudgments(args.judgments);
           const validation = await validateRepositoryChange(root, {
             task: args.task.trim(),
@@ -6111,10 +6123,17 @@ export async function main(argv: string[]): Promise<void> {
             verificationResultRefs,
             runtimeObservationRefs,
             contextUsageRef,
+            contextUsageClaims,
+            contextUsageClaimant: "rekon-mcp-client",
             modelJudgments,
           });
           const outcomeRef = await recordValidationOutcomeEvent(root, validation);
-          return buildChangeValidationResponse(validation.result, validation.sources, outcomeRef);
+          return buildChangeValidationResponse(
+            validation.result,
+            validation.sources,
+            outcomeRef,
+            validation.contextClaimReceiptRef,
+          );
         } catch (error) {
           return buildChangeValidationUnavailable(error instanceof Error ? error.message : String(error));
         }
@@ -13772,6 +13791,7 @@ type RefreshStepId =
   | "agent-instructions.sync"
   | "artifacts.validate"
   | "artifacts.freshness"
+  | "proof-gate.preaccept"
   | "proof-gate.revalidate"
   | "outcome.record";
 
@@ -13961,6 +13981,27 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
   }
 
   const runtime = await createDefaultRuntime(root);
+
+  // Synchronize the stable model bootstrap before observing source so any
+  // managed AGENTS.md change belongs to the refreshed source generation.
+  if (options.syncAgentInstructions === false) {
+    steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled for this lifecycle command" });
+  } else {
+    try {
+      const config = await readConfig(root);
+      if (config.agentInstructions?.enabled === false) {
+        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled in .rekon/config.json" });
+      } else if (config.agentInstructions?.sync === "manual") {
+        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "manual sync configured" });
+      } else {
+        const synced = await syncAgentInstructions(root, agentInstructionOptions(config));
+        steps.push({ id: "agent-instructions.sync", status: "passed", summary: synced });
+      }
+    } catch (error) {
+      steps.push({ id: "agent-instructions.sync", status: "failed", message: messageOf(error) });
+      return finalize("failed");
+    }
+  }
 
   // 3. observe
   try {
@@ -14247,17 +14288,47 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     return finalize("failed");
   }
 
-  // Curate previously observed context outcomes before the ordinary snapshot.
-  // Proof-gated refresh waits until its newly accepted outcome is recorded.
-  if (!options.proofGate) {
+  // Proof mode advances the accepted outcome before learning so the current
+  // curation, snapshot, and maintained publications share one generation.
+  // Recheck after all writes below still protects against concurrent edits.
+  let acceptedProofGate: ValidatedProofGateForRefresh | undefined;
+  if (options.proofGate) {
     try {
-      const memoryStep = await curateRefreshMemory(runtime, store);
-      steps.push(memoryStep);
-      recordArtifacts(memoryStep.artifacts);
+      acceptedProofGate = await validateProofGateForRefresh(
+        root,
+        `${options.proofGate.ref.type}:${options.proofGate.ref.id}`,
+        options.proofGate.changedFiles,
+      );
+      steps.push({
+        id: "proof-gate.preaccept",
+        status: "passed",
+        artifacts: [acceptedProofGate.ref],
+        summary: { paths: acceptedProofGate.changedFiles },
+      });
     } catch (error) {
-      steps.push({ id: "memory.curate", status: "failed", message: messageOf(error) });
+      steps.push({ id: "proof-gate.preaccept", status: "failed", message: messageOf(error) });
       return finalize("failed");
     }
+  }
+
+  if (acceptedProofGate) {
+    try {
+      const acceptedOutcomeRef = await recordAcceptedProofOutcome(root, acceptedProofGate);
+      recordArtifacts(acceptedOutcomeRef);
+      steps.push({ id: "outcome.record", status: "passed", artifacts: [acceptedOutcomeRef] });
+    } catch (error) {
+      steps.push({ id: "outcome.record", status: "failed", message: messageOf(error) });
+      return finalize("failed");
+    }
+  }
+
+  try {
+    const memoryStep = await curateRefreshMemory(runtime, store);
+    steps.push(memoryStep);
+    recordArtifacts(memoryStep.artifacts);
+  } catch (error) {
+    steps.push({ id: "memory.curate", status: "failed", message: messageOf(error) });
+    return finalize("failed");
   }
 
   // 10. snapshot. Build it after governance so its lower-layer index and
@@ -14286,14 +14357,26 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
       input?: Record<string, unknown>;
     }> = options.proofGate
       ? [
-          { id: "publish.guidance", publisherId: "@rekon/capability-docs.publisher" },
+          {
+            id: "publish.guidance",
+            publisherId: "@rekon/capability-docs.publisher",
+            input: { includeIntentLineage: false },
+          },
           {
             id: "publish.architecture",
             publisherId: "@rekon/capability-docs.architecture-summary",
             input: { includeIntentLineage: false },
           },
-          { id: "publish.proof", publisherId: "@rekon/capability-docs.proof-report" },
-          { id: "publish.agent-contract", publisherId: "@rekon/capability-docs.agent-contract" },
+          {
+            id: "publish.proof",
+            publisherId: "@rekon/capability-docs.proof-report",
+            input: { includeIntentLineage: false, proofGateRef: options.proofGate.ref },
+          },
+          {
+            id: "publish.agent-contract",
+            publisherId: "@rekon/capability-docs.agent-contract",
+            input: { includeIntentLineage: false },
+          },
         ]
       : [{
           id: "publish.architecture",
@@ -14398,32 +14481,10 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
     };
   }
 
-  // Keep the stable model bootstrap synchronized without copying dynamic
-  // repository state into AGENTS.md. `rekon scan` opts out explicitly so its
-  // established artifact-only boundary remains intact.
-  if (options.syncAgentInstructions === false) {
-    steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled for this lifecycle command" });
-  } else {
-    try {
-      const config = await readConfig(root);
-      if (config.agentInstructions?.enabled === false) {
-        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "disabled in .rekon/config.json" });
-      } else if (config.agentInstructions?.sync === "manual") {
-        steps.push({ id: "agent-instructions.sync", status: "skipped", message: "manual sync configured" });
-      } else {
-        const synced = await syncAgentInstructions(root, agentInstructionOptions(config));
-        steps.push({ id: "agent-instructions.sync", status: "passed", summary: synced });
-      }
-    } catch (error) {
-      steps.push({ id: "agent-instructions.sync", status: "failed", message: messageOf(error) });
-    }
-  }
-
   // Source can change while a long refresh is running. Re-read the stored gate
   // and re-check every digest after all maintained artifacts and instructions
   // have been written. A failed final check prevents this run from becoming an
   // accepted repository generation.
-  let acceptedProofGate: ValidatedProofGateForRefresh | undefined;
   if (options.proofGate) {
     try {
       const revalidated = await validateProofGateForRefresh(
@@ -14431,7 +14492,6 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
         `${options.proofGate.ref.type}:${options.proofGate.ref.id}`,
         options.proofGate.changedFiles,
       );
-      acceptedProofGate = revalidated;
       steps.push({
         id: "proof-gate.revalidate",
         status: "passed",
@@ -14440,38 +14500,6 @@ async function runRefresh(root: string, options: RefreshOptions = {}): Promise<R
       });
     } catch (error) {
       steps.push({ id: "proof-gate.revalidate", status: "failed", message: messageOf(error) });
-    }
-  }
-
-  let acceptedOutcomeRef: ArtifactRef | undefined;
-  if (acceptedProofGate) {
-    try {
-      acceptedOutcomeRef = await recordAcceptedProofOutcome(root, acceptedProofGate, allArtifacts);
-      recordArtifacts(acceptedOutcomeRef);
-      steps.push({ id: "outcome.record", status: "passed", artifacts: [acceptedOutcomeRef] });
-    } catch (error) {
-      steps.push({ id: "outcome.record", status: "failed", message: messageOf(error) });
-    }
-  }
-
-  if (acceptedOutcomeRef) {
-    try {
-      const memoryStep = await curateRefreshMemory(runtime, store);
-      steps.push(memoryStep);
-      recordArtifacts(memoryStep.artifacts);
-    } catch (error) {
-      steps.push({ id: "memory.curate", status: "failed", message: messageOf(error) });
-    }
-
-    const finalValidation = await validateArtifactIndex(store);
-    result.validation = { valid: finalValidation.valid, issues: finalValidation.issues };
-    const validationStep = steps.find((step) => step.id === "artifacts.validate");
-    if (validationStep) {
-      validationStep.status = finalValidation.valid ? "passed" : "failed";
-      validationStep.issues = finalValidation.issues;
-      validationStep.message = finalValidation.valid
-        ? undefined
-        : "Artifact index validation failed after recording the accepted outcome and grounded curation.";
     }
   }
 
@@ -15348,6 +15376,7 @@ type RepositoryChangeValidation = {
   sources: SourceRef[];
   warnings: string[];
   contextUsageRef?: ArtifactRef;
+  contextClaimReceiptRef?: ArtifactRef;
 };
 
 type RepositoryChangeValidationInput = {
@@ -15357,6 +15386,11 @@ type RepositoryChangeValidationInput = {
   verificationResultRefs?: string[];
   runtimeObservationRefs?: string[];
   contextUsageRef?: string;
+  contextUsageClaims?: Array<{
+    itemId: string;
+    disposition: ContextUsageClaimDisposition;
+  }>;
+  contextUsageClaimant?: string;
   modelJudgments?: ChangeModelJudgment[];
 };
 
@@ -15364,6 +15398,9 @@ async function validateRepositoryChange(
   root: string,
   input: RepositoryChangeValidationInput,
 ): Promise<RepositoryChangeValidation> {
+  if ((input.contextUsageClaims?.length ?? 0) > 0 && !input.contextUsageRef) {
+    throw new Error("Context usage claims require the exact ContextUsageEvent ref returned for this task.");
+  }
   const store = createLocalArtifactStore(root);
   const sources: SourceRef[] = [];
   const warnings: string[] = [];
@@ -15619,11 +15656,24 @@ async function validateRepositoryChange(
     ...(runtimeEvidence.length > 0 ? { runtimeEvidence } : {}),
     ...((input.modelJudgments?.length ?? 0) > 0 ? { modelJudgments: input.modelJudgments } : {}),
   });
+  let contextClaimReceiptRef: ArtifactRef | undefined;
+  if (contextUsage && contextUsageRef && (input.contextUsageClaims?.length ?? 0) > 0) {
+    const receipt = buildClaimedContextUsageEvent({
+      usage: contextUsage,
+      usageRef: contextUsageRef,
+      claims: input.contextUsageClaims ?? [],
+      assertedBy: input.contextUsageClaimant ?? "rekon-task-executor",
+    });
+    contextClaimReceiptRef = await store.write(receipt, { category: "actions" });
+    contextUsageRef = contextClaimReceiptRef;
+    addValidationSource(sources, receipt);
+  }
   return {
     result,
     sources: dedupeValidationSources(sources),
     warnings: [...new Set(warnings)].sort(),
     ...(contextUsageRef ? { contextUsageRef } : {}),
+    ...(contextClaimReceiptRef ? { contextClaimReceiptRef } : {}),
   };
 }
 
@@ -16172,7 +16222,6 @@ async function recordChangeProofGate(root: string, result: ChangeValidationResul
 async function recordAcceptedProofOutcome(
   root: string,
   proofGate: ValidatedProofGateForRefresh,
-  refreshRefs: readonly ArtifactRef[],
 ): Promise<ArtifactRef> {
   const store = createLocalArtifactStore(root);
   await store.init();
@@ -16200,8 +16249,6 @@ async function recordAcceptedProofOutcome(
     && validateSourceStateBinding(proofGate.report.sourceState).ok
     ? proofGate.report.sourceState as SourceStateBinding
     : undefined;
-  const retainedRefreshRefs = refreshRefs.filter((ref) =>
-    ref.type === "IntelligenceSnapshot" || ref.type === "Publication");
   const generatedAt = new Date().toISOString();
   const observationKey = `accepted:${proofGate.ref.type}:${proofGate.ref.id}:${sourceState?.digest ?? "unbound"}`;
   const inputRefs = dedupeArtifactRefs([
@@ -16209,7 +16256,6 @@ async function recordAcceptedProofOutcome(
     ...(validationEventRef ? [validationEventRef] : []),
     ...(validationEvent?.contextUsageRefs ?? []),
     ...proofEvidenceRefs,
-    ...retainedRefreshRefs,
   ]);
   const evaluation = proofGate.report.evaluation.summary;
   const event = createOutcomeEvent({
@@ -16225,7 +16271,7 @@ async function recordAcceptedProofOutcome(
       freshness: { status: sourceState ? "fresh" : "unknown" },
       provenance: {
         confidence: 1,
-        notes: ["Records an accepted repository generation after proof-gated maintenance; it does not claim a user or business outcome."],
+        notes: ["Records the proof-gated source state admitted into this refresh; the refresh result remains the maintenance completion boundary and does not claim a user or business outcome."],
       },
     },
     task,
@@ -16249,8 +16295,8 @@ async function recordAcceptedProofOutcome(
       reworkAttempt: validationEvent?.summary.reworkAttempt ?? 0,
     },
     notes: validationEvent
-      ? ["Accepted after an exactly linked verified validation attempt and final source-state revalidation."]
-      : ["Accepted after final source-state revalidation; no exactly linked validation OutcomeEvent was available."],
+      ? ["Admitted after an exactly linked verified validation attempt and pre-acceptance source-state revalidation."]
+      : ["Admitted after pre-acceptance source-state revalidation; no exactly linked validation OutcomeEvent was available."],
   });
   return store.write(event, { category: "actions" });
 }
@@ -18036,6 +18082,55 @@ function parseMcpOptionalArtifactRef(value: unknown, field: string): string | un
   return value.trim();
 }
 
+function parseContextUsageClaims(value: unknown): Array<{
+  itemId: string;
+  disposition: ContextUsageClaimDisposition;
+}> {
+  if (value === undefined) return [];
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch (error) {
+      throw new Error(`Context usage claim JSON is invalid: ${messageOf(error)}`);
+    }
+  }
+  const entries: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object"
+      ? Object.entries(parsed as Record<string, unknown>).map(([itemId, disposition]) => ({
+          itemId,
+          disposition,
+        }))
+      : [];
+  if (!Array.isArray(parsed) && (!parsed || typeof parsed !== "object")) {
+    throw new Error("Context usage claims must be a JSON object or array.");
+  }
+  if (entries.length === 0) {
+    throw new Error("Context usage claims must contain at least one item.");
+  }
+  const byItem = new Map<string, ContextUsageClaimDisposition>();
+  return entries.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`Context usage claim ${index + 1} must be an object.`);
+    }
+    const candidate = entry as Record<string, unknown>;
+    const itemId = typeof candidate.itemId === "string" ? candidate.itemId.trim() : "";
+    if (!itemId) throw new Error(`Context usage claim ${index + 1} requires itemId.`);
+    if (
+      candidate.disposition !== "read"
+      && candidate.disposition !== "applied"
+      && candidate.disposition !== "ignored"
+    ) {
+      throw new Error(`Context usage claim ${index + 1} disposition must be read, applied, or ignored.`);
+    }
+    const prior = byItem.get(itemId);
+    if (prior) throw new Error(`Context usage item ${itemId} may be claimed only once per validation.`);
+    byItem.set(itemId, candidate.disposition);
+    return { itemId, disposition: candidate.disposition };
+  });
+}
+
 function parseChangeModelJudgments(value: unknown): ChangeModelJudgment[] {
   if (value === undefined) return [];
   let parsed = value;
@@ -19606,7 +19701,7 @@ function usage(): string {
     "    (classifies task risk and intent, chooses the smallest sufficient profile; --json includes agentContext and --model-context emits delivery only)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
-    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--context-usage <ContextUsageEvent:id>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
+    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--context-usage <ContextUsageEvent:id>] [--context-claims-json <json-map>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
     "    (returns post-edit edge proof and required checks; executes no checks; records an OutcomeEvent in initialized repos and writes verification/proof artifacts only with explicit flags)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",

@@ -127,6 +127,7 @@ incremental refresh:
 ```sh
 rekon context validate-change --task "<task>" --changed-path <path> \
   --base-ref HEAD --context-usage <ContextUsageEvent:id> \
+  --context-claims-json '{"<item-id>":"applied"}' \
   --verification-result <VerificationResult:id> \
   --judgment-json '<judgments>' --record-proof --json
 rekon refresh --proof-gate <ProofGateReport:id> --json
@@ -134,14 +135,14 @@ rekon refresh --proof-gate <ProofGateReport:id> --json
 
 The report binds verifier results to the post-edit source digests. Proof mode
 does not accept `--skip-publish` or `--skip-freshness`. It records the gate in
-the refreshed evidence lineage, preserves unaffected evidence, rebuilds models
-and governance, reconciles adopted repository law, writes a current snapshot,
-regenerates agent guidance, repository summary, architecture summary, proof
-report, agent contract, and managed `AGENTS.md` instructions, then validates
-artifacts and freshness. It records the accepted outcome and refreshes grounded
-memory curation before completion. Confirmed contract drift fails the refresh. The CLI
-re-reads the gate and compares source bytes again after the final write so a
-mid-refresh edit cannot advance accepted knowledge.
+the refreshed evidence lineage, synchronizes managed `AGENTS.md` instructions
+before observation, preserves unaffected evidence, rebuilds models and
+governance, and reconciles adopted repository law. It then revalidates the
+gate, records the accepted outcome, curates grounded memory, writes the current
+snapshot, and regenerates maintained publications. Repo-wide publications omit
+stale task-local lineage; the maintained proof report cites the accepted gate.
+Artifact integrity and freshness run before a final source-digest check.
+Confirmed contract drift or a mid-refresh edit fails the refresh.
 
 Executed verification captures the plan's bounded source state before and
 after commands. A command that changes those bytes makes the run non-proof and
@@ -177,7 +178,8 @@ and does not write an artifact.
 
 After editing, run `rekon context validate-change --task "<task>"
 --changed-path <path> --base-ref HEAD --context-usage
-<ContextUsageEvent:id> --json`. Use the ref returned by the task-context call
+<ContextUsageEvent:id> --context-claims-json
+'{"<item-id>":"applied"}' --json`. Use the ref returned by the task-context call
 and repeat `--changed-path` for the complete task diff. The command reads Git
 and current source, reuses the exact delivered TaskPact and context when the ref
 is supplied, and returns blocking violations, unresolved
@@ -188,6 +190,9 @@ touched by the observed diff; missing contract bodies trigger a conservative
 TaskPact fallback. When changed source has no selected test, Rekon may add the
 smallest set of exact commands backed by linked passed isolated coverage.
 Those observations select what to rerun and do not prove the current change.
+The optional claim map also accepts `read` and `ignored`. Rekon writes a derived
+immutable use receipt; only `applied` items can receive grounded support. A
+general blocked outcome cannot refute an item.
 Add `--prepare-verification` to write a plan containing those exact commands
 and their selection lineage; execute it with `rekon verify run`, then derive its
 `VerificationResult`. Pass repeatable `--verification-result` and

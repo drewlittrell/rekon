@@ -17,6 +17,7 @@ const ruleackPackageName = "rekon-capability-import-boundaries-example";
 const EXPECTED_STEP_ORDER = [
   "init",
   "config.validate",
+  "agent-instructions.sync",
   "observe",
   "capability.graph",
   "project",
@@ -33,7 +34,6 @@ const EXPECTED_STEP_ORDER = [
   "publish.architecture",
   "artifacts.validate",
   "artifacts.freshness",
-  "agent-instructions.sync",
 ];
 
 const REQUIRED_ARTIFACT_TYPES = [
