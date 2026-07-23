@@ -1,10 +1,17 @@
-import { digestJson, type ArtifactRef } from "@rekon/kernel-artifacts";
+import {
+  createSourceStateBinding,
+  digestJson,
+  type ArtifactRef,
+  type SourceStateBinding,
+  type SourceStateFile,
+} from "@rekon/kernel-artifacts";
 import type {
   CapabilityContract,
   CapabilityEvidenceGraph,
   FlowContract,
   FlowContractHandoff,
   OwnershipMap,
+  PlacementVerificationReport,
   ProofAcceptancePolicy,
   ProofGateEvaluation,
   ProofMethod,
@@ -160,6 +167,11 @@ export type ChangeModelJudgment = {
   };
 };
 
+export type ChangePlacementVerificationEvidence = {
+  ref: ArtifactRef;
+  report: PlacementVerificationReport;
+};
+
 export type ChangeValidationResult = {
   schemaVersion: "1.0.0";
   task: string;
@@ -221,6 +233,7 @@ export type ValidateChangeInput = {
   dependencyChanges?: ChangeDependencyDelta[];
   verificationEvidence?: ChangeVerificationEvidence[];
   runtimeEvidence?: ChangeRuntimeEvidence[];
+  placementVerificationEvidence?: ChangePlacementVerificationEvidence[];
   modelJudgments?: ChangeModelJudgment[];
   proofResults?: ProofResult[];
 };
@@ -401,8 +414,9 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     ...checkSelection.checks.map((check) => toCheckProofObligation(check, input)),
   ], (obligation) => obligation.id);
   const boundProof = bindProofEvidence({ input, obligations: proofObligations, checks: checkSelection.checks });
+  const suppliedProof = bindSuppliedProofResults(input, proofObligations);
   const proofResults = dedupe([
-    ...(input.proofResults ?? []),
+    ...suppliedProof.results,
     ...boundProof.results,
   ], proofResultKey);
   const proofEvaluation = evaluateProofGate(proofObligations, proofResults);
@@ -456,7 +470,11 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
       obligations: proofObligations,
       results: proofResults,
       evaluation: proofEvaluation,
-      warnings: unique([...boundProof.warnings, ...checkSelection.warnings]).sort(),
+      warnings: unique([
+        ...boundProof.warnings,
+        ...suppliedProof.warnings,
+        ...checkSelection.warnings,
+      ]).sort(),
     },
     requiredChecks,
     checkSelection,
@@ -647,12 +665,33 @@ function bindProofEvidence(input: {
     ...bindStaticEvidence(input, warnings),
     ...bindVerificationEvidence(input, warnings),
     ...bindRuntimeEvidence(input, warnings),
+    ...bindPlacementVerificationEvidence(input, warnings),
     ...bindModelJudgments(input, warnings),
   ];
   return {
     results: dedupe(results, proofResultKey),
     warnings: unique(warnings).sort(),
   };
+}
+
+function bindSuppliedProofResults(
+  input: ValidateChangeInput,
+  obligations: ProofObligation[],
+): { results: ProofResult[]; warnings: string[] } {
+  const obligationIds = new Set(obligations.map((obligation) => obligation.id));
+  const warnings: string[] = [];
+  const results = (input.proofResults ?? []).filter((result) => {
+    if (!obligationIds.has(result.obligationId)) return true;
+    if (
+      isStageResponsibilityObligationId(result.obligationId)
+      && result.method === "model-judgment"
+    ) {
+      warnings.push(`placement-proof-direct-result-rejected: ${result.obligationId}`);
+      return false;
+    }
+    return true;
+  });
+  return { results, warnings };
 }
 
 function bindStaticEvidence(
@@ -843,6 +882,103 @@ function bindRuntimeEvidence(
   return results;
 }
 
+const ACTING_AGENT_VERIFIER_ID = "rekon-managed-agent";
+
+function bindPlacementVerificationEvidence(
+  input: {
+    input: ValidateChangeInput;
+    obligations: ProofObligation[];
+    checks: ChangeValidationSelectedCheck[];
+  },
+  warnings: string[],
+): ProofResult[] {
+  if ((input.input.placementVerificationEvidence?.length ?? 0) === 0) return [];
+  const obligations = new Map(input.obligations.map((obligation) => [obligation.id, obligation]));
+  const currentSourceState = changeSourceState(input.input);
+  const results: ProofResult[] = [];
+
+  for (const evidence of input.input.placementVerificationEvidence ?? []) {
+    const report = evidence.report;
+    const refName = `${evidence.ref.type}:${evidence.ref.id}`;
+    const obligation = obligations.get(report.obligation.id);
+    if (!obligation) {
+      warnings.push(`placement-verification-unbound: ${refName} -> ${report.obligation.id}`);
+      continue;
+    }
+    if (!isStageResponsibilityObligationId(obligation.id)) {
+      warnings.push(`placement-verification-not-applicable: ${refName} -> ${obligation.id}`);
+      continue;
+    }
+    const matched = findFlowStageResponsibilityByObligationId(
+      input.input.flowContracts ?? [],
+      obligation.id,
+    );
+    if (!matched) {
+      warnings.push(`placement-verification-contract-unavailable: ${refName} -> ${obligation.id}`);
+      continue;
+    }
+
+    const expectedContractRef = artifactRef(matched.flow.header);
+    const expectedChangedPaths = unique(obligation.subject.paths?.map(normalizePath).filter(Boolean) ?? []);
+    const reportChangedPaths = unique(report.obligation.changedSourcePaths.map(normalizePath).filter(Boolean));
+    const reportTaskPaths = unique(report.task.paths.map(normalizePath).filter(Boolean));
+    const currentTaskPaths = unique(input.input.changedPaths.map(normalizePath).filter(Boolean));
+    const reportStagePaths = unique(report.obligation.stagePaths.map(normalizePath).filter(Boolean));
+    const expectedStagePaths = unique((matched.stage.paths ?? []).map(normalizePath).filter(Boolean));
+    const invalidReasons: string[] = [];
+
+    if (report.task.text.trim() !== input.input.task.trim()) invalidReasons.push("task text differs");
+    if (!sameStringSet(reportTaskPaths, currentTaskPaths)) invalidReasons.push("task paths differ");
+    if (report.obligation.assertion !== obligation.assertion) invalidReasons.push("assertion differs");
+    if (report.obligation.flowId !== matched.flow.contractId) invalidReasons.push("flow differs");
+    if (report.obligation.stageId !== matched.stage.id) invalidReasons.push("stage differs");
+    if (!sameStringSet(reportStagePaths, expectedStagePaths)) invalidReasons.push("stage paths differ");
+    if (!sameStringSet(reportChangedPaths, expectedChangedPaths)) {
+      invalidReasons.push("changed source paths differ");
+    }
+    if (!sameArtifactRef(report.obligation.contractRef, expectedContractRef)) {
+      invalidReasons.push("contract ref differs");
+    }
+    if (report.verifier.id === ACTING_AGENT_VERIFIER_ID) {
+      invalidReasons.push("acting agent is the verifier");
+    }
+    if (!report.verifier.independentOf.includes(ACTING_AGENT_VERIFIER_ID)) {
+      invalidReasons.push("acting-agent independence is undeclared");
+    }
+    if (!currentSourceState) {
+      invalidReasons.push("current source state is unavailable");
+    } else if (report.sourceState.digest !== currentSourceState.digest) {
+      invalidReasons.push("source state differs");
+    }
+
+    if (invalidReasons.length > 0) {
+      warnings.push(
+        `placement-verification-rejected: ${refName} -> ${obligation.id}: ${invalidReasons.join(", ")}`,
+      );
+      continue;
+    }
+
+    const refs = dedupe(
+      [evidence.ref, expectedContractRef, ...obligation.sourceRefs],
+      (ref) => `${ref.type}:${ref.id}`,
+    );
+    results.push({
+      obligationId: obligation.id,
+      method: "model-judgment",
+      verdict: report.verdict,
+      evidenceRefs: report.verdict === "supported" ? refs : [],
+      counterEvidenceRefs: report.verdict === "refuted" ? refs : [],
+      explanation: report.explanation,
+      verifier: {
+        kind: report.verifier.kind,
+        id: report.verifier.id,
+        version: report.verifier.version,
+      },
+    });
+  }
+  return results;
+}
+
 function bindModelJudgments(
   input: {
     input: ValidateChangeInput;
@@ -866,6 +1002,10 @@ function bindModelJudgments(
         explanation: judgment.explanation,
         verifier: { kind: "model", id: judgment.verifier?.id ?? "rekon-managed-agent", version: judgment.verifier?.version ?? "1.0.0" },
       });
+      continue;
+    }
+    if (isStageResponsibilityObligationId(obligation.id)) {
+      warnings.push(`model-judgment-self-certification-rejected: ${judgment.obligationId}`);
       continue;
     }
     if (!obligation.requiredEvidence.includes("model-judgment")) {
@@ -1678,6 +1818,39 @@ function resolveOwner(path: string, map: OwnershipMap | undefined): string | und
 
 function addObligation(output: ChangeValidationObligation[], obligation: ChangeValidationObligation): void {
   output.push({ ...obligation, paths: unique(obligation.paths), evidenceRefs: unique(obligation.evidenceRefs) });
+}
+
+function changeSourceState(input: ValidateChangeInput): SourceStateBinding | undefined {
+  if (!input.baseRef.trim() || !input.files || input.files.length === 0) return undefined;
+  const files: SourceStateFile[] = [];
+  for (const file of input.files) {
+    const path = normalizePath(file.path);
+    if (!path || file.status === "unavailable") return undefined;
+    files.push({
+      path,
+      status: file.status,
+      ...(file.beforeSha256 ? { beforeSha256: file.beforeSha256 } : {}),
+      ...(file.afterSha256 ? { afterSha256: file.afterSha256 } : {}),
+    });
+  }
+  try {
+    return createSourceStateBinding({
+      baseRef: input.baseRef,
+      files: dedupe(files, (file) => file.path),
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function sameArtifactRef(left: ArtifactRef, right: ArtifactRef): boolean {
+  return left.type === right.type
+    && left.id === right.id
+    && left.schemaVersion === right.schemaVersion;
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  return JSON.stringify(unique(left)) === JSON.stringify(unique(right));
 }
 
 function pathMatchesScope(path: string, rawScope: string): boolean {

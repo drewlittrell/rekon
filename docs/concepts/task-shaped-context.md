@@ -165,12 +165,15 @@ deterministic and cannot be satisfied by model judgment. It proves that current
 regression evidence participated in the edit, not that the test passed.
 
 The first call identifies required proof. The final call supplies explicit
-`VerificationResult` and runtime-observation refs plus model judgments. A
-satisfied result can be recorded as a `ProofGateReport`, bound to the post-edit
-source digests. `rekon refresh --proof-gate <ref>` rejects reused proof after
-another edit, then updates lower-layer evidence and models, reruns governance,
-and reconciles adopted contracts. Refresh does not create repository law when
-no registry exists.
+`VerificationResult` and runtime-observation refs plus generic model judgments.
+A changed stage responsibility also requires an indexed
+`PlacementVerificationReport` whose independent verifier reviewed the exact
+contract and current source state. The acting agent's judgment cannot satisfy
+that placement obligation. A satisfied result can be recorded as a
+`ProofGateReport`, bound to the post-edit source digests. `rekon refresh
+--proof-gate <ref>` rejects reused proof after another edit, then updates
+lower-layer evidence and models, reruns governance, and reconciles adopted
+contracts. Refresh does not create repository law when no registry exists.
 
 A failed check may use the existing exact source-target resolver for a path or
 symbol named by the failure. Failure alone does not authorize broad search.

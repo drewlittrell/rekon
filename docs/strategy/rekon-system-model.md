@@ -26,10 +26,13 @@ and exact checks. Deterministic checks and runtime observations bind directly
 to the edges they exercise; one handoff's check cannot prove a sibling edge.
 Stages may declare path-scoped responsibilities, and handoffs may require
 current-diff regression evidence paths. A changed responsibility requires its
-matching test plus semantic judgment; an evidence-path requirement is
-deterministic and cannot be self-approved.
-The acting model judges semantic obligations against cited source.
-Counterevidence blocks completion.
+matching test plus an indexed `PlacementVerificationReport` from a verifier
+independent of the acting agent. The report binds the exact contract, stage,
+changed source state, reviewed source spans, verdict, and verifier provenance.
+The acting agent may still judge generic semantic obligations, but neither its
+judgment input nor a caller-supplied proof result can satisfy placement. An
+evidence-path requirement is deterministic and cannot be self-approved.
+Counterevidence from the independent placement verifier blocks completion.
 Contract discovery assigns an explicit policy to every proposed handoff. It
 first inventories the current structural graph, adopted flow contracts,
 runtime observations, and isolated coverage known to the artifact registry.
@@ -129,6 +132,11 @@ and provenance.
   `ProofGateReport`. Verification evidence is admitted by exact source-state
   digest equality, not timestamp order. Validation never runs project checks
   or writes source.
+- Stage placement is admitted only through an indexed
+  `PlacementVerificationReport` whose task, flow, stage, contract, changed
+  paths, source-state digest, and source spans match the current obligation.
+  Stale, self-authored, direct, or mismatched placement proof remains
+  unresolved.
 - Change-generated verification plans preserve why each command was selected
   and which check or flow-edge obligations it can prove. Flow contracts own
   accepted edge methods and policy. Semantic handoff guarantees still require

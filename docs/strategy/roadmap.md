@@ -66,17 +66,17 @@ verification recording, reconciliation planning, and artifact validation.
   Selected VerificationResults and runtime observations bind to the exact
   checks and handoff edges they support. Flow handoffs may declare accepted
   verifier methods, acceptance policy, and exact proving checks; exact checks
-  cannot satisfy sibling edges. The acting model handles only declared semantic
-  judgments; repository purpose and user outcomes are completion gates rather
-  than advisory text.
+  cannot satisfy sibling edges. The acting model handles only declared generic
+  semantic judgments; repository purpose and user outcomes are completion
+  gates rather than advisory text.
 - Flow stages may declare path-scoped responsibilities, and handoff verifier
   policies may require current-diff regression evidence paths. Task pacts carry
-  both into model context. A changed stage requires its exact test plus semantic
-  judgment, while the evidence-path obligation is deterministic and cannot be
-  self-approved by a model. Existing contracts without either declaration keep
-  their prior proof behavior. Current-diff evidence proves that the declared
-  regression path participated; it does not prove semantic placement. The
-  acting agent's own judgment is not yet a sufficient verifier for that claim.
+  both into model context. A changed stage requires its exact test plus an
+  indexed, source-bound `PlacementVerificationReport` from a verifier that
+  declares independence from the acting agent. Direct proof results and the
+  acting agent's `--judgment-json` cannot satisfy placement. The evidence-path
+  obligation remains deterministic and cannot be self-approved. Existing
+  contracts without either declaration keep their prior proof behavior.
 - Targeted verification now preserves declared task and contract checks, fills
   changed-source test gaps only from passed isolated coverage linked to exact
   runner commands, and chooses a deterministic minimal candidate set. Failed,
@@ -244,15 +244,14 @@ verification recording, reconciliation planning, and artifact validation.
   passed; both Rekon runs adopted the interface and reached satisfied proof
   gates, but product-loop completion was 0/2. One wrong placement passed its
   declared test and proof gate. One independently correct change failed
-  terminal refresh. Do not run another broad model campaign until both product
-  failures are corrected.
-- Make semantic placement and stage-responsibility judgment source-backed and
-  independently accountable. A bounded verifier packet should identify the
-  contract, changed source, proving evidence, and verdict provenance; the
-  acting agent must not silently certify its own placement.
-- Make terminal refresh reliable for independently correct changes and persist
-  the exact failed step, freshness result, and corrective diagnostics when it
-  does not complete.
+  terminal refresh. Both product failures now have focused regression coverage:
+  proof-gated refresh terminates superseded planning-only staleness, and stage
+  placement requires current independent source review.
+- Run one targeted atomic-experience canary before another broad campaign. It
+  must prove that the former complete-phrase vocabulary edit is blocked, the
+  tokenizer placement can receive independent support, and the supported
+  change completes proof-gated refresh. Do not infer model-lift, time, token,
+  or cost benefit from that canary.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

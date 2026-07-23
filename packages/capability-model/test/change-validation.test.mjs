@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createSourceStateBinding } from "@rekon/kernel-artifacts";
 import { validateChange } from "../dist/index.js";
 
 const ref = (type, id) => ({ type, id, schemaVersion: "1.0.0" });
@@ -80,6 +81,67 @@ function flowContract(handoffs, requiredChecks = []) {
     ],
     handoffs,
     requiredChecks,
+  };
+}
+
+function placementEvidence({
+  flow,
+  obligationId,
+  assertion,
+  changedPaths = ["src/index.ts"],
+  sourcePath = "src/index.ts",
+  verdict = "supported",
+  verifierId = "codex-independent-placement-judge",
+}) {
+  const beforeSha256 = "a".repeat(64);
+  const afterSha256 = "b".repeat(64);
+  const sourceState = createSourceStateBinding({
+    baseRef: "HEAD",
+    files: changedPaths.map((path) => ({
+      path,
+      status: "modified",
+      beforeSha256,
+      afterSha256,
+    })),
+  });
+  const contractRef = ref("FlowContract", flow.header.artifactId);
+  return {
+    ref: ref("PlacementVerificationReport", `placement-${verdict}`),
+    report: {
+      header: {
+        ...header("PlacementVerificationReport", `placement-${verdict}`),
+        subject: { repoId: "fixture", paths: changedPaths },
+        inputRefs: [contractRef],
+      },
+      task: { text: "change bootstrap", paths: changedPaths },
+      obligation: {
+        id: obligationId,
+        assertion,
+        contractRef,
+        flowId: flow.contractId,
+        stageId: flow.stages[0].id,
+        stagePaths: flow.stages[0].paths,
+        changedSourcePaths: [sourcePath],
+      },
+      sourceState,
+      sourceEvidence: [{
+        path: sourcePath,
+        sha256: afterSha256,
+        lineStart: 1,
+        lineEnd: 1,
+        excerpt: "reviewed source",
+      }],
+      verdict,
+      explanation: verdict === "supported"
+        ? "The change remains within the stage responsibility."
+        : "The change implements the behavior in the wrong architectural location.",
+      verifier: {
+        kind: "model",
+        id: verifierId,
+        version: "1.0.0",
+        independentOf: ["rekon-managed-agent"],
+      },
+    },
   };
 }
 
@@ -606,7 +668,7 @@ test("all-required handoff verification requires both test and runtime proof", (
   );
 });
 
-test("stage responsibility requires both its declared test and model judgment", () => {
+test("stage responsibility requires its declared test and independent placement verification", () => {
   const flow = flowContract([{
     id: "entry-runtime",
     fromStageId: "entry",
@@ -627,7 +689,12 @@ test("stage responsibility requires both its declared test and model judgment", 
     taskPact: pact(),
     ownershipMap,
     flowContracts: [flow],
-    files: [{ path: "src/index.ts", status: "modified" }],
+    files: [{
+      path: "src/index.ts",
+      status: "modified",
+      beforeSha256: "a".repeat(64),
+      afterSha256: "b".repeat(64),
+    }],
     verificationEvidence: [{
       ref: ref("VerificationResult", "edge-test"),
       generatedAt: "2026-07-21T01:00:00.000Z",
@@ -647,13 +714,51 @@ test("stage responsibility requires both its declared test and model judgment", 
   assert.deepEqual(testOnlyDecision?.supportedMethods, ["test"]);
   assert.deepEqual(testOnlyDecision?.missingMethods, ["model-judgment"]);
 
-  const complete = validateChange({
+  const selfCertified = validateChange({
     ...baseline,
     modelJudgments: [{
       obligationId: responsibilityId,
       verdict: "supported",
       explanation: "The changed entry stage still normalizes input before invoking runtime.",
     }],
+  });
+  assert.equal(
+    selfCertified.proofGate.evaluation.decisions.find((entry) =>
+      entry.obligationId === responsibilityId)?.verdict,
+    "unresolved",
+  );
+  assert.ok(selfCertified.proofGate.warnings.includes(
+    `model-judgment-self-certification-rejected: ${responsibilityId}`,
+  ));
+
+  const directResult = validateChange({
+    ...baseline,
+    proofResults: [{
+      obligationId: responsibilityId,
+      method: "model-judgment",
+      verdict: "supported",
+      evidenceRefs: [ref("FlowContract", flow.header.artifactId)],
+      counterEvidenceRefs: [],
+      explanation: "A caller supplied a direct semantic proof result.",
+      verifier: { kind: "model", id: "caller-controlled", version: "1.0.0" },
+    }],
+  });
+  assert.equal(
+    directResult.proofGate.evaluation.decisions.find((entry) =>
+      entry.obligationId === responsibilityId)?.verdict,
+    "unresolved",
+  );
+  assert.ok(directResult.proofGate.warnings.includes(
+    `placement-proof-direct-result-rejected: ${responsibilityId}`,
+  ));
+
+  const complete = validateChange({
+    ...baseline,
+    placementVerificationEvidence: [placementEvidence({
+      flow,
+      obligationId: responsibilityId,
+      assertion: obligation.assertion,
+    })],
   });
   assert.equal(
     complete.proofGate.evaluation.decisions.find((entry) =>
@@ -663,15 +768,144 @@ test("stage responsibility requires both its declared test and model judgment", 
 
   const refuted = validateChange({
     ...baseline,
-    modelJudgments: [{
+    placementVerificationEvidence: [placementEvidence({
+      flow,
       obligationId: responsibilityId,
+      assertion: obligation.assertion,
       verdict: "refuted",
-      explanation: "The changed entry stage forwards unnormalized input.",
-    }],
+    })],
   });
   assert.equal(refuted.status, "blocked");
   assert.ok(refuted.blockingViolations.some((entry) =>
     entry.details?.obligationId === responsibilityId));
+});
+
+test("independent placement review blocks the wrong-placement benchmark case", () => {
+  const flow = flowContract([{
+    id: "atoms-to-meaning",
+    fromStageId: "atomize",
+    toStageId: "compose",
+    verification: {
+      acceptedMethods: ["test"],
+      requiredChecks: ["npm test"],
+    },
+    evidenceRefs: [],
+  }]);
+  flow.header = header("FlowContract", "experience-interpretation-flow");
+  flow.contractId = "experience-interpretation-flow";
+  flow.stages = [{
+    id: "atomize",
+    paths: ["src/nlu/vocabulary.ts", "src/nlu/atomize.ts"],
+    responsibilities: ["Map reusable individual tokens to atomic concepts; never store complete phrase aliases."],
+    evidenceRefs: [],
+  }, {
+    id: "compose",
+    paths: ["src/nlu/compose-meaning.ts"],
+    evidenceRefs: [],
+  }];
+  flow.paths = ["src/nlu/**"];
+  flow.requiredChecks = ["npm test"];
+
+  const obligationId =
+    "constraint:experience-interpretation-flow.stage.atomize.responsibility.1";
+  const assertion =
+    "Stage atomize responsibility: Map reusable individual tokens to atomic concepts; never store complete phrase aliases.";
+  const baseline = {
+    task: "Support the phrase garden concert with friends in experience interpretation.",
+    changedPaths: ["src/nlu/vocabulary.ts"],
+    baseRef: "HEAD",
+    ownershipMap: {
+      ...ownershipMap,
+      entries: [{
+        path: "src/nlu/vocabulary.ts",
+        ownerSystem: "experience-intelligence",
+        confidence: 1,
+        evidence: [],
+      }],
+    },
+    flowContracts: [flow],
+    files: [{
+      path: "src/nlu/vocabulary.ts",
+      status: "modified",
+      beforeSha256: "a".repeat(64),
+      afterSha256: "b".repeat(64),
+    }],
+    verificationEvidence: [{
+      ref: ref("VerificationResult", "declared-test-passed"),
+      generatedAt: "2026-07-23T01:00:00.000Z",
+      freshness: "fresh",
+      provenance: "runner-derived",
+      verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
+      commandResults: [{ command: "npm test", status: "passed" }],
+    }],
+  };
+
+  const selfCertified = validateChange({
+    ...baseline,
+    modelJudgments: [{
+      obligationId,
+      verdict: "supported",
+      explanation: "The acting agent considers the vocabulary edit acceptable.",
+    }],
+  });
+  assert.equal(selfCertified.status, "needs-judgment");
+  assert.ok(selfCertified.proofGate.warnings.includes(
+    `model-judgment-self-certification-rejected: ${obligationId}`,
+  ));
+
+  const sourceState = createSourceStateBinding({
+    baseRef: "HEAD",
+    files: baseline.files,
+  });
+  const contractRef = ref("FlowContract", flow.header.artifactId);
+  const reviewed = validateChange({
+    ...baseline,
+    placementVerificationEvidence: [{
+      ref: ref("PlacementVerificationReport", "wrong-placement-review"),
+      report: {
+        header: {
+          ...header("PlacementVerificationReport", "wrong-placement-review"),
+          subject: { repoId: "fixture", paths: baseline.changedPaths },
+          inputRefs: [contractRef],
+        },
+        task: { text: baseline.task, paths: baseline.changedPaths },
+        obligation: {
+          id: obligationId,
+          assertion,
+          contractRef,
+          flowId: flow.contractId,
+          stageId: "atomize",
+          stagePaths: ["src/nlu/vocabulary.ts", "src/nlu/atomize.ts"],
+          changedSourcePaths: ["src/nlu/vocabulary.ts"],
+        },
+        sourceState,
+        sourceEvidence: [{
+          path: "src/nlu/vocabulary.ts",
+          sha256: "b".repeat(64),
+          lineStart: 1,
+          lineEnd: 6,
+          excerpt: '"garden concert with friends": "experience:garden-concert-with-friends"',
+        }],
+        verdict: "refuted",
+        explanation: "The change stores the complete phrase in atomic vocabulary instead of updating tokenization.",
+        verifier: {
+          kind: "model",
+          id: "codex-independent-placement-judge",
+          version: "1.0.0",
+          independentOf: ["rekon-managed-agent"],
+        },
+      },
+    }],
+  });
+
+  assert.equal(reviewed.status, "blocked");
+  assert.ok(reviewed.proofGate.results.some((result) =>
+    result.obligationId === obligationId
+    && result.verdict === "refuted"
+    && result.counterEvidenceRefs.some((entry) => entry.type === "PlacementVerificationReport")),
+  JSON.stringify(reviewed.proofGate, null, 2));
+  assert.ok(reviewed.blockingViolations.some((violation) =>
+    violation.details?.obligationId === obligationId));
 });
 
 test("handoff evidence paths require a current regression edit and cannot be self-approved", () => {
@@ -735,7 +969,7 @@ test("handoff evidence paths require a current regression edit and cannot be sel
   ));
 });
 
-test("changed handoff evidence plus exact test and responsibility judgment satisfies proof", () => {
+test("changed handoff evidence plus exact test and independent placement review satisfies proof", () => {
   const flow = flowContract([{
     id: "entry-runtime",
     fromStageId: "entry",
@@ -774,8 +1008,18 @@ test("changed handoff evidence plus exact test and responsibility judgment satis
     },
     flowContracts: [flow],
     files: [
-      { path: "src/index.ts", status: "modified" },
-      { path: "tests/bootstrap.test.ts", status: "modified" },
+      {
+        path: "src/index.ts",
+        status: "modified",
+        beforeSha256: "a".repeat(64),
+        afterSha256: "b".repeat(64),
+      },
+      {
+        path: "tests/bootstrap.test.ts",
+        status: "modified",
+        beforeSha256: "a".repeat(64),
+        afterSha256: "b".repeat(64),
+      },
     ],
     verificationEvidence: [{
       ref: ref("VerificationResult", "edge-test"),
@@ -785,11 +1029,13 @@ test("changed handoff evidence plus exact test and responsibility judgment satis
       verifier: { id: "@rekon/capability-verify", version: "1.0.0" },
       commandResults: [{ command: "npm run test:edge", status: "passed" }],
     }],
-    modelJudgments: [{
+    placementVerificationEvidence: [placementEvidence({
+      flow,
       obligationId: responsibilityId,
-      verdict: "supported",
-      explanation: "The entry stage retains its responsibility.",
-    }, {
+      assertion: "Stage entry responsibility: Normalize bootstrap input before runtime dispatch.",
+      changedPaths: ["src/index.ts", "tests/bootstrap.test.ts"],
+    })],
+    modelJudgments: [{
       obligationId: "handoff:bootstrap-flow:entry-runtime:edge",
       verdict: "supported",
       explanation: "The handoff remains connected.",
@@ -812,8 +1058,17 @@ test("changed handoff evidence plus exact test and responsibility judgment satis
   const deleted = validateChange({
     ...input,
     files: [
-      { path: "src/index.ts", status: "modified" },
-      { path: "tests/bootstrap.test.ts", status: "deleted" },
+      {
+        path: "src/index.ts",
+        status: "modified",
+        beforeSha256: "a".repeat(64),
+        afterSha256: "b".repeat(64),
+      },
+      {
+        path: "tests/bootstrap.test.ts",
+        status: "deleted",
+        beforeSha256: "a".repeat(64),
+      },
     ],
   });
   assert.equal(deleted.status, "blocked");

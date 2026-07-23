@@ -13,6 +13,7 @@ import type { ProofVerdict } from "./proof-gates.js";
 
 export * from "./repository-check-reports.js";
 export * from "./repository-contracts.js";
+export * from "./placement-verification.js";
 export * from "./contract-candidates.js";
 export * from "./repository-contract-drift.js";
 export * from "./task-pact.js";

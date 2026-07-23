@@ -76,6 +76,7 @@ export {
   type ChangeFileEvidence,
   type ChangeFileStatus,
   type ChangeModelJudgment,
+  type ChangePlacementVerificationEvidence,
   type ChangeRuntimeEvidence,
   type ChangeValidationCheckKind,
   type ChangeValidationCheckRequirement,

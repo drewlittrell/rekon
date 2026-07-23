@@ -38,8 +38,11 @@ rekon context validate-change --root <repo> \
 
 Repeat `--changed-path` for every file changed by the task. The result separates
 mechanical blockers from typed pact, handoff, and check obligations. The acting
-agent judges only obligations that accept `model-judgment`, then materializes
-the returned checks with the same command plus `--prepare-verification`.
+agent judges only generic obligations that accept `model-judgment`. A changed
+flow-stage responsibility instead requires an indexed, source-bound
+`PlacementVerificationReport` from an independent verifier; the acting agent
+cannot self-certify placement. Materialize the returned checks with the same
+command plus `--prepare-verification`.
 Execute the returned plan with `rekon verify run` and derive its
 `VerificationResult`; validation itself does not execute checks. If a
 check failure names an unread exact path or symbol, use the refinement command
@@ -61,6 +64,7 @@ rekon context validate-change --root <repo> \
   --changed-path src/example.ts \
   --base-ref HEAD \
   --verification-result <VerificationResult:id> \
+  --placement-verification <PlacementVerificationReport:id> \
   --judgment-json '<judgments>' \
   --record-proof \
   --json
@@ -68,7 +72,9 @@ rekon refresh --root <repo> --proof-gate <ProofGateReport:id> --json
 ```
 
 Repeat both validation path flags for each changed source path. The report binds
-the supplied evidence to those source digests. Refresh refuses later edits,
+the supplied evidence to those source digests. Omit
+`--placement-verification` when no stage-responsibility obligation is present.
+Refresh refuses later edits,
 then updates evidence, models, findings, snapshot, and architecture
 publications. If adopted repository law exists, it also records current drift
 and new candidates before the snapshot is built.

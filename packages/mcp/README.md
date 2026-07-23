@@ -82,10 +82,12 @@ When the MCP tools are available to an agent:
    original task, every changed path, the pre-edit base ref, and a
    `contextClaims` map. Mark only context that shaped the change as `applied`;
    claims route proof but do not replace it. Resolve
-   deterministic violations, judge only obligations that accept
-   `model-judgment`. Run the equivalent CLI call with `--context-usage` and
-   `--prepare-verification`, execute its returned plan, and derive the
-   `VerificationResult`.
+   deterministic violations, and judge only generic obligations that accept
+   `model-judgment`. A stage-responsibility placement obligation requires an
+   independent, source-bound `PlacementVerificationReport`; the acting agent
+   must not create or self-certify that verdict. Run the equivalent CLI call
+   with `--context-usage` and `--prepare-verification`, execute its returned
+   plan, and derive the `VerificationResult`.
    For a failed check, consume `correctiveContext` first: inspect only its
    listed paths and obligations plus the bounded redacted diagnostic, repair,
    and rerun the exact command. If the failure remains unexplained, call
@@ -97,9 +99,10 @@ When the MCP tools are available to an agent:
    `dependency` relationship. Rerun the failed check and any selected check not
    yet green; do not broaden repository search merely because a check failed.
 8. Record each check as a `VerificationResult`, then call `validate_change`
-   again with those refs, applicable runtime observations, and your semantic
-   judgments. Completion requires `proofGate.status: satisfied`; failed,
-   skipped, stale, or unbound evidence is not proof.
+   again with those refs, applicable independent placement-verification refs,
+   runtime observations, and your remaining semantic judgments. Completion
+   requires `proofGate.status: satisfied`; failed, skipped, stale,
+   self-authored, or unbound evidence is not proof.
 9. Record the satisfied gate with `rekon context validate-change ...
    --record-proof --json`, then run `rekon refresh --proof-gate
    <ProofGateReport:id> --json` without skip flags. This refresh updates all

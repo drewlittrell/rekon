@@ -71,7 +71,7 @@ Use this shape:
 - RISKS / FOLLOW-UP
 - NEXT STEP
 
-<!-- rekon:agent-instructions:start version="2.0.4" -->
+<!-- rekon:agent-instructions:start version="2.0.5" -->
 ## Rekon
 
 This repository uses Rekon for context and change governance.
@@ -80,26 +80,26 @@ After context compaction or restart, and whenever the task goal or path scope ch
 
 When Rekon MCP tools are available:
 
-1. Call `context_for_task` at task start, after compaction, and when goal or scope changes. Keep its `contextUsageRef`; follow its operation and batch-read every `readFirst` path before editing.
+1. Call `context_for_task` at task start, after compaction, or when scope changes; keep its `contextUsageRef` and batch-read every `readFirst` path before editing.
 2. Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.
 3. When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.
-4. After editing, call `validate_change` with the retained ref, task, paths, base ref, and a `contextClaims` map from item ID to `applied`, `read`, or `ignored`. Use `applied` only for context that shaped the change; claims route proof but are not proof. Resolve blockers and judge only `model-judgment` obligations. Prepare checks with CLI `--prepare-verification` and execute them. On failure, use only `correctiveContext`; repair and rerun before `escalation: validation-failed`.
-5. Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.
-6. Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags. It refreshes maintained knowledge and rechecks gated source bytes; digest, gate, refresh, or contract-drift failure means incomplete.
+4. After editing, call `validate_change` with the retained ref, task, paths, base ref, and `contextClaims` (`applied`, `read`, or `ignored`). Use `applied` only for context that shaped the change; claims route proof but are not proof. Judge only generic `model-judgment` obligations. Stage placement requires an independent source-bound `PlacementVerificationReport`; never self-certify it. Prepare and execute checks with CLI `--prepare-verification`; repair failures from `correctiveContext` before `escalation: validation-failed`.
+5. Validate again with explicit VerificationResult refs, required independent placement reports, runtime observations, and remaining judgments. Completion requires `proofGate.status: satisfied`; failed/stale/skipped/self-authored/unbound evidence is not proof.
+6. Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags; it refreshes knowledge and rechecks gated source bytes. Any digest, gate, refresh, or contract-drift failure is incomplete.
 
-MCP is local and source-safe: it never writes repository source, executes project checks, uses the network, or calls models. The CLI host may refresh local `.rekon/` artifacts for `context_for_task` and uses read-only Git/source access for `validate_change`. Host command: `rekon mcp serve --root .`.
+MCP is local and source-safe: it never writes source, runs checks, uses network, or calls models. The CLI host may refresh `.rekon/` for `context_for_task` and read Git/source for `validate_change`. Host: `rekon mcp serve --root .`.
 
 Use the CLI only when Rekon MCP is absent or fails:
 
 - `rekon context task --task "<task>" --path <path> --model-context`
 - `rekon context refine --question "<unresolved question>" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context`
-- `rekon context validate-change --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '<json-map>' [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json`
+- `rekon context validate-change --task "<task>" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '<json-map>' [--prepare-verification|--verification-result <ref> --placement-verification <PlacementVerificationReport:ref> --judgment-json '<json>' --record-proof] --json`
 - `rekon resolve preflight --path <path> --goal "<goal>" --json`
 - `rekon artifacts freshness --json`
 
 If task context reports missing or drifted repository law, run `rekon contracts maintain --root . --json`, inspect the cited source, and complete its judgment step yourself. Apply contract sources only when the configured adoption policy permits it.
 
-If context is stale and artifact writes are allowed, run `rekon refresh --root . --json`. Context is evidence; required checks are proof.
+If context is stale and artifact writes are allowed, run `rekon refresh --root . --json`; context is evidence, checks are proof.
 
-This block is managed by Rekon. Put repository-specific instructions outside the markers.
+Rekon manages this block; keep repository-specific instructions outside it.
 <!-- rekon:agent-instructions:end -->

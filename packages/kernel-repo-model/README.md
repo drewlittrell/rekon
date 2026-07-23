@@ -25,6 +25,7 @@ This package owns deterministic model artifacts derived from evidence:
 - `ContractAdoptionReport`
 - `ContractDriftReport`
 - `TaskPact`
+- `PlacementVerificationReport`
 - `ProofGateReport`
 - `ContextUsageEvent`
 - `OutcomeEvent`
@@ -81,6 +82,10 @@ artifacts never rewrite those sources.
 `TaskPact` is the task-scoped read model over adopted repository law. It carries
 matched contracts, constraints, context paths, checks, freshness, and impact
 obligations without changing the source contracts.
+`PlacementVerificationReport` is the source-bound independent semantic proof
+for a changed flow-stage responsibility. It binds the exact contract, stage,
+task paths, source-state digest, reviewed spans, verdict, and verifier
+provenance. It is not repository law and cannot replace the stage's test.
 `ProofObligation`, `ProofResult`, and `ProofGateReport` define post-edit
 completion gates. Tests, runtime observations, static evidence, and model
 judgment count only when the obligation declares that method. Counterevidence
@@ -92,7 +97,9 @@ collapse payload, guarantee, ordering, or failure semantics into edge proof.
 Stages may also declare path-scoped responsibilities. A handoff verifier may
 name `requiredEvidencePaths`, normally focused regression tests, only alongside
 an accepted `test` method and at least one exact check. This declares current
-diff evidence; it does not replace execution of the check.
+diff evidence; it does not replace execution of the check. Stage placement
+requires a current independent `PlacementVerificationReport`; the acting
+agent's generic model judgment cannot satisfy it.
 `ContractCandidateReport.evidenceInventory` distinguishes successful inventory
 of supported evidence from actual runtime and isolated-coverage availability.
 It is optional when reading earlier v1 reports; current discovery producers

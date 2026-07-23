@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,12 +14,13 @@ import {
   createEffectiveContractRegistry,
   createFlowContract,
   createOwnershipMap,
+  createPlacementVerificationReport,
   createRuntimeGraphObservationReport,
   createSystemContract,
   createTaskPact,
   assertOutcomeEvent,
 } from "@rekon/kernel-repo-model";
-import { digestJson } from "@rekon/kernel-artifacts";
+import { createSourceStateBinding, digestJson } from "@rekon/kernel-artifacts";
 import { createLocalArtifactStore } from "@rekon/runtime";
 
 const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
@@ -649,6 +651,181 @@ test("proof-gated change validation requires current-diff regression evidence de
   }
 });
 
+test("CLI stage placement cannot be self-certified and requires current independent source review", async () => {
+  const root = await mkdtemp(join(tmpdir(), "rekon-placement-review-"));
+  const evidencePath = "test/bootstrap.test.mjs";
+
+  try {
+    const fixture = await createFixture(root, {
+      stageResponsibilities: ["Normalize bootstrap input before runtime dispatch."],
+      requiredEvidencePaths: [evidencePath],
+    });
+    await writeFile(
+      join(root, evidencePath),
+      "import assert from 'node:assert/strict';\nassert.equal('placement', 'placement');\n",
+      "utf8",
+    );
+
+    const prepared = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--prepare-verification",
+      "--root", root,
+      "--json",
+    ]);
+    const responsibility = prepared.proofGate.obligations.find((entry) =>
+      entry.id === "constraint:proof-flow.stage.bootstrap.responsibility.1");
+    assert.ok(responsibility);
+
+    const verificationRun = runCliJson([
+      "verify", "run",
+      "--plan", `${prepared.verificationPlan.type}:${prepared.verificationPlan.id}`,
+      "--execute",
+      "--root", root,
+      "--json",
+    ]);
+    const verification = runCliJson([
+      "verify", "result", "from-run",
+      "--run", `${verificationRun.artifact.type}:${verificationRun.artifact.id}`,
+      "--root", root,
+      "--json",
+    ]);
+
+    const genericJudgments = prepared.proofGate.obligations
+      .filter((entry) => entry.required)
+      .filter((entry) => entry.requiredEvidence.includes("model-judgment"))
+      .filter((entry) => entry.id !== responsibility.id)
+      .filter((entry) => !entry.id.endsWith(":edge"))
+      .map((entry) => ({
+        obligationId: entry.id,
+        verdict: "supported",
+        explanation: `Independent placement is not required for this generic semantic clause: ${entry.assertion}`,
+      }));
+    const selfCertified = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--judgment-json", JSON.stringify([{
+        obligationId: responsibility.id,
+        verdict: "supported",
+        explanation: "The acting agent considers its own placement correct.",
+      }, ...genericJudgments]),
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(selfCertified.status, "needs-judgment");
+    assert.ok(selfCertified.proofGate.warnings.includes(
+      `model-judgment-self-certification-rejected: ${responsibility.id}`,
+    ));
+
+    const baseRef = runGit(root, ["rev-parse", "HEAD"]).trim();
+    const changedPaths = ["src/index.ts", evidencePath];
+    const sourceState = createSourceStateBinding({
+      baseRef,
+      files: await Promise.all(changedPaths.map(async (path) => {
+        const before = runGit(root, ["show", `HEAD:${path}`]);
+        const after = await readFile(join(root, path), "utf8");
+        return {
+          path,
+          status: "modified",
+          beforeSha256: sha256(before),
+          afterSha256: sha256(after),
+        };
+      })),
+    });
+    const changedSource = await readFile(join(root, "src/index.ts"), "utf8");
+    const placementReport = createPlacementVerificationReport({
+      header: {
+        artifactType: "PlacementVerificationReport",
+        artifactId: "placement-review-bootstrap",
+        schemaVersion: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        subject: { repoId: root, paths: changedPaths },
+        producer: { id: "@rekon/test.independent-placement-judge", version: "1.0.0" },
+        inputRefs: [fixture.flowRef],
+        freshness: { status: "fresh" },
+        provenance: { confidence: 1, notes: ["Independent source-backed placement review."] },
+      },
+      task: { text: taskText, paths: changedPaths },
+      obligation: {
+        id: responsibility.id,
+        assertion: responsibility.assertion,
+        contractRef: fixture.flowRef,
+        flowId: "proof-flow",
+        stageId: "bootstrap",
+        stagePaths: ["src/index.ts"],
+        changedSourcePaths: ["src/index.ts"],
+      },
+      sourceState,
+      sourceEvidence: [{
+        path: "src/index.ts",
+        sha256: sourceState.files.find((file) => file.path === "src/index.ts").afterSha256,
+        lineStart: 1,
+        lineEnd: 1,
+        excerpt: changedSource.trim(),
+      }],
+      verdict: "supported",
+      explanation: "The bootstrap change remains in the stage that owns normalization before runtime dispatch.",
+      verifier: {
+        kind: "model",
+        id: "codex-independent-placement-judge",
+        version: "1.0.0",
+        independentOf: ["rekon-managed-agent"],
+      },
+    });
+    const store = createLocalArtifactStore(root);
+    const placementRef = await store.write(placementReport, { category: "actions" });
+
+    const completed = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--placement-verification", `${placementRef.type}:${placementRef.id}`,
+      "--judgment-json", JSON.stringify(genericJudgments),
+      "--record-proof",
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(completed.status, "passed");
+    assert.equal(completed.proofGate.evaluation.status, "satisfied");
+    assert.ok(completed.proofGate.results.some((entry) =>
+      entry.obligationId === responsibility.id
+      && entry.verdict === "supported"
+      && entry.evidenceRefs.some((ref) =>
+        ref.type === "PlacementVerificationReport" && ref.id === placementRef.id)));
+    assert.ok(completed.proofArtifact);
+
+    await writeFile(join(root, "src/index.ts"), `${changedSource}export const later = true;\n`, "utf8");
+    const stale = runCliJson([
+      "context", "validate-change",
+      "--task", taskText,
+      "--changed-path", "src/index.ts",
+      "--changed-path", evidencePath,
+      "--base-ref", "HEAD",
+      "--verification-result", `${verification.artifact.type}:${verification.artifact.id}`,
+      "--placement-verification", `${placementRef.type}:${placementRef.id}`,
+      "--judgment-json", JSON.stringify(genericJudgments),
+      "--root", root,
+      "--json",
+    ]);
+    assert.equal(stale.status, "needs-judgment");
+    assert.ok(stale.proofGate.warnings.some((warning) =>
+      warning.includes("placement-verification-rejected")
+      && warning.includes("source state differs")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function createFixture(root, options = {}) {
   const requiredChecks = options.requiredChecks ?? [selectedCheck];
   const stageResponsibilities = options.stageResponsibilities ?? [];
@@ -865,6 +1042,7 @@ async function createFixture(root, options = {}) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
   }
   await writeFile(join(root, "src/index.ts"), "export const bootstrap = 'preserved';\n", "utf8");
+  return { systemRef, flowRef };
 }
 
 function artifactHeader(root, type, id, inputRefs = []) {
@@ -899,4 +1077,14 @@ function runCliFailure(args) {
   });
   assert.notEqual(result.status, 0, `expected failure; stdout: ${result.stdout}`);
   return result;
+}
+
+function runGit(root, args) {
+  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout;
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }

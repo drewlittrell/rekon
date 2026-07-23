@@ -7,7 +7,7 @@ import {
   REKON_AGENT_MCP_STEPS,
 } from "@rekon/mcp";
 
-export const AGENT_INSTRUCTIONS_VERSION = "2.0.4";
+export const AGENT_INSTRUCTIONS_VERSION = "2.0.5";
 export const AGENT_INSTRUCTIONS_TARGET = "AGENTS.md";
 export const AGENT_INSTRUCTIONS_START =
   `<!-- rekon:agent-instructions:start version="${AGENT_INSTRUCTIONS_VERSION}" -->`;
@@ -50,9 +50,9 @@ export function renderAgentInstructionsBlock(): string {
     "",
     "If task context reports missing or drifted repository law, run `rekon contracts maintain --root . --json`, inspect the cited source, and complete its judgment step yourself. Apply contract sources only when the configured adoption policy permits it.",
     "",
-    "If context is stale and artifact writes are allowed, run `rekon refresh --root . --json`. Context is evidence; required checks are proof.",
+    "If context is stale and artifact writes are allowed, run `rekon refresh --root . --json`; context is evidence, checks are proof.",
     "",
-    "This block is managed by Rekon. Put repository-specific instructions outside the markers.",
+    "Rekon manages this block; keep repository-specific instructions outside it.",
     AGENT_INSTRUCTIONS_END,
   ].join("\n");
 }

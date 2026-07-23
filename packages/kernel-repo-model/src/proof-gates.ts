@@ -43,7 +43,7 @@ export type ProofObligation = {
 };
 
 export type ProofVerifier = {
-  kind: "deterministic" | "test" | "runtime" | "model";
+  kind: "deterministic" | "test" | "runtime" | "model" | "service";
   id: string;
   version: string;
 };
@@ -104,7 +104,13 @@ const PROOF_SUBJECT_KINDS = new Set<string>([
 ]);
 const PROOF_ACCEPTANCE_POLICIES = new Set<string>(["all-required", "any-authoritative", "any-supported"]);
 const PROOF_VERDICTS = new Set<string>(["supported", "refuted", "unresolved"]);
-const PROOF_VERIFIER_KINDS = new Set<string>(["deterministic", "test", "runtime", "model"]);
+const PROOF_VERIFIER_KINDS = new Set<string>([
+  "deterministic",
+  "test",
+  "runtime",
+  "model",
+  "service",
+]);
 
 export function evaluateProofGate(
   obligations: ProofObligation[],

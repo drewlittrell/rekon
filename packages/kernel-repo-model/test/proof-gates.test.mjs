@@ -44,6 +44,13 @@ const result = (method, verdict, overrides = {}) => ({
 test("proof obligation and result validators accept typed evidence", () => {
   assert.equal(validateProofObligation(obligation()).ok, true);
   assert.equal(validateProofResult(result("static", "supported")).ok, true);
+  assert.equal(validateProofResult(result("model-judgment", "supported", {
+    verifier: {
+      kind: "service",
+      id: "placement-verifier-service",
+      version: "1.0.0",
+    },
+  })).ok, true);
 });
 
 test("all-required proof remains incomplete until every method is supported", () => {

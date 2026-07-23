@@ -93,11 +93,12 @@ do not count, sibling edges do not share exact checks, and a refuted accepted
 result always blocks completion. Contracts without an explicit verifier policy
 retain the compatible test/runtime/model fallback.
 Path-scoped stage responsibilities compile into the `TaskPact` and require both
-the matching declared test and explicit semantic judgment when that stage
-changes. A handoff's `requiredEvidencePaths` become required context and a
-deterministic current-diff obligation. Model judgment cannot satisfy that
-obligation, and changing the evidence path does not replace running its exact
-test.
+the matching declared test and an indexed, source-bound
+`PlacementVerificationReport` from a verifier independent of the acting agent.
+Generic model judgment and direct proof input cannot satisfy placement. A
+handoff's `requiredEvidencePaths` become required context and a deterministic
+current-diff obligation. Model judgment cannot satisfy that obligation, and
+changing the evidence path does not replace running its exact test.
 Checks come from task guidance and the system, flow, and capability contracts
 intersected by the observed diff. If scoped contract bodies are unavailable,
 the helper retains the complete TaskPact check set and marks that fallback in

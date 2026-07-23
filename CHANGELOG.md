@@ -4,6 +4,15 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added independent source-backed placement verification. Stage-responsibility
+  obligations no longer accept the acting agent's `--judgment-json` or direct
+  caller-supplied model proof. An indexed `PlacementVerificationReport` binds
+  the exact flow contract, stage, changed paths, source-state digest, reviewed
+  source spans, verdict, and independent verifier provenance. CLI and MCP
+  accept explicit placement-report refs; stale, self-authored, or mismatched
+  reports remain unresolved, and counterevidence blocks completion. Proof
+  results preserve independent `service` verifier provenance. MCP interface
+  `1.4.3` and managed instructions `2.0.5` expose the new boundary.
 - Added contract-derived verifier-on-edge requirements. Flow stages can declare
   path-scoped responsibilities, and handoffs can require current-diff
   regression evidence paths alongside exact tests. Task pacts deliver both

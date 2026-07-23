@@ -129,6 +129,7 @@ rekon context validate-change --task "<task>" --changed-path <path> \
   --base-ref HEAD --context-usage <ContextUsageEvent:id> \
   --context-claims-json '{"<item-id>":"applied"}' \
   --verification-result <VerificationResult:id> \
+  --placement-verification <PlacementVerificationReport:id> \
   --judgment-json '<judgments>' --record-proof --json
 rekon refresh --proof-gate <ProofGateReport:id> --json
 ```
@@ -197,10 +198,14 @@ Add `--prepare-verification` to write a plan containing those exact commands
 and their selection lineage; execute it with `rekon verify run`, then derive its
 `VerificationResult`. Pass repeatable `--verification-result` and
 `--runtime-observation` refs plus `--judgment-json` on the final call. Model
-judgment is accepted only for obligations that declare it. `--record-proof`
-writes a `ProofGateReport` only when every required obligation is satisfied;
-the command never executes a check or writes source. `--prepare-verification`
-and `--record-proof` are intentionally separate phases.
+judgment is accepted only for obligations that declare it. A changed
+flow-stage responsibility additionally requires a repeatable
+`--placement-verification` ref to an indexed, source-bound report from a
+verifier independent of the acting agent; generic judgment cannot satisfy that
+placement gate. `--record-proof` writes a `ProofGateReport` only when every
+required obligation is satisfied; the command never executes a check or writes
+source. `--prepare-verification` and `--record-proof` are intentionally
+separate phases.
 
 If selected verification fails, the returned `correctiveContext` names only
 the relevant paths, check gate, affected flow-edge obligations, evidence refs,

@@ -242,6 +242,7 @@ import modelCapability, {
   type RepositoryContractJudgmentDraftCitation,
   type ChangeValidationResult,
   type ChangeModelJudgment,
+  type ChangePlacementVerificationEvidence,
   type ChangeRuntimeEvidence,
   type ChangeVerificationCandidate,
   type ChangeVerificationDiagnostic,
@@ -382,6 +383,7 @@ import {
   type EffectiveContractRegistry,
   type FlowContractSource,
   type FlowContract,
+  type PlacementVerificationReport,
   type ProofGateReport,
   type RepositoryContractSourceDocument,
   type SystemContractSource,
@@ -395,6 +397,7 @@ import {
   assertContractJudgmentReport,
   assertContextUsageEvent,
   assertOutcomeEvent,
+  assertPlacementVerificationReport,
   assertTaskContextReport,
   assertTaskPact,
   createContractAdoptionReport,
@@ -2452,6 +2455,7 @@ export async function main(argv: string[]): Promise<void> {
     if (!baseRef) throw new Error("rekon context validate-change --base-ref must be non-empty.");
     const verificationResultRefs = parseRepeatableFlag(parsed.flags["verification-result"]);
     const runtimeObservationRefs = parseRepeatableFlag(parsed.flags["runtime-observation"]);
+    const placementVerificationRefs = parseRepeatableFlag(parsed.flags["placement-verification"]);
     const contextUsageRef = parseOptionalArtifactRefFlag(
       parsed.flags["context-usage"],
       "rekon context validate-change --context-usage",
@@ -2468,6 +2472,7 @@ export async function main(argv: string[]): Promise<void> {
       baseRef,
       verificationResultRefs,
       runtimeObservationRefs,
+      placementVerificationRefs,
       contextUsageRef,
       contextUsageClaims,
       contextUsageClaimant: "rekon-cli-caller",
@@ -6113,6 +6118,10 @@ export async function main(argv: string[]): Promise<void> {
         try {
           const verificationResultRefs = parseMcpArtifactRefList(args.verificationResults, "verificationResults");
           const runtimeObservationRefs = parseMcpArtifactRefList(args.runtimeObservations, "runtimeObservations");
+          const placementVerificationRefs = parseMcpArtifactRefList(
+            args.placementVerifications,
+            "placementVerifications",
+          );
           const contextUsageRef = parseMcpOptionalArtifactRef(args.contextUsageRef, "contextUsageRef");
           const contextUsageClaims = parseContextUsageClaims(args.contextClaims);
           const modelJudgments = parseChangeModelJudgments(args.judgments);
@@ -6122,6 +6131,7 @@ export async function main(argv: string[]): Promise<void> {
             baseRef,
             verificationResultRefs,
             runtimeObservationRefs,
+            placementVerificationRefs,
             contextUsageRef,
             contextUsageClaims,
             contextUsageClaimant: "rekon-mcp-client",
@@ -15385,6 +15395,7 @@ type RepositoryChangeValidationInput = {
   baseRef: string;
   verificationResultRefs?: string[];
   runtimeObservationRefs?: string[];
+  placementVerificationRefs?: string[];
   contextUsageRef?: string;
   contextUsageClaims?: Array<{
     itemId: string;
@@ -15574,6 +15585,24 @@ async function validateRepositoryChange(
 
   const currentSourceState = currentChangeSourceState(evidence);
   const latestSourceMtime = await latestChangedSourceMtime(root, evidence.files);
+  const placementVerificationEvidence: ChangePlacementVerificationEvidence[] = [];
+  for (const requested of input.placementVerificationRefs ?? []) {
+    const entry = await findArtifactEntry(store, requested);
+    if (entry.type !== "PlacementVerificationReport") {
+      throw new Error(`Expected PlacementVerificationReport for ${requested}; found ${entry.type}.`);
+    }
+    const report = assertPlacementVerificationReport(await store.read(entry));
+    assertProofArtifactRepository(root, report.header, requested);
+    if (currentSourceState?.digest === report.sourceState.digest) {
+      await assertPlacementVerificationSourceEvidence(root, report);
+    }
+    addValidationSource(sources, report);
+    placementVerificationEvidence.push({
+      ref: artifactIndexRef(entry),
+      report,
+    });
+  }
+
   const verificationEvidence: ChangeVerificationEvidence[] = [];
   for (const requested of input.verificationResultRefs ?? []) {
     const entry = await findArtifactEntry(store, requested);
@@ -15654,6 +15683,7 @@ async function validateRepositoryChange(
     dependencyChanges: evidence.dependencyChanges,
     ...(verificationEvidence.length > 0 ? { verificationEvidence } : {}),
     ...(runtimeEvidence.length > 0 ? { runtimeEvidence } : {}),
+    ...(placementVerificationEvidence.length > 0 ? { placementVerificationEvidence } : {}),
     ...((input.modelJudgments?.length ?? 0) > 0 ? { modelJudgments: input.modelJudgments } : {}),
   });
   let contextClaimReceiptRef: ArtifactRef | undefined;
@@ -16075,6 +16105,35 @@ function currentChangeSourceState(
     });
   }
   return createSourceStateBinding({ baseRef: evidence.resolvedBaseCommit, files });
+}
+
+async function assertPlacementVerificationSourceEvidence(
+  root: string,
+  report: PlacementVerificationReport,
+): Promise<void> {
+  for (const evidence of report.sourceEvidence) {
+    const source = await resolveReadableRepoFile(
+      root,
+      evidence.path,
+      "rekon context validate-change",
+      "placement evidence file",
+    );
+    const content = await readFile(source.absolutePath, "utf8");
+    const digest = createHash("sha256").update(content).digest("hex");
+    if (digest !== evidence.sha256) {
+      throw new Error(
+        `Placement verification ${report.header.artifactId} does not match current source at ${evidence.path}.`,
+      );
+    }
+    const lines = content.split(/\r?\n/u);
+    const excerpt = lines.slice(evidence.lineStart - 1, evidence.lineEnd).join("\n");
+    if (excerpt !== evidence.excerpt) {
+      throw new Error(
+        `Placement verification ${report.header.artifactId} cites a source excerpt that does not match `
+        + `${evidence.path}:${evidence.lineStart}-${evidence.lineEnd}.`,
+      );
+    }
+  }
 }
 
 function proofArtifactFreshness(
@@ -19701,7 +19760,7 @@ function usage(): string {
     "    (classifies task risk and intent, chooses the smallest sufficient profile; --json includes agentContext and --model-context emits delivery only)",
     "rekon context refine --question <text> --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation (--anchor-path <path> | --anchor-symbol <path#symbol>) [--already-read <path>] [--limit <1..8>] [--root <path>] [--json | --model-context]",
     "    (resolves one exact source-named target through a bounded graph delta; never broad or semantic search)",
-    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--context-usage <ContextUsageEvent:id>] [--context-claims-json <json-map>] [--prepare-verification] [--verification-result <ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
+    "rekon context validate-change --task <text> --changed-path <path> [--changed-path <path>] [--base-ref <git-ref>] [--context-usage <ContextUsageEvent:id>] [--context-claims-json <json-map>] [--prepare-verification] [--verification-result <ref>] [--placement-verification <PlacementVerificationReport ref>] [--runtime-observation <ref>] [--judgment-json <json>] [--record-proof] [--root <path>] [--json]",
     "    (returns post-edit edge proof and required checks; executes no checks; records an OutcomeEvent in initialized repos and writes verification/proof artifacts only with explicit flags)",
     "rekon step graph build [--root <path>] [--json]",
     "rekon handoff contract build [--root <path>] [--json]",

@@ -1460,7 +1460,7 @@ test("product-loop dry run records a reproducible campaign without invoking a mo
   assert.equal(output.campaign.reasoningEffort, "xhigh");
   assert.match(output.campaign.corpusDigest, /^[a-f0-9]{64}$/u);
   assert.match(output.campaign.interface.digest, /^[a-f0-9]{64}$/u);
-  assert.equal(output.campaign.interface.managedInstructionsVersion, "2.0.4");
+  assert.equal(output.campaign.interface.managedInstructionsVersion, "2.0.5");
   assert.equal(output.campaign.environment.node, process.version);
   assert.equal(output.isolatedRuns, 1);
   assert.equal(output.productLoop.timeoutMs, 900_000);

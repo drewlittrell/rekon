@@ -445,6 +445,8 @@ test("protocol: initialize + tools/list expose the model context tools with sche
     "applied",
     "ignored",
   ]);
+  assert.equal(validation.inputSchema.properties.placementVerifications.type, "array");
+  assert.equal(validation.inputSchema.properties.placementVerifications.items.type, "string");
   assert.deepEqual(validation.inputSchema.properties.judgments.items.required, ["obligationId", "verdict", "explanation"]);
 });
 

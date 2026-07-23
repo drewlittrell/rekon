@@ -68,6 +68,14 @@ Missing, skipped, stale, or unrelated evidence remains unresolved. Results for
 an unknown obligation do not count. Contradictory evidence is retained, and a
 refutation wins over support.
 
+A changed flow-stage responsibility requires both its selected test and a
+`model-judgment` result derived from an indexed
+`PlacementVerificationReport`. The acting agent's judgment input and direct
+caller-supplied proof results are rejected for that obligation. The report must
+match the current contract, stage, changed paths, source-state digest, and
+reviewed source spans. Its ref is retained in the final gate's evidence or
+counterevidence.
+
 A selected check exposes `proofObligationIds`. An exact handoff check binds
 only to its own `:edge` obligation; it cannot prove a sibling edge. Legacy
 flow-level checks retain their affected-edge behavior only for handoffs that

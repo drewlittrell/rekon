@@ -73,7 +73,7 @@ import {
 import { digestJson, validateArtifactHeader, type ArtifactRef } from "@rekon/kernel-artifacts";
 
 export const MCP_SERVER_NAME = "rekon-mcp";
-export const MCP_SERVER_VERSION = "1.4.2";
+export const MCP_SERVER_VERSION = "1.4.3";
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 /**
@@ -1949,7 +1949,7 @@ const MCP_TOOL_DEFINITIONS = [
   {
     name: "resolve_source_target",
     description:
-      "Resolve one exact symbol, type, or call named by inspected source when its path is absent from initial context.",
+      "Resolve one exact source target absent from context.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1990,6 +1990,10 @@ const MCP_TOOL_DEFINITIONS = [
           items: { type: "string" },
         },
         runtimeObservations: {
+          type: "array",
+          items: { type: "string" },
+        },
+        placementVerifications: {
           type: "array",
           items: { type: "string" },
         },
@@ -2034,24 +2038,24 @@ const MODEL_FACING_MCP_TOOLS = new Set(["context_for_task", "resolve_source_targ
 export const MCP_TOOLS = MCP_TOOL_DEFINITIONS.filter((tool) => MODEL_FACING_MCP_TOOLS.has(tool.name));
 
 export const REKON_AGENT_MCP_STEPS: ReadonlyArray<string> = Object.freeze([
-  "Call `context_for_task` at task start, after compaction, and when goal or scope changes. Keep its `contextUsageRef`; follow its operation and batch-read every `readFirst` path before editing.",
+  "Call `context_for_task` at task start, after compaction, or when scope changes; keep its `contextUsageRef` and batch-read every `readFirst` path before editing.",
   "Use `resolve_source_target` only for an exact task-required symbol named by inspected source and absent from `readFirst` and `boundaryPaths`. Read every `readNext` path. Never use it for completeness or analogues; unresolved does not permit broad search.",
   "When required, create the returned work order before editing. Treat pact constraints and checks as acceptance criteria; unresolved ownership is not permission.",
-  "After editing, call `validate_change` with the retained ref, task, paths, base ref, and a `contextClaims` map from item ID to `applied`, `read`, or `ignored`. Use `applied` only for context that shaped the change; claims route proof but are not proof. Resolve blockers and judge only `model-judgment` obligations. Prepare checks with CLI `--prepare-verification` and execute them. On failure, use only `correctiveContext`; repair and rerun before `escalation: validation-failed`.",
-  "Validate again with explicit VerificationResult refs, runtime observations when available, and your judgments. Completion requires `proofGate.status: satisfied`; failed, stale, skipped, or unbound evidence is not proof.",
-  "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags. It refreshes maintained knowledge and rechecks gated source bytes; digest, gate, refresh, or contract-drift failure means incomplete.",
+  "After editing, call `validate_change` with the retained ref, task, paths, base ref, and `contextClaims` (`applied`, `read`, or `ignored`). Use `applied` only for context that shaped the change; claims route proof but are not proof. Judge only generic `model-judgment` obligations. Stage placement requires an independent source-bound `PlacementVerificationReport`; never self-certify it. Prepare and execute checks with CLI `--prepare-verification`; repair failures from `correctiveContext` before `escalation: validation-failed`.",
+  "Validate again with explicit VerificationResult refs, required independent placement reports, runtime observations, and remaining judgments. Completion requires `proofGate.status: satisfied`; failed/stale/skipped/self-authored/unbound evidence is not proof.",
+  "Record the satisfied gate, then run `rekon refresh --proof-gate <ProofGateReport:id> --json` without skip flags; it refreshes knowledge and rechecks gated source bytes. Any digest, gate, refresh, or contract-drift failure is incomplete.",
 ]);
 
 export const REKON_AGENT_CLI_FALLBACKS: ReadonlyArray<string> = Object.freeze([
   "rekon context task --task \"<task>\" --path <path> --model-context",
   "rekon context refine --question \"<unresolved question>\" --target <source-identifier> --relationship dependency|dependent|test|contract|consumer|producer|implementation --anchor-path <path> --already-read <path> --model-context",
-  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '<json-map>' [--prepare-verification|--verification-result <ref> --judgment-json '<json>' --record-proof] --json",
+  "rekon context validate-change --task \"<task>\" --changed-path <path> --base-ref HEAD --context-usage <ContextUsageEvent:id> --context-claims-json '<json-map>' [--prepare-verification|--verification-result <ref> --placement-verification <PlacementVerificationReport:ref> --judgment-json '<json>' --record-proof] --json",
   "rekon resolve preflight --path <path> --goal \"<goal>\" --json",
   "rekon artifacts freshness --json",
 ]);
 
 export const REKON_AGENT_MCP_BOUNDARY =
-  "MCP is local and source-safe: it never writes repository source, executes project checks, uses the network, or calls models. The CLI host may refresh local `.rekon/` artifacts for `context_for_task` and uses read-only Git/source access for `validate_change`. Host command: `rekon mcp serve --root .`.";
+  "MCP is local and source-safe: it never writes source, runs checks, uses network, or calls models. The CLI host may refresh `.rekon/` for `context_for_task` and read Git/source for `validate_change`. Host: `rekon mcp serve --root .`.";
 
 export function callTool(
   repoRoot: string,
