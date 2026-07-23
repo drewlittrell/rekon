@@ -14,7 +14,14 @@ All notable changes to Rekon are documented here.
   correctness oracle. Managed runs use an install-equivalent executable CLI
   shim, recognize typed lifecycle output behind shell aliases, report timeout
   failures explicitly, and allow the full proof/maintenance loop 15 minutes by
-  default.
+  default. Terminal scoring rejects blocked runs and treats the latest refresh
+  attempt as authoritative, so an earlier accepted refresh cannot hide a later
+  failure. Persisted reports omit model-authored check descriptions.
+- Recorded a clean-SHA, two-repeat paired Sol/xhigh product-loop calibration.
+  Both baselines passed; both Rekon runs adopted the managed interface, but
+  neither passed the independent change oracle. Corrected terminal product-loop
+  completion was 1/2. The retained source-free result accepts no reliability,
+  outcome, time, token, cost, or broader model-lift claim.
 - Change validation now resolves root-level metadata to the repository root and
   lets newly added nested files inherit an observed top-level owner only when
   that ownership is unambiguous. Mixed-owner areas still require explicit

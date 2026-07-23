@@ -188,7 +188,9 @@ record a satisfied `ProofGateReport`, and run proof-gated refresh. The
 benchmark verifies those steps from both Codex event order and newly written
 artifact lineage. It also requires the accepted refresh outcome, proof-linked
 evidence, current managed instructions, successful refresh steps, and fresh
-latest-major artifacts.
+latest-major artifacts. When an agent retries refresh, the latest attempt is
+authoritative; an earlier accepted refresh cannot hide a later failure. A
+required product-loop run must also finish with terminal status `complete`.
 
 The product-loop score and the outcome score are separate. Hidden behavioral
 tests, repository checks, required-file coverage, protected paths, and exact
@@ -210,8 +212,9 @@ usage boundary for each phase.
 Every run records a campaign manifest containing the Git state, corpus digest,
 managed-instruction version, MCP version, interface digest, model profile,
 condition set, repetitions, and runtime environment. The report retains typed
-artifact refs and aggregate measurements, never source bodies, prompts, diffs,
-raw commands, MCP payloads, or free-form model text.
+artifact refs, bounded path lists, enum statuses, and aggregate measurements,
+never source bodies, prompts, diffs, raw commands, MCP payloads, or free-form
+model text.
 
 A current Sol/xhigh canary completed the atomic-composition task with exact
 source scope, passing repository and hidden checks, full context adoption,
@@ -221,6 +224,17 @@ refresh. The source-free record is
 managed run without a baseline. An earlier post-shim run reached the proof gate
 but failed during refresh projection, so the canary proves executability, not
 completion reliability, time savings, token savings, or broader model lift.
+
+A clean-SHA two-repeat paired follow-up did not establish reliability or
+outcome benefit. Both baselines passed. Both Rekon runs adopted the managed
+interface, but neither satisfied the independent change oracle: one changed a
+protected path and failed hidden behavior, while the other passed hidden
+behavior but omitted the required regression test and ended with a failed
+terminal refresh. After correcting the observer to make the latest refresh
+authoritative, terminal product-loop completion was 1/2. The source-free
+negative calibration is
+`tests/evals/model-interface-contracts/sol-product-loop-paired-calibration.json`.
+It accepts no time, token, cost, or broader model-lift claim.
 
 Instruction `1.6.0` introduced the distinction between direct reads and graph
 resolution. An exact

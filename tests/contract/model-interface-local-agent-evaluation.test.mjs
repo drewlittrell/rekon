@@ -405,6 +405,128 @@ test("managed product-loop scoring exposes missing proof and refresh without wea
   assert.match(comparison.reasons.join("\n"), /did not complete the required product loop/u);
 });
 
+test("managed product-loop scoring requires the latest refresh and terminal status to pass", () => {
+  const artifactEvidence = completeProductLoopArtifactEvidence();
+  const successfulRefresh = {
+    status: "passed",
+    freshness: {
+      latestMajor: [{ type: "EvidenceGraph", id: "evidence", status: "fresh" }],
+    },
+    steps: [
+      { id: "agent-instructions.sync", status: "passed" },
+      { id: "proof-gate.preaccept", status: "passed" },
+      { id: "outcome.record", status: "passed" },
+      { id: "artifacts.freshness", status: "passed" },
+      { id: "proof-gate.revalidate", status: "passed" },
+    ],
+  };
+  const events = [
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "context_for_task",
+        status: "completed",
+      },
+    },
+    { type: "item.completed", item: { type: "file_change", changes: [] } },
+    {
+      type: "item.completed",
+      item: {
+        type: "mcp_tool_call",
+        server: "rekon",
+        tool: "validate_change",
+        status: "completed",
+        arguments: {
+          contextUsageRef: "ContextUsageEvent:usage",
+          contextClaims: { item: "applied" },
+        },
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon context validate-change --prepare-verification",
+        aggregated_output: JSON.stringify({
+          verificationPlan: { type: "VerificationPlan", id: "plan" },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon verify run --plan VerificationPlan:plan --execute --json",
+        aggregated_output: JSON.stringify({
+          verificationRun: { header: { artifactType: "VerificationRun" } },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon verify result from-run --run VerificationRun:run --json",
+        aggregated_output: JSON.stringify({
+          verificationResult: { header: { artifactType: "VerificationResult" } },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon context validate-change --verification-result VerificationResult:result --record-proof --json",
+        aggregated_output: JSON.stringify({
+          proofArtifact: { type: "ProofGateReport", id: "proof" },
+        }),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon refresh --proof-gate ProofGateReport:proof --json",
+        aggregated_output: JSON.stringify(successfulRefresh),
+        exit_code: 0,
+      },
+    },
+    {
+      type: "item.completed",
+      item: {
+        type: "command_execution",
+        command: "rekon refresh --proof-gate ProofGateReport:proof --json",
+        aggregated_output: JSON.stringify({
+          status: "failed",
+          freshness: {
+            latestMajor: [{ type: "EvidenceGraph", id: "evidence", status: "stale" }],
+          },
+          steps: [{ id: "artifacts.freshness", status: "failed" }],
+        }),
+        exit_code: 1,
+      },
+    },
+  ];
+
+  const loop = summarizeRekonProductLoop(events, artifactEvidence, {
+    required: true,
+    terminalStatus: "blocked",
+  });
+  assert.equal(loop.passed, false);
+  assert.equal(loop.checks.terminalStatusComplete, false);
+  assert.equal(loop.checks.refreshCommandPassed, false);
+  assert.equal(loop.checks.refreshLatestMajorFresh, false);
+  assert.equal(loop.checks.refreshRequiredStepsPassed, false);
+  assert.ok(loop.missing.includes("terminalStatusComplete"));
+  assert.ok(loop.missing.includes("refreshCommandPassed"));
+});
+
 test("managed product-loop scoring recognizes typed lifecycle output behind shell aliases", () => {
   const artifactEvidence = completeProductLoopArtifactEvidence();
   const events = [
@@ -1232,6 +1354,7 @@ test("compacted local-agent reports omit raw commands and free-form model text",
   assert.equal("agentCommands" in compact, false);
   assert.equal("summary" in compact.final, false);
   assert.equal("risks" in compact.final, false);
+  assert.equal("checks" in compact.final, false);
   assert.equal(JSON.stringify(compact).includes("Implemented deactivation"), false);
   assert.equal(compact.tokenUsage.totalTokens, 125);
   assert.equal(compact.visibleTokenEstimate.promptTokens, 4);
@@ -1610,6 +1733,35 @@ test("Sol product-loop canary records complete proof-gated execution without mak
   assert.ok(canary.limitations.some((entry) => /reliability is not established/iu.test(entry)));
   assert.ok(canary.limitations.some((entry) => /does not support token/iu.test(entry)));
   const encoded = JSON.stringify(canary);
+  for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
+    assert.equal(encoded.includes(`\"${forbidden}\"`), false);
+  }
+});
+
+test("paired Sol product-loop calibration preserves the negative reliability result", () => {
+  const calibration = JSON.parse(readFileSync(
+    resolve(
+      repoRoot,
+      "tests/evals/model-interface-contracts/sol-product-loop-paired-calibration.json",
+    ),
+    "utf8",
+  ));
+
+  assert.equal(calibration.status, "calibration-negative");
+  assert.equal(calibration.runner.model, "gpt-5.6-sol");
+  assert.equal(calibration.campaign.dirty, false);
+  assert.equal(calibration.campaign.repeats, 2);
+  assert.equal(calibration.outcome.baselinePasses, 2);
+  assert.equal(calibration.outcome.rekonPasses, 0);
+  assert.equal(calibration.adoption.passed, 2);
+  assert.equal(calibration.productLoop.preCorrectionPasses, 2);
+  assert.equal(calibration.productLoop.terminalPasses, 1);
+  assert.equal(calibration.decision.productLoopReliabilityEstablished, false);
+  assert.equal(calibration.decision.outcomeBenefitAccepted, false);
+  assert.equal(calibration.decision.tokenSavingsClaimAccepted, false);
+  assert.equal(calibration.observerCorrection.postCorrectionProductLoopPasses, 1);
+  assert.ok(calibration.limitations.some((entry) => /do not establish cross-task reliability/iu.test(entry)));
+  const encoded = JSON.stringify(calibration);
   for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
     assert.equal(encoded.includes(`\"${forbidden}\"`), false);
   }

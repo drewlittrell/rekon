@@ -293,6 +293,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     const productLoop = productLoopArtifacts
       ? summarizeRekonProductLoop(parsed.events, productLoopArtifacts, {
         required: options.productLoop,
+        terminalStatus: normalizedFinal.ok ? normalizedFinal.response.status : "blocked",
       })
       : undefined;
     const agentCommands = mergeAgentCommands(parsed.events

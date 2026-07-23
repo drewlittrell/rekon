@@ -274,15 +274,15 @@ export function summarizeRekonProductLoop(events, artifactEvidence = {}, options
         && completed && verificationResultIndex === null) {
         verificationResultIndex = index;
       }
-      if ((isProofRefreshCliCommand(command) || isProofRefreshPayload(output))
-        && completed && refreshIndex === null) {
+      if (isProofRefreshCliCommand(command) || isProofRefreshPayload(output)) {
         refreshIndex = index;
         const refresh = output;
-        refreshCommandPassed = refresh?.status === "passed";
-        refreshLatestMajorFresh = Array.isArray(refresh?.freshness?.latestMajor)
+        refreshCommandPassed = completed && refresh?.status === "passed";
+        refreshLatestMajorFresh = completed
+          && Array.isArray(refresh?.freshness?.latestMajor)
           && refresh.freshness.latestMajor.length > 0
           && refresh.freshness.latestMajor.every((entry) => entry?.status === "fresh");
-        refreshRequiredStepsPassed = requiredRefreshStepsPassed(refresh?.steps);
+        refreshRequiredStepsPassed = completed && requiredRefreshStepsPassed(refresh?.steps);
       }
       if (editIndex === null && isShellEditCommand(command)) editIndex = index;
       continue;
@@ -318,7 +318,10 @@ export function summarizeRekonProductLoop(events, artifactEvidence = {}, options
   const artifactVerificationOrderValid = artifactEvidence.verificationLineageComplete === true;
   const artifactProofOrderValid = artifactEvidence.proofLineageComplete === true;
   const artifactRefreshOrderValid = artifactEvidence.refreshLineageComplete === true;
+  const useArtifactRefreshFallback = refreshIndex === null;
   const checks = {
+    terminalStatusComplete: options.terminalStatus === undefined
+      || options.terminalStatus === "complete",
     contextAcquired: contextIndex !== null,
     contextBeforeEdit: contextIndex !== null && editIndex !== null && contextIndex < editIndex,
     postEditValidation: initialValidation !== undefined,
@@ -339,12 +342,18 @@ export function summarizeRekonProductLoop(events, artifactEvidence = {}, options
     proofRecorded: proofRecordIndex !== null || artifactEvidence.proofGateSatisfied === true,
     proofOrderValid: proofOrderValid || artifactProofOrderValid,
     refreshInvoked: refreshIndex !== null || artifactEvidence.refreshOutcomeAccepted === true,
-    refreshOrderValid: refreshOrderValid || artifactRefreshOrderValid,
-    refreshCommandPassed: refreshCommandPassed || artifactEvidence.refreshCompleted === true,
-    refreshLatestMajorFresh: refreshLatestMajorFresh
-      || artifactEvidence.refreshCompleted === true,
-    refreshRequiredStepsPassed: refreshRequiredStepsPassed
-      || artifactEvidence.refreshCompleted === true,
+    refreshOrderValid: useArtifactRefreshFallback
+      ? artifactRefreshOrderValid
+      : refreshOrderValid,
+    refreshCommandPassed: useArtifactRefreshFallback
+      ? artifactEvidence.refreshCompleted === true
+      : refreshCommandPassed,
+    refreshLatestMajorFresh: useArtifactRefreshFallback
+      ? artifactEvidence.refreshCompleted === true
+      : refreshLatestMajorFresh,
+    refreshRequiredStepsPassed: useArtifactRefreshFallback
+      ? artifactEvidence.refreshCompleted === true
+      : refreshRequiredStepsPassed,
     deliveryArtifactRecorded: artifactEvidence.deliveryRecorded === true,
     contextClaimReceiptRecorded: artifactEvidence.contextClaimReceiptRecorded === true,
     verificationPlanRecorded: artifactEvidence.verificationPlanRecorded === true,
@@ -773,7 +782,6 @@ export function compactLocalAgentRun(run) {
       status: run.final.status,
       contextPaths: run.final.contextPaths,
       filesModified: run.final.filesModified,
-      checks: run.final.checks,
       confidence: run.final.confidence,
     } : undefined,
     modifiedPaths: run.modifiedPaths,
