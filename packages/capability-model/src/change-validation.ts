@@ -130,8 +130,13 @@ export type ChangeVerificationEvidence = {
 
 export type ChangeValidationCorrection = {
   id: string;
-  kind: "failed-check" | "stale-check" | "incomplete-check" | "missing-check";
-  command: string;
+  kind:
+    | "refuted-obligation"
+    | "failed-check"
+    | "stale-check"
+    | "incomplete-check"
+    | "missing-check";
+  command?: string;
   summary: string;
   paths: string[];
   obligationIds: string[];
@@ -429,6 +434,8 @@ export function validateChange(input: ValidateChangeInput): ChangeValidationResu
     input,
     checks: checkSelection.checks,
     obligations: proofObligations,
+    results: proofResults,
+    evaluation: proofEvaluation,
   });
   const unresolvedIds = new Set(proofEvaluation.decisions
     .filter((decision) => decision.verdict === "unresolved")
@@ -1042,6 +1049,8 @@ function buildVerificationCorrectiveContext(input: {
   input: ValidateChangeInput;
   checks: ChangeValidationSelectedCheck[];
   obligations: ProofObligation[];
+  results: ProofResult[];
+  evaluation: ProofGateEvaluation;
 }): ChangeValidationResult["correctiveContext"] {
   const entries: ChangeValidationCorrection[] = [];
 
@@ -1113,10 +1122,55 @@ function buildVerificationCorrectiveContext(input: {
     });
   }
 
+  const obligationById = new Map(input.obligations.map((obligation) => [
+    obligation.id,
+    obligation,
+  ]));
+  for (const decision of input.evaluation.decisions) {
+    if (decision.verdict !== "blocked") continue;
+    const obligation = obligationById.get(decision.obligationId);
+    if (!obligation || obligation.subject.kind === "verification-gate") continue;
+    const refutations = input.results.filter((result) =>
+      result.obligationId === obligation.id
+      && result.verdict === "refuted"
+      && result.method === "model-judgment");
+    if (refutations.length === 0) continue;
+    const reasons = unique(refutations
+      .map((result) => result.explanation.trim())
+      .filter(Boolean)
+      .map((reason) => reason.slice(0, 1_600)))
+      .slice(0, 4);
+    const evidenceRefs = unique([
+      ...obligation.sourceRefs.map((ref) => `${ref.type}:${ref.id}`),
+      ...refutations.flatMap((result) =>
+        result.counterEvidenceRefs.map((ref) => `${ref.type}:${ref.id}`)),
+    ]).sort();
+    const paths = unique(
+      obligation.subject.paths?.map(normalizePath).filter(Boolean)
+        ?? input.input.changedPaths.map(normalizePath).filter(Boolean),
+    );
+    const assertion = obligation.assertion.trim().slice(0, 800);
+    entries.push({
+      id: `correction:${digestJson({
+        kind: "refuted-obligation",
+        obligationId: obligation.id,
+      }).slice(0, 16)}`,
+      kind: "refuted-obligation",
+      summary: `Required proof was refuted: ${assertion}`,
+      paths,
+      obligationIds: [obligation.id],
+      reasons: reasons.length > 0 ? reasons : [decision.explanation.slice(0, 1_600)],
+      evidenceRefs,
+      nextAction: `Inspect only the listed paths and counterevidence, replace the refuted implementation with one that satisfies "${assertion}", then validate again. Do not weaken or self-approve the obligation.`,
+    });
+  }
+
   return {
     strategy: "proof-local",
     entries: entries.sort((left, right) => correctionRank(left.kind) - correctionRank(right.kind)
-      || left.command.localeCompare(right.command)),
+      || refutedObligationRank(left) - refutedObligationRank(right)
+      || (left.command ?? left.obligationIds[0] ?? left.id)
+        .localeCompare(right.command ?? right.obligationIds[0] ?? right.id)),
   };
 }
 
@@ -1149,10 +1203,21 @@ function correctionEvidenceRank(input: {
 }
 
 function correctionRank(value: ChangeValidationCorrection["kind"]): number {
-  if (value === "failed-check") return 0;
-  if (value === "stale-check") return 1;
-  if (value === "incomplete-check") return 2;
-  return 3;
+  if (value === "refuted-obligation") return 0;
+  if (value === "failed-check") return 1;
+  if (value === "stale-check") return 2;
+  if (value === "incomplete-check") return 3;
+  return 4;
+}
+
+function refutedObligationRank(value: ChangeValidationCorrection): number {
+  if (value.kind !== "refuted-obligation") return 0;
+  const id = value.obligationIds[0] ?? "";
+  if (isStageResponsibilityObligationId(id)) return 0;
+  if (id.includes(".prohibition.")) return 1;
+  if (id.includes(".invariant.")) return 2;
+  if (id.includes(".handoff.") || id.startsWith("handoff:")) return 3;
+  return 4;
 }
 
 function proofVerdictForCommand(status: ChangeVerificationEvidence["commandResults"][number]["status"]): ProofResult["verdict"] {

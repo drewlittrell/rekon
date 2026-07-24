@@ -1261,6 +1261,90 @@ test("read-only structurally: no process, network, or write capability in @rekon
   }
 });
 
+test("change validation serves refuted repository law as repair context without a fake command", () => {
+  const obligationId = "constraint:experience-flow.stage.atomize.responsibility.1";
+  const response = mcp.buildChangeValidationResponse({
+    schemaVersion: "1.0.0",
+    task: "support a new expression",
+    changedPaths: ["src/nlu/vocabulary.ts"],
+    baseRef: "HEAD",
+    status: "blocked",
+    affectedSystems: ["experience-intelligence"],
+    affectedFlows: ["experience-flow"],
+    blockingViolations: [{
+      code: "proof.obligation-refuted",
+      message: "Required placement proof was refuted.",
+      paths: ["src/nlu/vocabulary.ts"],
+      evidenceRefs: ["PlacementVerificationReport:placement-refuted"],
+    }],
+    unresolvedSemanticObligations: [],
+    proofGate: {
+      obligations: [{
+        id: obligationId,
+        subject: {
+          kind: "repository-law",
+          id: "experience-flow:atomize",
+          paths: ["src/nlu/vocabulary.ts"],
+        },
+        assertion: "Map reusable tokens to concepts; never store complete phrase aliases.",
+        requiredEvidence: ["test", "model-judgment"],
+        acceptancePolicy: "all-required",
+        required: true,
+        sourceRefs: [],
+      }],
+      results: [],
+      evaluation: {
+        status: "blocked",
+        decisions: [{
+          obligationId,
+          verdict: "blocked",
+          resultCount: 1,
+          supportedMethods: ["test"],
+          refutedMethods: ["model-judgment"],
+          unresolvedMethods: [],
+          missingMethods: [],
+          explanation: "Authoritative counterevidence refuted placement.",
+        }],
+        orphanResultIds: [],
+        summary: { obligations: 1, required: 1, satisfied: 0, blocked: 1, unresolved: 0, notRequired: 0 },
+      },
+      warnings: [],
+    },
+    requiredChecks: [],
+    checkSelection: {
+      strategy: "changed-scope",
+      fallbackUsed: false,
+      evidenceCandidatesConsidered: 0,
+      evidenceBackedChecks: 0,
+      uncoveredTestPaths: [],
+      warnings: [],
+      checks: [],
+    },
+    correctiveContext: {
+      strategy: "proof-local",
+      entries: [{
+        id: "correction-placement-refuted",
+        kind: "refuted-obligation",
+        summary: "Required placement proof was refuted.",
+        paths: ["src/nlu/vocabulary.ts"],
+        obligationIds: [obligationId],
+        reasons: ["The complete phrase belongs in tokenization, not atomic vocabulary."],
+        evidenceRefs: ["PlacementVerificationReport:placement-refuted"],
+        nextAction: "Replace the refuted implementation and validate again.",
+      }],
+    },
+    baseline: { files: [] },
+    boundaries: { wroteArtifact: false, wroteSource: false, executedChecks: false, invokedModel: false },
+  });
+
+  const correction = response.data.changeValidation.correctiveContext.entries[0];
+  assert.equal(correction.kind.value, "refuted-obligation");
+  assert.equal("command" in correction, false);
+  assert.deepEqual(correction.paths.value, ["src/nlu/vocabulary.ts"]);
+  assert.match(correction.reasons.value[0], /tokenization/u);
+  assertTrustCoverage(response.data.changeValidation);
+});
+
 test("response ceilings exist and truncation is explicit", async () => {
   assert.equal(mcp.ORIENTATION_RESPONSE_CEILING_BYTES, 8192);
   assert.equal(mcp.WHERE_RESPONSE_CEILING_BYTES, 6144);

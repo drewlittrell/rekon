@@ -191,6 +191,10 @@ added commands. Historical observations select a check; only a fresh,
 digest-bound result proves it. Failed, stale, incomplete, and missing checks
 produce bounded proof-local corrective context tied to the exact paths and
 flow-edge obligations the check can satisfy.
+Model-judgment refutations produce a separate `refuted-obligation` correction
+with the rejected assertion and counterevidence. That entry has no command:
+the host can use it for a bounded repair turn, but Rekon remains the context
+and proof substrate rather than the executor.
 `selectTaskContractGuidance()` adds only path-matched `CapabilityContract`
 rules as declared, freshness-aware constraints and checks. Required neighbor
 capabilities route to their graph-declared implementation files. Literal pact

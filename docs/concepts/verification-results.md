@@ -16,3 +16,9 @@ When a selected result is failed, stale, skipped, or missing,
 the selected command, changed paths, check and flow-edge obligation IDs,
 result/run refs, and a bounded redacted diagnostic when the linked run has one.
 A passing result bound to the current source emits no correction.
+
+When model judgment or trusted independent placement review refutes a semantic
+obligation, the same response emits a `refuted-obligation` correction. It
+contains the exact assertion, affected paths, counterevidence refs, and bounded
+reasons, but no invented command. A host may give that correction to a fresh
+acting-model turn; Rekon does not execute or approve the repair.

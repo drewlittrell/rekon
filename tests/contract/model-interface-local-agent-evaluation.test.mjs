@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   assessIndependentPlacementOutcome,
   assessRekonContextUse,
+  buildBoundedRekonRepairPrompt,
   classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
   compareManagedLocalAgentPair,
@@ -1505,6 +1506,50 @@ test("compacted local-agent reports omit raw commands and free-form model text",
   assert.equal(JSON.stringify(compact).includes("secret prompt"), false);
 });
 
+test("bounded repair prompts preserve refuted proof while preventing broad restart", () => {
+  const prompt = buildBoundedRekonRepairPrompt("support a new expression", {
+    strategy: "proof-local",
+    entries: [{
+      id: "correction-refuted-placement",
+      kind: "refuted-obligation",
+      summary: "Atomic vocabulary placement was refuted.",
+      paths: ["src/nlu/vocabulary.ts", "src/nlu/tokenize.ts"],
+      obligationIds: ["constraint:experience-flow.stage.atomize.responsibility.1"],
+      reasons: ["The phrase alias bypasses tokenization."],
+      evidenceRefs: ["PlacementVerificationReport:placement-refuted"],
+      nextAction: "Replace the phrase alias with the correct tokenization change.",
+    }],
+  });
+
+  assert.match(prompt, /one bounded correction attempt/u);
+  assert.match(prompt, /call Rekon context_for_task again/u);
+  assert.match(prompt, /Do not restart broad exploration/u);
+  assert.match(prompt, /refuted-obligation/u);
+  assert.match(prompt, /src\/nlu\/tokenize\.ts/u);
+  assert.match(prompt, /Do not weaken tests, contracts, proof requirements/u);
+});
+
+test("compacted reports keep first-pass and repair outcomes separate", () => {
+  const compact = compactLocalAgentRun(successfulRun({
+    firstPass: {
+      actorStatus: "blocked",
+      sourceModifiedPaths: ["src/nlu/vocabulary.ts"],
+      accepted: false,
+    },
+    repair: {
+      attempted: true,
+      status: "recovered",
+      sourceModifiedPaths: ["src/nlu/tokenize.ts"],
+      accepted: true,
+    },
+  }));
+
+  assert.equal(compact.firstPass.accepted, false);
+  assert.deepEqual(compact.firstPass.sourceModifiedPaths, ["src/nlu/vocabulary.ts"]);
+  assert.equal(compact.repair.accepted, true);
+  assert.deepEqual(compact.repair.sourceModifiedPaths, ["src/nlu/tokenize.ts"]);
+});
+
 test("local-agent dry run requires no provider key or Codex invocation", () => {
   const result = spawnSync(process.execPath, [
     "scripts/eval-model-interface-local-agent.mjs",
@@ -1529,6 +1574,36 @@ test("local-agent dry run requires no provider key or Codex invocation", () => {
   assert.equal(output.tokenUsage.status, "available-after-executed-runs");
   assert.match(output.tokenUsage.subscriptionReported, /turn.completed/u);
   assert.match(output.sourceRetention, /no source/u);
+});
+
+test("product-loop dry run exposes one bounded correction attempt", () => {
+  const result = spawnSync(process.execPath, [
+    "scripts/eval-model-interface-local-agent.mjs",
+    "--dry-run",
+    "--delivery",
+    "managed",
+    "--product-loop",
+    "--correction-attempts",
+    "1",
+    "--condition",
+    "rekon",
+    "--corpus",
+    "contracts",
+    "--case",
+    "atomic-experience-composition",
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "" },
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.productLoop.required, true);
+  assert.equal(output.productLoop.correctionAttempts, 1);
+  assert.ok(output.productLoop.sequence.includes("if blocked: bounded corrective context"));
+  assert.ok(output.productLoop.sequence.includes("one fresh repair turn"));
+  assert.ok(output.productLoop.sequence.includes("repeat verification and independent validation"));
 });
 
 test("local-agent dry run lexically grounds the pathless placement case", () => {
@@ -1976,6 +2051,41 @@ test("edge-verifier Sol calibration preserves wrong-placement and terminal-refre
   assert.equal(calibration.decision.tokenSavingsClaimAccepted, false);
   assert.equal(calibration.decision.costSavingsClaimAccepted, false);
   assert.ok(calibration.limitations.some((entry) => /one case and two paired repeats/iu.test(entry)));
+  const encoded = JSON.stringify(calibration);
+  for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
+    assert.equal(encoded.includes(`\"${forbidden}\"`), false);
+  }
+});
+
+test("clean-HEAD Sol reliability calibration preserves accepted changes and blocked drift separately", () => {
+  const calibration = JSON.parse(readFileSync(
+    resolve(
+      repoRoot,
+      "tests/evals/model-interface-contracts/sol-product-loop-clean-head-reliability-calibration.json",
+    ),
+    "utf8",
+  ));
+
+  assert.equal(calibration.status, "calibration-mixed");
+  assert.equal(calibration.runner.model, "gpt-5.6-sol");
+  assert.equal(calibration.campaign.gitCommit, "013593df22b0cc950d8b518a7137c885ffeabe9f");
+  assert.equal(calibration.campaign.dirty, false);
+  assert.equal(calibration.campaign.repeats, 3);
+  assert.equal(calibration.outcome.acceptedCorrectChanges, 2);
+  assert.equal(calibration.outcome.hiddenOraclePasses, 2);
+  assert.equal(calibration.outcome.blockedUnsafeChanges, 1);
+  assert.equal(calibration.outcome.unsafeChangesAdvanced, 0);
+  assert.equal(calibration.adoption.passed, 3);
+  assert.equal(calibration.productLoop.passed, 2);
+  assert.equal(calibration.productLoop.failed, 1);
+  assert.equal(calibration.failureClasses[0].reason, "prohibited-phrase-vocabulary-shortcut-blocked");
+  assert.equal(calibration.failureClasses[0].independentJudgeVerdict, "refuted");
+  assert.equal(calibration.failureClasses[0].proofGateSatisfied, false);
+  assert.equal(calibration.decision.productLoopExecutable, true);
+  assert.equal(calibration.decision.completionReliabilityEstablished, false);
+  assert.equal(calibration.decision.driftPreventionObserved, true);
+  assert.equal(calibration.decision.heldOutExpansionApproved, false);
+  assert.ok(calibration.limitations.some((entry) => /blocked after editing/iu.test(entry)));
   const encoded = JSON.stringify(calibration);
   for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
     assert.equal(encoded.includes(`\"${forbidden}\"`), false);

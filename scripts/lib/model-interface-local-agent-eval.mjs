@@ -871,6 +871,8 @@ export function compactLocalAgentRun(run) {
     status: run.status,
     ...(run.actorTerminalStatus ? { actorTerminalStatus: run.actorTerminalStatus } : {}),
     ...(run.independentJudge ? { independentJudge: run.independentJudge } : {}),
+    ...(run.firstPass ? { firstPass: run.firstPass } : {}),
+    ...(run.repair ? { repair: run.repair } : {}),
     final: run.final ? {
       status: run.final.status,
       contextPaths: run.final.contextPaths,
@@ -892,6 +894,40 @@ export function compactLocalAgentRun(run) {
     score: run.score,
     ...(run.error ? { error: run.error } : {}),
   };
+}
+
+export function buildBoundedRekonRepairPrompt(task, correctiveContext) {
+  const entries = (Array.isArray(correctiveContext?.entries) ? correctiveContext.entries : [])
+    .slice(0, 4)
+    .map((entry) => ({
+      id: String(entry?.id ?? "").slice(0, 180),
+      kind: String(entry?.kind ?? "").slice(0, 80),
+      ...(typeof entry?.command === "string" && entry.command.trim().length > 0
+        ? { command: entry.command.trim().slice(0, 420) }
+        : {}),
+      summary: String(entry?.summary ?? "").slice(0, 420),
+      paths: strings(entry?.paths).slice(0, 6).map((path) => path.slice(0, 220)),
+      obligationIds: strings(entry?.obligationIds).slice(0, 8).map((id) => id.slice(0, 220)),
+      reasons: strings(entry?.reasons).slice(0, 4).map((reason) => reason.slice(0, 1_600)),
+      evidenceRefs: strings(entry?.evidenceRefs).slice(0, 6).map((ref) => ref.slice(0, 220)),
+      nextAction: String(entry?.nextAction ?? "").slice(0, 520),
+    }));
+  const repairContext = {
+    strategy: "proof-local",
+    entries,
+    omittedEntries: Math.max(0, (correctiveContext?.entries?.length ?? 0) - entries.length),
+  };
+  return [
+    "Continue the same task in this existing disposable checkout.",
+    "The independent Rekon verifier blocked the current source state. This is one bounded correction attempt, not a new task.",
+    "Before the first repository command, call Rekon context_for_task again and read every returned readFirst path.",
+    "Use only the refreshed task context, files already inspected for this task, and the bounded corrective context below. Do not restart broad exploration.",
+    `Task: ${String(task ?? "").trim()}`,
+    `Rekon corrective context: ${JSON.stringify(repairContext)}`,
+    "Replace or revert the refuted implementation. Do not weaken tests, contracts, proof requirements, or hidden behavior to make the change pass.",
+    "Run the checks required by the task. If independent proof is still required, stop for the host verifier instead of self-approving it.",
+    "Your final response must match the supplied JSON schema. Report repository-relative context paths, modified files, checks actually run, a concise summary, risks, and confidence.",
+  ].join("\n\n");
 }
 
 function isContextCliCommand(command) {

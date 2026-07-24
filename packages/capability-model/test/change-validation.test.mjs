@@ -937,6 +937,17 @@ test("independent placement review blocks the wrong-placement benchmark case", (
   JSON.stringify(reviewed.proofGate, null, 2));
   assert.ok(reviewed.blockingViolations.some((violation) =>
     violation.details?.obligationId === obligationId));
+  const correction = reviewed.correctiveContext.entries.find((entry) =>
+    entry.kind === "refuted-obligation"
+    && entry.obligationIds.includes(obligationId));
+  assert.ok(correction, "trusted placement counterevidence must produce repair context");
+  assert.equal(correction.command, undefined);
+  assert.deepEqual(correction.paths, ["src/nlu/vocabulary.ts"]);
+  assert.match(correction.summary, /never store complete phrase aliases/u);
+  assert.ok(correction.reasons.some((reason) =>
+    /instead of updating tokenization/u.test(reason)));
+  assert.ok(correction.evidenceRefs.includes("PlacementVerificationReport:wrong-placement-review"));
+  assert.match(correction.nextAction, /Do not weaken or self-approve/u);
 });
 
 test("handoff evidence paths require a current regression edit and cannot be self-approved", () => {
@@ -1291,6 +1302,21 @@ test("refuted edge proof blocks change completion with counterevidence", () => {
   assert.equal(result.status, "blocked");
   assert.equal(result.proofGate.evaluation.status, "blocked");
   assert.ok(result.blockingViolations.some((entry) => entry.code === "proof.obligation-refuted"));
+  assert.deepEqual(result.correctiveContext.entries.map((entry) => ({
+    kind: entry.kind,
+    command: entry.command,
+    obligationIds: entry.obligationIds,
+    paths: entry.paths,
+  })), [{
+    kind: "refuted-obligation",
+    command: undefined,
+    obligationIds: ["constraint:flow.handoff.guarantee"],
+    paths: ["src/index.ts"],
+  }]);
+  assert.equal(
+    result.correctiveContext.entries[0].reasons[0],
+    "The changed source drops requestId before the consumer call.",
+  );
 });
 
 test("capability dependency policy blocks a forbidden neighbor", () => {

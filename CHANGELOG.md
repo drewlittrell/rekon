@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added bounded correction for independently refuted repository-law and
+  placement obligations. Change validation now emits a
+  `refuted-obligation` entry with exact paths, assertion, reasons, and
+  counterevidence without inventing a shell command. MCP interface `1.4.5`
+  serves that additive response under the existing ceilings. The product-loop
+  benchmark can optionally give at most four correction entries to one fresh
+  repair turn and records first-pass, repair, and final acceptance separately;
+  Rekon itself remains outside execution.
 - Added independent source-backed placement verification. Stage-responsibility
   obligations no longer accept the acting agent's `--judgment-json` or direct
   caller-supplied model proof. An indexed `PlacementVerificationReport` binds
@@ -25,6 +33,13 @@ All notable changes to Rekon are documented here.
   satisfied the proof gate, and completed fresh maintenance. This single run
   supports loop executability only, not reliability, time, token, cost, or
   model-lift claims.
+- Recorded a clean-HEAD, three-repeat Sol/xhigh atomic-experience reliability
+  calibration. Two runs produced accepted tokenizer changes and completed the
+  full proof-gated loop. One run made the prohibited complete-phrase vocabulary
+  shortcut; the hidden oracle and independent placement judge refuted it, so no
+  proof gate or refresh advanced the change. The result demonstrates observed
+  drift prevention but does not establish completion reliability, outcome lift,
+  or time, token, and cost benefit.
 - Added contract-derived verifier-on-edge requirements. Flow stages can declare
   path-scoped responsibilities, and handoffs can require current-diff
   regression evidence paths alongside exact tests. Task pacts deliver both

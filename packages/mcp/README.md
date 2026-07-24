@@ -94,6 +94,10 @@ When the MCP tools are available to an agent:
    `context_for_task` again with
    `escalation: validation-failed`; this raises context depth without changing
    the task's intent classification.
+   A `refuted-obligation` entry is different: independent semantic or placement
+   evidence rejected the implementation. It carries the assertion, paths, and
+   counterevidence but no shell command. Replace or revert that implementation,
+   then validate it again without weakening the obligation.
 7. If a returned check fails and names an exact unread path or symbol, request
    that target through `resolve_source_target` with the matching `test` or
    `dependency` relationship. Rerun the failed check and any selected check not

@@ -84,6 +84,12 @@ verification recording, reconciliation planning, and artifact validation.
   stale, incomplete, and missing checks return proof-local corrective context
   with bounded redacted diagnostics. Historical observations select commands;
   current digest-bound runs provide proof.
+- Independent model or placement refutations now return a distinct
+  `refuted-obligation` correction with the rejected assertion, exact paths, and
+  counterevidence rather than an invented command. The evaluation host can
+  feed at most four such entries into one fresh repair turn while retaining
+  first-pass and repaired outcomes separately. Rekon does not execute the
+  repair.
 - A satisfied `ProofGateReport` binds those results to post-edit source digests.
   Executed verification captures the plan's bounded source before and after
   commands, refuses proof when those bytes changed, and carries the stable
@@ -248,11 +254,20 @@ verification recording, reconciliation planning, and artifact validation.
   terminal refresh. Both product failures now have focused regression coverage:
   proof-gated refresh terminates superseded planning-only staleness, and stage
   placement requires current independent source review.
-- Run one targeted atomic-experience canary before another broad campaign. It
-  must prove that the former complete-phrase vocabulary edit is blocked, the
-  tokenizer placement can receive independent support, and the supported
-  change completes proof-gated refresh. Do not infer model-lift, time, token,
-  or cost benefit from that canary.
+- The post-fix clean-HEAD atomic-experience campaign passed the complete loop in
+  2/3 Sol/xhigh Rekon-only runs. Both accepted runs changed the tokenizer and
+  regression test, received trusted placement support, satisfied proof, and
+  refreshed cleanly. The remaining run read the full packet but made the
+  prohibited complete-phrase vocabulary edit. Rekon blocked that change before
+  proof or refresh, so no unsafe change advanced, but it did not steer or repair
+  the run into an accepted implementation. Treat this as observed drift
+  prevention with incomplete task reliability, not as outcome, time, token, or
+  cost lift.
+- Do not expand to held-out repositories yet. Repeat the same clean-HEAD
+  atomic-experience case with the bounded host-managed correction enabled.
+  Report first-pass acceptance, repair attempts, recovered runs, and final
+  acceptance separately. Preserve the prior failed run and hidden oracle; do
+  not turn repaired success into a first-pass claim.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

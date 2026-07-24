@@ -25,6 +25,7 @@ import { createLocalArtifactStore } from "@rekon/runtime";
 import {
   assessIndependentPlacementOutcome,
   assessRekonContextUse,
+  buildBoundedRekonRepairPrompt,
   classifyBenchmarkModifiedPaths,
   compactLocalAgentRun,
   compareManagedLocalAgentPair,
@@ -102,6 +103,7 @@ if (options.dryRun) {
     },
     productLoop: {
       required: options.productLoop,
+      correctionAttempts: options.correctionAttempts,
       condition: options.productLoop ? "rekon" : "not-gated",
       timeoutMs: options.timeoutMs,
       sequence: [
@@ -114,6 +116,11 @@ if (options.dryRun) {
         "independent hidden-oracle placement judgment",
         "trusted placement attestation",
         "final validation",
+        ...(options.correctionAttempts > 0 ? [
+          "if blocked: bounded corrective context",
+          "one fresh repair turn",
+          "repeat verification and independent validation",
+        ] : []),
         "record ProofGateReport",
         "proof-gated refresh",
       ],
@@ -202,6 +209,7 @@ const report = {
     timeoutMs: options.timeoutMs,
     reasoningEffort: options.reasoningEffort ?? "default",
     productLoop: options.productLoop,
+    correctionAttempts: options.correctionAttempts,
   },
   summary: {
     pairedRuns: pairs.length,
@@ -215,6 +223,9 @@ const report = {
     tokenComparison: compareConditionTokens(conditionSummary),
     ...(options.delivery === "managed" ? {
       adoption: summarizeAdoption(runs.filter((run) => run.condition === "rekon")),
+    } : {}),
+    ...(options.correctionAttempts > 0 ? {
+      correction: summarizeCorrectionRuns(runs.filter((run) => run.condition === "rekon")),
     } : {}),
   },
   pairs,
@@ -271,9 +282,8 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     const initialArtifactKeys = options.delivery === "managed" && condition === "rekon"
       ? await captureArtifactKeys(worktree)
       : new Set();
-    const started = performance.now();
     const prompt = buildPrompt(caseEntry.task, condition, contextPacket);
-    const result = await runCodex({
+    const initialAttempt = await runActorAttempt({
       worktree,
       schemaPath,
       finalPath,
@@ -283,45 +293,110 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
         ? cliShimDir
         : undefined,
     });
-    const elapsedMs = Math.round(performance.now() - started);
-    const parsed = parseCodexJsonl(result.stdout);
-    const tokenUsage = summarizeCodexTokenUsage(parsed.events);
-    const visibleTokenEstimate = estimateVisibleTokenUsage(parsed.events, prompt);
-    const exploration = summarizeCodexExploration(parsed.events, fixture.repository.files);
-    const finalValue = await readJson(finalPath);
-    const normalizedFinal = normalizeLocalAgentResponse(finalValue, fixture.repository.files);
-    if (!normalizedFinal.ok) error = normalizedFinal.error;
-    const modifiedPaths = parseGitStatusPaths(rawCommandOutput(
-      "git",
-      ["status", "--short", "--untracked-files=all"],
-      worktree,
-    ));
-    const {
-      sourcePaths: sourceModifiedPaths,
-      generatedPaths: generatedModifiedPaths,
-    } = classifyBenchmarkModifiedPaths(modifiedPaths);
-    const requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
-    const oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
-    const independentCompletion = independentJudge
+    const attempts = [initialAttempt];
+    const productLoopEvents = [...initialAttempt.parsed.events];
+    let activeAttempt = initialAttempt;
+    let workingState = benchmarkWorkingState(worktree);
+    let requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
+    let oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
+    let independentCompletion = independentJudge
       ? await completeManagedProductLoopWithIndependentJudge({
           worktree,
           task: caseEntry.task,
-          sourceModifiedPaths,
+          sourceModifiedPaths: workingState.sourceModifiedPaths,
           oracle: caseEntry.oracle,
           requiredChecks,
           oracleChecks,
           judge: independentJudge,
           initialArtifactKeys,
-          inspectedPaths: exploration.inspectedPaths,
-          reportedContextPaths: normalizedFinal.ok
-            ? normalizedFinal.response.contextPaths
+          inspectedPaths: initialAttempt.exploration.inspectedPaths,
+          reportedContextPaths: initialAttempt.normalizedFinal.ok
+            ? initialAttempt.normalizedFinal.response.contextPaths
             : [],
         })
       : undefined;
-    const productLoopEvents = [
-      ...parsed.events,
-      ...(independentCompletion?.events ?? []),
-    ];
+    productLoopEvents.push(...(independentCompletion?.events ?? []));
+    const firstPass = independentCompletion ? {
+      actorStatus: initialAttempt.normalizedFinal.ok
+        ? initialAttempt.normalizedFinal.response.status
+        : "blocked",
+      sourceModifiedPaths: workingState.sourceModifiedPaths,
+      requiredChecksPassed: requiredChecks.length > 0
+        && requiredChecks.every((check) => check.exitCode === 0),
+      oracleChecksPassed: oracleChecks.length > 0
+        && oracleChecks.every((check) => check.exitCode === 0),
+      accepted: independentCompletion.status === "passed",
+      independentJudge: independentCompletion.summary,
+    } : undefined;
+    let repair;
+
+    if (independentCompletion?.status === "blocked" && options.correctionAttempts > 0) {
+      const correctionEntries = independentCompletion.correctiveContext?.entries ?? [];
+      if (correctionEntries.length === 0) {
+        repair = {
+          attempted: false,
+          status: "unavailable",
+          reason: "independent validation returned no bounded corrective context",
+        };
+      } else {
+        const repairArtifactKeys = await captureArtifactKeys(worktree);
+        const repairPrompt = buildBoundedRekonRepairPrompt(
+          caseEntry.task,
+          independentCompletion.correctiveContext,
+        );
+        const repairAttempt = await runActorAttempt({
+          worktree,
+          schemaPath,
+          finalPath: join(tempRoot, "repair-final-1.json"),
+          prompt: repairPrompt,
+          enableMcp: true,
+          cliShimDir,
+        });
+        attempts.push(repairAttempt);
+        activeAttempt = repairAttempt;
+        productLoopEvents.push(...repairAttempt.parsed.events);
+        workingState = benchmarkWorkingState(worktree);
+        requiredChecks = await runChecks(worktree, caseEntry.oracle.commands ?? []);
+        oracleChecks = await runOracleChecks(worktree, caseEntry.oracle.oracleTests ?? []);
+        independentCompletion = await completeManagedProductLoopWithIndependentJudge({
+          worktree,
+          task: caseEntry.task,
+          sourceModifiedPaths: workingState.sourceModifiedPaths,
+          oracle: caseEntry.oracle,
+          requiredChecks,
+          oracleChecks,
+          judge: independentJudge,
+          initialArtifactKeys: repairArtifactKeys,
+          inspectedPaths: repairAttempt.exploration.inspectedPaths,
+          reportedContextPaths: repairAttempt.normalizedFinal.ok
+            ? repairAttempt.normalizedFinal.response.contextPaths
+            : [],
+        });
+        productLoopEvents.push(...(independentCompletion.events ?? []));
+        repair = {
+          attempted: true,
+          status: independentCompletion.status === "passed" ? "recovered" : "blocked",
+          correctionEntries: Math.min(correctionEntries.length, 4),
+          actorStatus: repairAttempt.normalizedFinal.ok
+            ? repairAttempt.normalizedFinal.response.status
+            : "blocked",
+          sourceModifiedPaths: workingState.sourceModifiedPaths,
+          accepted: independentCompletion.status === "passed",
+          independentJudge: independentCompletion.summary,
+        };
+      }
+    }
+
+    const actorEvents = attempts.flatMap((attempt) => attempt.parsed.events);
+    const tokenUsage = summarizeCodexTokenUsage(actorEvents);
+    const visibleTokenEstimate = estimateVisibleTokenUsage(
+      actorEvents,
+      attempts.map((attempt) => attempt.prompt).join("\n\n"),
+    );
+    const exploration = summarizeCodexExploration(actorEvents, fixture.repository.files);
+    const elapsedMs = attempts.reduce((sum, attempt) => sum + attempt.elapsedMs, 0);
+    const normalizedFinal = activeAttempt.normalizedFinal;
+    if (!normalizedFinal.ok) error = normalizedFinal.error;
     const inspectedProductLoopArtifacts = options.delivery === "managed" && condition === "rekon"
       ? await inspectManagedProductLoopArtifacts(
           worktree,
@@ -351,15 +426,20 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
         terminalStatus: effectiveFinal?.status ?? "blocked",
       })
       : undefined;
-    const agentCommands = mergeAgentCommands(parsed.events
+    const agentCommands = mergeAgentCommands(actorEvents
       .filter((event) => event.type === "item.completed" && event.item?.type === "command_execution")
       .map((event) => event.item.command)
       .filter((command) => typeof command === "string"), verifiedCommands);
     const contextUse = condition === "rekon"
-      ? summarizeContextUse(contextSelection, exploration, normalizedFinal.response, sourceModifiedPaths)
+      ? summarizeContextUse(
+          contextSelection,
+          exploration,
+          normalizedFinal.ok ? normalizedFinal.response : undefined,
+          workingState.sourceModifiedPaths,
+        )
       : undefined;
     const interfaceAdoption = options.delivery === "managed" && condition === "rekon"
-      ? summarizeRekonAdoption(parsed.events, {
+      ? summarizeRekonAdoption(actorEvents, {
         ...(caseEntry.managedExpectations ?? {}),
         readFirstPaths: contextSelection.readFirstPaths,
       })
@@ -373,15 +453,19 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       caseId: caseEntry.id,
       repeat,
       condition,
-      status: result.exitCode === 0 && normalizedFinal.ok ? "ok" : "error",
+      status: activeAttempt.result.exitCode === 0 && normalizedFinal.ok ? "ok" : "error",
       final: effectiveFinal,
       ...(independentCompletion ? {
-        actorTerminalStatus: normalizedFinal.ok ? normalizedFinal.response.status : "blocked",
+        actorTerminalStatus: initialAttempt.normalizedFinal.ok
+          ? initialAttempt.normalizedFinal.response.status
+          : "blocked",
         independentJudge: independentCompletion.summary,
       } : {}),
-      modifiedPaths,
-      sourceModifiedPaths,
-      generatedModifiedPaths,
+      ...(firstPass ? { firstPass } : {}),
+      ...(repair ? { repair } : {}),
+      modifiedPaths: workingState.modifiedPaths,
+      sourceModifiedPaths: workingState.sourceModifiedPaths,
+      generatedModifiedPaths: workingState.generatedModifiedPaths,
       agentCommands,
       requiredChecks,
       oracleChecks,
@@ -392,10 +476,10 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       ...(adoption ? { adoption } : {}),
       ...(productLoop ? { productLoop } : {}),
       elapsedMs,
-      ...(result.timedOut
+      ...(activeAttempt.result.timedOut
         ? { error: `codex-timeout-${options.timeoutMs}` }
-        : result.exitCode !== 0
-          ? { error: `codex-exit-${result.exitCode}` }
+        : activeAttempt.result.exitCode !== 0
+          ? { error: `codex-exit-${activeAttempt.result.exitCode}` }
           : error
             ? { error }
             : {}),
@@ -424,6 +508,54 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     if (!options.keepWorkdirs) await rm(tempRoot, { recursive: true, force: true });
     else process.stderr.write(`[model-interface-local-agent] retained ${tempRoot}\n`);
   }
+}
+
+async function runActorAttempt({
+  worktree,
+  schemaPath,
+  finalPath,
+  prompt,
+  enableMcp,
+  cliShimDir,
+}) {
+  const started = performance.now();
+  const result = await runCodex({
+    worktree,
+    schemaPath,
+    finalPath,
+    prompt,
+    enableMcp,
+    cliShimDir,
+  });
+  const elapsedMs = Math.round(performance.now() - started);
+  const parsed = parseCodexJsonl(result.stdout);
+  const finalValue = await readJson(finalPath);
+  const normalizedFinal = normalizeLocalAgentResponse(finalValue, fixture.repository.files);
+  return {
+    result,
+    parsed,
+    prompt,
+    normalizedFinal,
+    exploration: summarizeCodexExploration(parsed.events, fixture.repository.files),
+    elapsedMs,
+  };
+}
+
+function benchmarkWorkingState(worktree) {
+  const modifiedPaths = parseGitStatusPaths(rawCommandOutput(
+    "git",
+    ["status", "--short", "--untracked-files=all"],
+    worktree,
+  ));
+  const {
+    sourcePaths: sourceModifiedPaths,
+    generatedPaths: generatedModifiedPaths,
+  } = classifyBenchmarkModifiedPaths(modifiedPaths);
+  return {
+    modifiedPaths,
+    sourceModifiedPaths,
+    generatedModifiedPaths,
+  };
 }
 
 function createIndependentPlacementJudge() {
@@ -614,32 +746,44 @@ async function completeManagedProductLoopWithIndependentJudge({
           version: INDEPENDENT_PLACEMENT_JUDGE_VERSION,
         },
       }));
-    const finalStep = await requireIndependentCliStep(
-      events,
-      [
-        "context", "validate-change",
-        "--task", validationTask,
-        ...changedPathArgs,
-        "--base-ref", "HEAD",
-        ...contextArgs,
-        "--verification-result", `${verificationRef.type}:${verificationRef.id}`,
-        ...placementRefs.flatMap((ref) => [
-          "--placement-verification",
-          `${ref.type}:${ref.id}`,
-        ]),
-        ...(judgments.length > 0
-          ? ["--judgment-json", JSON.stringify(judgments)]
-          : []),
-        ...(assessment.verdict === "supported" ? ["--record-proof"] : []),
-        "--root", worktree,
-        "--json",
-      ],
-      worktree,
-    );
+    const finalArgs = [
+      "context", "validate-change",
+      "--task", validationTask,
+      ...changedPathArgs,
+      "--base-ref", "HEAD",
+      ...contextArgs,
+      "--verification-result", `${verificationRef.type}:${verificationRef.id}`,
+      ...placementRefs.flatMap((ref) => [
+        "--placement-verification",
+        `${ref.type}:${ref.id}`,
+      ]),
+      ...(judgments.length > 0
+        ? ["--judgment-json", JSON.stringify(judgments)]
+        : []),
+      ...(assessment.verdict === "supported" ? ["--record-proof"] : []),
+      "--root", worktree,
+      "--json",
+    ];
+    const finalStep = await runIndependentCliStep(finalArgs, worktree);
+    events.push(finalStep.event);
 
     if (assessment.verdict !== "supported") {
       summary.status = "blocked";
-      return { status: "blocked", events, summary };
+      if (!finalStep.payload || finalStep.payload.status !== "blocked") {
+        throw new Error(finalStep.error ?? "independent judge did not return a blocked change decision");
+      }
+      return {
+        status: "blocked",
+        events,
+        summary,
+        correctiveContext: finalStep.payload.correctiveContext ?? {
+          strategy: "proof-local",
+          entries: [],
+        },
+      };
+    }
+    if (!finalStep.ok) {
+      throw new Error(finalStep.error ?? "independent judge final validation failed");
     }
     if (
       finalStep.payload?.status !== "passed"
@@ -1215,6 +1359,18 @@ function summarizeAdoption(rekonRuns) {
   };
 }
 
+function summarizeCorrectionRuns(rekonRuns) {
+  const attempted = rekonRuns.filter((run) => run.repair?.attempted === true);
+  return {
+    configuredAttempts: options.correctionAttempts,
+    runs: rekonRuns.length,
+    firstPassAccepted: rekonRuns.filter((run) => run.firstPass?.accepted === true).length,
+    repairsAttempted: attempted.length,
+    repairsRecovered: attempted.filter((run) => run.repair?.accepted === true).length,
+    finalAccepted: rekonRuns.filter((run) => run.score?.passed === true).length,
+  };
+}
+
 function compareConditionTokens(conditions) {
   const baseline = conditions.baseline;
   const rekon = conditions.rekon;
@@ -1515,6 +1671,7 @@ function parseArgs(args) {
     json: false,
     keepWorkdirs: false,
     productLoop: false,
+    correctionAttempts: 0,
     ledger: undefined,
     repeats: 1,
     timeoutMs: 300_000,
@@ -1531,6 +1688,9 @@ function parseArgs(args) {
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--keep-workdirs") parsed.keepWorkdirs = true;
     else if (arg === "--product-loop") parsed.productLoop = true;
+    else if (arg === "--correction-attempts") {
+      parsed.correctionAttempts = nonNegativeInteger(requiredValue(args, ++index, arg), arg);
+    }
     else if (arg === "--ledger") parsed.ledger = requiredValue(args, ++index, arg);
     else if (arg === "--model") parsed.model = requiredValue(args, ++index, arg);
     else if (arg === "--output") parsed.output = requiredValue(args, ++index, arg);
@@ -1555,6 +1715,12 @@ function parseArgs(args) {
   }
   if (parsed.productLoop && parsed.delivery !== "managed") {
     throw new Error("--product-loop requires --delivery managed.");
+  }
+  if (parsed.correctionAttempts > 0 && !parsed.productLoop) {
+    throw new Error("--correction-attempts requires --product-loop.");
+  }
+  if (parsed.correctionAttempts > 1) {
+    throw new Error("--correction-attempts is bounded to at most 1.");
   }
   if (parsed.productLoop && !timeoutExplicit) parsed.timeoutMs = 900_000;
   if (!["full", "tiered", "role-aware", "summary-aware", "navigation-only"].includes(parsed.contextPolicy)) {
@@ -1637,6 +1803,7 @@ function buildCampaignManifest() {
     delivery: options.delivery,
     contextPolicy: options.contextPolicy,
     productLoop: options.productLoop,
+    correctionAttempts: options.correctionAttempts,
   })).digest("hex");
   return {
     id: `model-interface-${createHash("sha256").update(JSON.stringify({
@@ -1692,6 +1859,12 @@ function requiredValue(args, index, flag) {
 function positiveInteger(value, flag) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${flag} must be a positive integer.`);
+  return parsed;
+}
+
+function nonNegativeInteger(value, flag) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0) throw new Error(`${flag} must be a non-negative integer.`);
   return parsed;
 }
 
@@ -1760,6 +1933,13 @@ function printSummary(report, outputPath, ledgerPath) {
         `Product loop: ${report.summary.adoption.productLoop.passed}/${report.summary.adoption.productLoop.runs} runs\n`,
       );
     }
+  }
+  if (report.summary.correction) {
+    process.stdout.write(
+      `First pass: ${report.summary.correction.firstPassAccepted}/${report.summary.correction.runs}; `
+      + `repairs: ${report.summary.correction.repairsRecovered}/${report.summary.correction.repairsAttempted}; `
+      + `final: ${report.summary.correction.finalAccepted}/${report.summary.correction.runs}\n`,
+    );
   }
   process.stdout.write(`Source retention: ${report.sourceRetention}\n`);
   process.stdout.write(`Report: ${outputPath}\nLedger: ${ledgerPath}\n`);

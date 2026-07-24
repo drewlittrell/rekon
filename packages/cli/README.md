@@ -232,6 +232,11 @@ and bounded redacted run diagnostic. Repair that scope and rerun the command;
 raise task context to `validation-failed` only when the focused evidence does
 not explain the failure.
 
+If semantic judgment or trusted independent placement evidence refutes an
+obligation, `correctiveContext` instead includes a `refuted-obligation` entry.
+It identifies the rejected assertion, paths, reasons, and counterevidence
+without pretending that a shell command can repair semantic placement.
+
 `rekon intent status` selects one coherent intent lineage. Pinned assessment or
 prepared-plan refs prevent proof from another intent from satisfying status.
 Use `--json` to inspect the selected and missing refs under `lineage`.

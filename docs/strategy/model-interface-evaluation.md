@@ -171,12 +171,21 @@ npm run bench:product-loop -- \
   --corpus contracts \
   --model gpt-5.6-sol \
   --reasoning-effort xhigh \
+  --correction-attempts 1 \
   --repeats 1
 ```
 
 Product-loop runs default to a 15-minute timeout because targeted verification
 and proof-gated maintenance are included in the measured work. Use
 `--timeout-ms` to override it for a deliberately bounded campaign.
+`--correction-attempts 1` is optional and valid only in product-loop mode. When
+independent validation refutes a semantic or placement obligation, the parent
+harness may provide at most four Rekon correction entries to one fresh acting
+turn in the same disposable checkout. It does not restart broad exploration.
+Reports keep the first-pass verdict, whether repair was attempted, and the
+final verdict separately; repaired success never rewrites first-pass success.
+The harness performs this orchestration for evaluation. Rekon itself remains
+the context and proof substrate, not the executor.
 Managed disposable repositories receive an executable `rekon` shim backed by
 the current build, matching the command surface of a tarball installation
 without depending on monorepo workspace-link permissions.
@@ -227,6 +236,26 @@ source-free record is
 `tests/evals/model-interface-contracts/sol-product-loop-canary.json`. It is one
 managed run without a baseline. It proves current loop executability, not
 completion reliability, time savings, token savings, or broader model lift.
+
+A clean-HEAD, three-repeat Rekon-only follow-up passed the complete loop in two
+runs. Both accepted runs changed the tokenizer plus its regression test, passed
+the hidden behavior oracle, received trusted independent placement support,
+satisfied the proof gate, and completed fresh maintenance. The third run read
+the full selected context but made the prohibited complete-phrase vocabulary
+shortcut. The repository test passed, but the hidden oracle and independent
+placement judge refuted the change; no proof gate was recorded and no refresh
+advanced it. The source-free record is
+`tests/evals/model-interface-contracts/sol-product-loop-clean-head-reliability-calibration.json`.
+This establishes that unsafe drift was blocked in the observed failure, while
+also showing that task-entry guidance and the current one-turn benchmark did
+not consistently produce an accepted change. Completion reliability, outcome
+lift, time, token, and cost claims remain unaccepted.
+
+The follow-up runner can now expose that independent refutation as bounded
+proof-local context and allow one repair turn while preserving the failed
+first-pass result. This mechanism is regression-covered; a repeated clean-HEAD
+campaign is still required before claiming that it recovers the observed
+failure.
 
 A clean-SHA two-repeat paired follow-up did not establish reliability or
 outcome benefit. Both baselines passed. Both Rekon runs adopted the managed
