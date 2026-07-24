@@ -291,6 +291,32 @@ of quality lift or time, token, and cost savings. The baseline ceiling and
 unequal lifecycle scope make a context-only condition the next required
 measurement.
 
+The local-agent harness now supports that measurement as three explicit
+managed conditions:
+
+- `baseline` receives the task and repository without Rekon.
+- `rekon-context` must use the managed task-context interface, then stops after
+  implementation and repository checks.
+- `rekon-governed` uses the same context interface and continues through
+  independent validation, targeted verification, proof, refresh, and
+  maintenance.
+
+Run the drift-sensitive atomic-composition case without retaining source:
+
+```sh
+npm run eval:model-interface:contracts:three-condition -- \
+  --case atomic-experience-composition \
+  --repeats 3 \
+  --model gpt-5.6-sol \
+  --reasoning-effort xhigh
+```
+
+Reports compare baseline to context-only as `context-lift`, context-only to
+governed as `governance-overhead`, and baseline to governed as
+`governed-outcome`. Quality, exploration, commands, elapsed time, and aggregate
+subscription token deltas remain separate. The legacy `rekon` condition is
+retained for historical two-condition commands and records.
+
 A clean-SHA two-repeat paired follow-up did not establish reliability or
 outcome benefit. Both baselines passed. Both Rekon runs adopted the managed
 interface, but neither satisfied the independent change oracle: one changed a

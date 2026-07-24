@@ -270,12 +270,16 @@ verification recording, reconciliation planning, and artifact validation.
   This extends narrow loop reliability to a second task shape, but the ceiling
   baseline establishes no quality lift and the unequal lifecycle scope
   establishes no efficiency benefit.
-- Add a context-only condition before another broad campaign. It should use the
-  same task gateway and bounded source-backed packet but stop after
-  implementation checks, leaving validation, proof, refresh, and maintenance
-  to the existing governed condition. Compare baseline, context-only, and
-  governed results separately so context efficiency and governance assurance
-  are not conflated.
+- The local-agent harness now exposes separate `baseline`, `rekon-context`, and
+  `rekon-governed` conditions. Context-only uses the same managed task gateway
+  and bounded source-backed packet but stops after implementation checks.
+  Governed completion continues through independent validation, targeted
+  verification, proof, refresh, and maintenance. Reports retain separate
+  context-lift, governance-overhead, and governed-outcome comparisons.
+- Run the first three-condition campaign on the atomic-composition task, where
+  the whole-phrase vocabulary shortcut creates measurable architectural-drift
+  headroom. Treat the harness and dry-run contract as readiness evidence only
+  until the repeated Sol/xhigh campaign completes.
 - Select the next task for measurable architectural-drift risk rather than
   another task that Sol/xhigh already solves 3/3 without Rekon. Keep hidden
   behavior, exact source scope, and repository checks as hard gates. Do not

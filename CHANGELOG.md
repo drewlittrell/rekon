@@ -4,6 +4,12 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Added explicit `baseline`, `rekon-context`, and `rekon-governed` local-agent
+  benchmark conditions. The context-only condition uses the same managed task
+  gateway but stops after implementation checks, while the governed condition
+  continues through independent validation, proof, refresh, and maintenance.
+  Reports compare context lift, governance overhead, and governed outcomes
+  separately without changing the legacy two-condition commands.
 - Fixed repository-check assessment lineage so a newer verification run
   supersedes an older run for the same plan. Historical failed runs remain
   stored, but they no longer keep current assessments and proof-gated refresh

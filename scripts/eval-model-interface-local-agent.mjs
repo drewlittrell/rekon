@@ -102,9 +102,12 @@ if (options.dryRun) {
       visibleEstimate: "UTF-8 bytes divided by four; excludes hidden and system context",
     },
     productLoop: {
-      required: options.productLoop,
+      required: options.conditions.some(conditionUsesProductLoop),
       correctionAttempts: options.correctionAttempts,
-      condition: options.productLoop ? "rekon" : "not-gated",
+      condition: options.conditions.filter(conditionUsesProductLoop).length === 1
+        ? options.conditions.filter(conditionUsesProductLoop)[0]
+        : "not-gated",
+      conditions: options.conditions.filter(conditionUsesProductLoop),
       timeoutMs: options.timeoutMs,
       sequence: [
         "context_for_task",
@@ -145,9 +148,10 @@ const runs = [];
 for (let caseIndex = 0; caseIndex < preparedCases.length; caseIndex += 1) {
   const { entry, contextPacket, contextSelection } = preparedCases[caseIndex];
   for (let repeat = 1; repeat <= options.repeats; repeat += 1) {
-    const conditionOrder = ((caseIndex + repeat) % 2 === 1
-      ? ["baseline", "rekon"]
-      : ["rekon", "baseline"]).filter((condition) => options.conditions.includes(condition));
+    const conditionOrder = rotateConditions(
+      options.conditions,
+      (caseIndex + repeat) % options.conditions.length,
+    );
     for (const condition of conditionOrder) {
       process.stderr.write(`[model-interface-local-agent] ${entry.id} r${repeat} ${condition}\n`);
       const run = await runCondition({ caseEntry: entry, condition, contextPacket, contextSelection, repeat });
@@ -164,7 +168,8 @@ const pairs = pairRuns(runs).map(({ baseline, rekon }) => ({
     : compareLocalAgentPair(baseline, rekon)),
   ...(options.delivery === "managed" ? { adoption: rekon?.adoption } : {}),
 }));
-const conditionSummary = summarizeLocalAgentRuns(runs);
+const conditionSummary = summarizeLocalAgentRuns(runs, options.conditions);
+const comparisons = compareRequestedConditions(runs);
 const report = {
   schemaVersion: "1.1.0",
   generatedAt,
@@ -219,13 +224,19 @@ const report = {
     ])),
     baselinePasses: runs.filter((run) => run.condition === "baseline" && run.score.passed).length,
     rekonPasses: runs.filter((run) => run.condition === "rekon" && run.score.passed).length,
+    conditionPasses: Object.fromEntries(options.conditions.map((condition) => [
+      condition,
+      runs.filter((run) => run.condition === condition && run.score.passed).length,
+    ])),
     conditions: conditionSummary,
     tokenComparison: compareConditionTokens(conditionSummary),
+    ...(comparisons.length > 0 ? { comparisons } : {}),
+    comparisonRuns: comparisons.length,
     ...(options.delivery === "managed" ? {
-      adoption: summarizeAdoption(runs.filter((run) => run.condition === "rekon")),
+      adoption: summarizeAdoption(runs.filter((run) => isRekonCondition(run.condition))),
     } : {}),
     ...(options.correctionAttempts > 0 ? {
-      correction: summarizeCorrectionRuns(runs.filter((run) => run.condition === "rekon")),
+      correction: summarizeCorrectionRuns(runs.filter((run) => conditionUsesProductLoop(run.condition))),
     } : {}),
   },
   pairs,
@@ -257,9 +268,10 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
   const schemaPath = join(tempRoot, "response.schema.json");
   const finalPath = join(tempRoot, "final.json");
   const cliShimDir = join(tempRoot, "bin");
-  const independentJudge = options.productLoop
+  const governed = conditionUsesProductLoop(condition);
+  const managedRekon = options.delivery === "managed" && isRekonCondition(condition);
+  const independentJudge = governed
     && options.delivery === "managed"
-    && condition === "rekon"
     ? createIndependentPlacementJudge()
     : undefined;
   let error;
@@ -270,7 +282,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       await mkdir(dirname(sourcePath), { recursive: true });
       await writeFile(sourcePath, `${JSON.stringify(source.document, null, 2)}\n`);
     }
-    if (options.delivery === "managed" && condition === "rekon") {
+    if (managedRekon) {
       if (independentJudge) {
         await installPlacementTrustPolicy(worktree, independentJudge.trustedKey);
       }
@@ -279,7 +291,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     }
     await writeFile(schemaPath, `${JSON.stringify(LOCAL_AGENT_RESPONSE_SCHEMA, null, 2)}\n`);
     await initializeGit(worktree);
-    const initialArtifactKeys = options.delivery === "managed" && condition === "rekon"
+    const initialArtifactKeys = managedRekon
       ? await captureArtifactKeys(worktree)
       : new Set();
     const prompt = buildPrompt(caseEntry.task, condition, contextPacket);
@@ -288,8 +300,8 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       schemaPath,
       finalPath,
       prompt,
-      enableMcp: options.delivery === "managed" && condition === "rekon",
-      cliShimDir: options.delivery === "managed" && condition === "rekon"
+      enableMcp: managedRekon,
+      cliShimDir: managedRekon
         ? cliShimDir
         : undefined,
     });
@@ -397,7 +409,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
     const elapsedMs = attempts.reduce((sum, attempt) => sum + attempt.elapsedMs, 0);
     const normalizedFinal = activeAttempt.normalizedFinal;
     if (!normalizedFinal.ok) error = normalizedFinal.error;
-    const inspectedProductLoopArtifacts = options.delivery === "managed" && condition === "rekon"
+    const inspectedProductLoopArtifacts = managedRekon
       ? await inspectManagedProductLoopArtifacts(
           worktree,
           initialArtifactKeys,
@@ -422,7 +434,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       : undefined;
     const productLoop = productLoopArtifacts
       ? summarizeRekonProductLoop(productLoopEvents, productLoopArtifacts, {
-        required: options.productLoop,
+        required: governed,
         terminalStatus: effectiveFinal?.status ?? "blocked",
       })
       : undefined;
@@ -430,7 +442,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
       .filter((event) => event.type === "item.completed" && event.item?.type === "command_execution")
       .map((event) => event.item.command)
       .filter((command) => typeof command === "string"), verifiedCommands);
-    const contextUse = condition === "rekon"
+    const contextUse = isRekonCondition(condition)
       ? summarizeContextUse(
           contextSelection,
           exploration,
@@ -438,7 +450,7 @@ async function runCondition({ caseEntry, condition, contextPacket, contextSelect
           workingState.sourceModifiedPaths,
         )
       : undefined;
-    const interfaceAdoption = options.delivery === "managed" && condition === "rekon"
+    const interfaceAdoption = managedRekon
       ? summarizeRekonAdoption(actorEvents, {
         ...(caseEntry.managedExpectations ?? {}),
         readFirstPaths: contextSelection.readFirstPaths,
@@ -1129,7 +1141,7 @@ function prepareCase(entry) {
 }
 
 function buildPrompt(task, condition, contextPacket) {
-  const context = options.delivery === "direct" && condition === "rekon"
+  const context = options.delivery === "direct" && isRekonCondition(condition)
     ? `\n\nRekon task context follows. Treat it as routing and contract guidance, then verify source before editing:\n${JSON.stringify(contextPacket)}`
     : "";
   return [
@@ -1713,6 +1725,16 @@ function parseArgs(args) {
   if (!["direct", "managed"].includes(parsed.delivery)) {
     throw new Error("--delivery must be direct or managed.");
   }
+  parsed.conditions = parsed.conditions.length === 0 ? ["baseline", "rekon"] : [...new Set(parsed.conditions)];
+  const allowedConditions = ["baseline", "rekon", "rekon-context", "rekon-governed"];
+  if (parsed.conditions.some((condition) => !allowedConditions.includes(condition))) {
+    throw new Error("--condition must be baseline, rekon, rekon-context, or rekon-governed.");
+  }
+  if (parsed.conditions.some((condition) => condition.startsWith("rekon-"))
+    && parsed.delivery !== "managed") {
+    throw new Error("rekon-context and rekon-governed require --delivery managed.");
+  }
+  if (parsed.conditions.includes("rekon-governed")) parsed.productLoop = true;
   if (parsed.productLoop && parsed.delivery !== "managed") {
     throw new Error("--product-loop requires --delivery managed.");
   }
@@ -1728,10 +1750,6 @@ function parseArgs(args) {
   }
   if (!["live", "mixed", "independent", "optional-route", "contract-backed-route", "symbol-contract-route", "navigation-packet", "refinement", "refinement-positive", "contracts"].includes(parsed.corpus)) {
     throw new Error("--corpus must be live, mixed, independent, optional-route, contract-backed-route, symbol-contract-route, navigation-packet, refinement, refinement-positive, or contracts.");
-  }
-  parsed.conditions = parsed.conditions.length === 0 ? ["baseline", "rekon"] : [...new Set(parsed.conditions)];
-  if (parsed.conditions.some((condition) => !["baseline", "rekon"].includes(condition))) {
-    throw new Error("--condition must be baseline or rekon.");
   }
   const corpusSegment = parsed.corpus === "live" ? "" : `-${parsed.corpus}`;
   const policySegment = parsed.contextPolicy === "full" ? "" : `-${parsed.contextPolicy}`;
@@ -1832,6 +1850,81 @@ function buildCampaignManifest() {
     reasoningEffort: options.reasoningEffort ?? "default",
     costAccounting: "subscription token counts; no provider pricing applied",
   };
+}
+
+function isRekonCondition(condition) {
+  return condition === "rekon"
+    || condition === "rekon-context"
+    || condition === "rekon-governed";
+}
+
+function conditionUsesProductLoop(condition) {
+  return condition === "rekon-governed"
+    || (condition === "rekon" && options.productLoop);
+}
+
+function rotateConditions(conditions, offset) {
+  if (conditions.length < 2) return [...conditions];
+  return [...conditions.slice(offset), ...conditions.slice(0, offset)];
+}
+
+function compareRequestedConditions(entries) {
+  const requested = new Set(options.conditions);
+  const requestedComparisons = [
+    ["baseline", "rekon-context", "context-lift"],
+    ["rekon-context", "rekon-governed", "governance-overhead"],
+    ["baseline", "rekon-governed", "governed-outcome"],
+  ].filter(([left, right]) => requested.has(left) && requested.has(right));
+  return requestedComparisons.flatMap(([left, right, comparison]) =>
+    pairConditions(entries, left, right).map(({ leftRun, rightRun }) => {
+      const assessment = compareManagedLocalAgentPair(leftRun, rightRun);
+      return {
+        comparison,
+        caseId: leftRun.caseId,
+        repeat: leftRun.repeat,
+        left,
+        right,
+        decision: assessment.decision,
+        reasons: assessment.reasons,
+        deltas: {
+          quality: roundMetric((rightRun.score?.qualityScore ?? 0) - (leftRun.score?.qualityScore ?? 0)),
+          exploredPaths: explorationCount(rightRun) - explorationCount(leftRun),
+          commands: (rightRun.exploration?.commandCount ?? 0) - (leftRun.exploration?.commandCount ?? 0),
+          elapsedMs: (rightRun.elapsedMs ?? 0) - (leftRun.elapsedMs ?? 0),
+          totalTokens: tokenTotal(rightRun) - tokenTotal(leftRun),
+        },
+      };
+    }));
+}
+
+function pairConditions(entries, leftCondition, rightCondition) {
+  const groups = new Map();
+  for (const entry of entries) {
+    if (entry.condition !== leftCondition && entry.condition !== rightCondition) continue;
+    const key = `${entry.caseId}:${entry.repeat}`;
+    const group = groups.get(key) ?? {};
+    if (entry.condition === leftCondition) group.leftRun = entry;
+    else group.rightRun = entry;
+    groups.set(key, group);
+  }
+  return [...groups.values()].filter((group) => group.leftRun && group.rightRun);
+}
+
+function tokenTotal(run) {
+  return run.tokenUsage?.available ? run.tokenUsage.totalTokens : 0;
+}
+
+function explorationCount(run) {
+  return new Set([
+    ...(run.exploration?.discoveredPaths ?? []),
+    ...(run.exploration?.inspectedPaths ?? []),
+    ...(run.exploration?.searchedPaths ?? []),
+    ...(run.final?.contextPaths ?? []),
+  ]).size;
+}
+
+function roundMetric(value) {
+  return Number(value.toFixed(4));
 }
 
 async function readManagedInstructionsVersion() {

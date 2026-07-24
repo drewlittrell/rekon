@@ -57,6 +57,7 @@
     "eval:model-interface:navigation-packet:adoption": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus navigation-packet --context-policy navigation-only --delivery managed",
     "eval:model-interface:contracts": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus contracts",
     "eval:model-interface:contracts:adoption": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus contracts --delivery managed",
+    "eval:model-interface:contracts:three-condition": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus contracts --delivery managed --condition baseline --condition rekon-context --condition rekon-governed",
     "eval:model-interface:refinement:adoption": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus refinement --delivery managed",
     "eval:model-interface:refinement-positive:adoption": "npm run build --workspaces && node scripts/eval-model-interface-local-agent.mjs --corpus refinement-positive --delivery managed"
   },

@@ -953,8 +953,8 @@ function isShellEditCommand(command) {
     || /(?:^|[^>])>{1,2}\s*[^&]/u.test(normalized);
 }
 
-export function summarizeLocalAgentRuns(runs) {
-  return Object.fromEntries(["baseline", "rekon"].map((condition) => {
+export function summarizeLocalAgentRuns(runs, conditions = ["baseline", "rekon"]) {
+  return Object.fromEntries(conditions.map((condition) => {
     const selected = runs.filter((run) => run.condition === condition);
     const productLoopRuns = selected.filter((run) => run.productLoop);
     const optionalRoutesOffered = selected.reduce(

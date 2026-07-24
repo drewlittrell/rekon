@@ -1158,6 +1158,32 @@ test("aggregate local-agent summaries compare outcomes, exploration, and source-
   assert.equal(summary.rekon.visibleTokenEstimate.totalTokens, 50);
 });
 
+test("aggregate local-agent summaries preserve explicit context and governed conditions", () => {
+  const context = successfulRun({
+    condition: "rekon-context",
+    elapsedMs: 10,
+  });
+  const governed = successfulRun({
+    condition: "rekon-governed",
+    elapsedMs: 30,
+    productLoop: {
+      required: true,
+      passed: true,
+      missing: [],
+    },
+  });
+  const summary = summarizeLocalAgentRuns(
+    [context, governed],
+    ["rekon-context", "rekon-governed"],
+  );
+
+  assert.equal(summary["rekon-context"].runs, 1);
+  assert.equal(summary["rekon-context"].averageElapsedMs, 10);
+  assert.equal(summary["rekon-governed"].runs, 1);
+  assert.equal(summary["rekon-governed"].averageElapsedMs, 30);
+  assert.equal(summary["rekon-governed"].productLoop.passes, 1);
+});
+
 test("aggregate local-agent summaries score oracle-declared optional route use", () => {
   const summary = summarizeLocalAgentRuns([successfulRun({
     contextUse: {
@@ -1236,6 +1262,41 @@ test("tiered repository-law dry run preserves selection while reducing mandatory
     assert.ok(selection.supportingPaths.length > 0);
     assert.ok(selection.readFirstPaths.every((path) => selection.selectedPaths.includes(path)));
   }
+});
+
+test("three-condition dry run separates context delivery from governed completion", () => {
+  const result = spawnSync(process.execPath, [
+    "scripts/eval-model-interface-local-agent.mjs",
+    "--corpus",
+    "contracts",
+    "--case",
+    "atomic-experience-composition",
+    "--delivery",
+    "managed",
+    "--condition",
+    "baseline",
+    "--condition",
+    "rekon-context",
+    "--condition",
+    "rekon-governed",
+    "--dry-run",
+  ], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: { ...process.env, OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "" },
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.deepEqual(output.conditions, [
+    "baseline",
+    "rekon-context",
+    "rekon-governed",
+  ]);
+  assert.equal(output.isolatedRuns, 3);
+  assert.deepEqual(output.productLoop.conditions, ["rekon-governed"]);
+  assert.equal(output.productLoop.required, true);
+  assert.deepEqual(output.cases, ["atomic-experience-composition"]);
 });
 
 test("role-aware dry run separates required routes from conditional graph context", () => {
