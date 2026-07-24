@@ -262,11 +262,25 @@ verification recording, reconciliation planning, and artifact validation.
   independent placement support, satisfied proof, and fresh maintenance.
   Correction was not exercised in the second campaign, so retain the 2/2 repair
   observation and the 3/3 first-pass observation as separate evidence.
-- Move the next evaluation to one genuinely independent task shape while
-  retaining bounded correction, hidden behavior checks, independent placement
-  judgment, proof, and refresh. Do not expand to held-out repositories or make
-  general reliability, outcome, time, token, or cost claims from the current
-  single-case result.
+- The independent checkout baton-preservation campaign passed 3/3 Rekon runs
+  on the first attempt and completed proof plus refresh in every run. Its
+  matched baseline also passed 3/3 with the same exact source scope. Rekon
+  explored 21.57% fewer unique paths, but the full governed condition averaged
+  4.62 times the elapsed time and 9.39 times the subscription-reported tokens.
+  This extends narrow loop reliability to a second task shape, but the ceiling
+  baseline establishes no quality lift and the unequal lifecycle scope
+  establishes no efficiency benefit.
+- Add a context-only condition before another broad campaign. It should use the
+  same task gateway and bounded source-backed packet but stop after
+  implementation checks, leaving validation, proof, refresh, and maintenance
+  to the existing governed condition. Compare baseline, context-only, and
+  governed results separately so context efficiency and governance assurance
+  are not conflated.
+- Select the next task for measurable architectural-drift risk rather than
+  another task that Sol/xhigh already solves 3/3 without Rekon. Keep hidden
+  behavior, exact source scope, and repository checks as hard gates. Do not
+  advance to held-out repositories or lower-model claims until the context-only
+  condition demonstrates either quality headroom or an efficiency direction.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

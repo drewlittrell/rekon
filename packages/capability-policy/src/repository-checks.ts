@@ -55,7 +55,10 @@ type VerificationRunCommandLike = {
 };
 
 type ArtifactReaderLike = {
-  list(type?: string): Promise<ArtifactRef[]>;
+  list(
+    type?: string,
+    options?: { order?: "newest" | "oldest"; limit?: number },
+  ): Promise<ArtifactRef[]>;
   read(ref: ArtifactRef): Promise<unknown>;
 };
 
@@ -75,6 +78,11 @@ type CheckOccurrence = {
   diagnostic?: ParsedRepositoryDiagnostic;
   relatedContext?: TestRelatedGraphContext;
   blastRadius?: ImportBlastRadiusContext;
+};
+
+type VerificationRunCandidate = {
+  ref: ArtifactRef;
+  run: VerificationRunLike;
 };
 
 type CheckGroup = {
@@ -170,7 +178,10 @@ export async function evaluateRepositoryChecks(
   evidenceRef: ArtifactRef,
   artifacts: ArtifactReaderLike,
 ): Promise<RepositoryCheckEvaluation> {
-  const refs = (await artifacts.list("VerificationRun")).slice(-MAX_RUNS);
+  const refs = (await artifacts.list("VerificationRun", {
+    order: "newest",
+    limit: MAX_RUNS,
+  })).reverse();
   const applicationGraph = await latestApplicationGraph(artifacts);
   const importGraph = await latestCurrentImportGraph(artifacts, evidenceRef);
   const sourceFiles = new Set(
@@ -181,10 +192,15 @@ export async function evaluateRepositoryChecks(
   const sourceQualityFacts = readSourceQualityFacts(graph);
   const occurrences: CheckOccurrence[] = [];
   const inputRefs: ArtifactRef[] = [];
+  const runCandidates: VerificationRunCandidate[] = [];
 
   for (const ref of refs) {
     const run = await artifacts.read(ref) as VerificationRunLike;
     if (!sameRepository(graph.header, run.header)) continue;
+    runCandidates.push({ ref, run });
+  }
+
+  for (const { ref, run } of currentVerificationRuns(runCandidates)) {
     let used = false;
     const environmentFailedCommands = commandsWithEnvironmentFailure(run, sourceFiles);
 
@@ -382,6 +398,31 @@ export async function evaluateRepositoryChecks(
     promotedRootCauseKeys,
     sourceRootCauseKeys,
   };
+}
+
+function currentVerificationRuns(
+  candidates: VerificationRunCandidate[],
+): VerificationRunCandidate[] {
+  const selected: VerificationRunCandidate[] = [];
+  const indexBySupersessionKey = new Map<string, number>();
+
+  for (const candidate of candidates) {
+    const supersessionKey = candidate.run.header?.supersession?.key?.trim();
+    if (!supersessionKey) {
+      selected.push(candidate);
+      continue;
+    }
+
+    const previousIndex = indexBySupersessionKey.get(supersessionKey);
+    if (previousIndex === undefined) {
+      indexBySupersessionKey.set(supersessionKey, selected.length);
+      selected.push(candidate);
+    } else {
+      selected[previousIndex] = candidate;
+    }
+  }
+
+  return selected;
 }
 
 function groupForOccurrences(group: CheckGroup, occurrences: CheckOccurrence[]): CheckGroup {

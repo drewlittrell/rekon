@@ -283,6 +283,38 @@ test("current check assessments exclude stale runs with the same identity", asyn
   });
 });
 
+test("repository check assessments ignore superseded failed verification runs", async () => {
+  await withPolicyRuntime(async ({ runtime }) => {
+    const supersessionKey = "verification-run:shared-plan";
+    await writeEvidence(runtime, { commit: COMMIT, sourceQuality: false });
+    await writeRun(runtime, {
+      id: "zz-shared-plan-failed",
+      commit: COMMIT,
+      command: "npm test",
+      output: "FAIL current suite without a source location",
+      supersessionKey,
+    });
+    await writeRun(runtime, {
+      id: "aa-shared-plan-passed",
+      commit: COMMIT,
+      command: "npm test",
+      output: "",
+      status: "passed",
+      supersessionKey,
+    });
+
+    const { findings, assessments } = await evaluate(runtime);
+    assert.equal(findings.findings.length, 0);
+    assert.equal(assessments.assessments.length, 0);
+    assert.deepEqual(
+      assessments.header.inputRefs
+        .filter((ref) => ref.type === "VerificationRun")
+        .map((ref) => ref.id),
+      [],
+    );
+  });
+});
+
 test("structured diagnostics remain separate and stable across summary noise", async () => {
   await withPolicyRuntime(async ({ runtime }) => {
     await writeEvidence(runtime, {
@@ -526,32 +558,58 @@ async function writeImportGraph(runtime, evidenceRef, { directFiles = [], transi
   });
 }
 
-async function writeRun(runtime, { id, commit, command, output }) {
+async function writeRun(runtime, {
+  id,
+  commit,
+  command,
+  output,
+  status = "failed",
+  supersessionKey,
+}) {
   return writeRunWithCommands(runtime, {
     id,
     commit,
     commands: [{ command, output }],
+    status,
+    supersessionKey,
   });
 }
 
-async function writeRunWithCommands(runtime, { id, commit, commands }) {
+async function writeRunWithCommands(runtime, {
+  id,
+  commit,
+  commands,
+  status = "failed",
+  supersessionKey,
+}) {
   const planRef = { type: "VerificationPlan", id: `plan-${id}`, schemaVersion: "0.1.0" };
+  const runHeader = header("VerificationRun", id, commit, [planRef]);
+  if (supersessionKey) runHeader.supersession = { key: supersessionKey };
+  const commandStatus = status === "passed" ? "passed" : "failed";
   await runtime.artifacts.write({
-    header: header("VerificationRun", id, commit, [planRef]),
-    status: "failed",
+    header: runHeader,
+    status,
     verificationPlanRef: planRef,
     commands: commands.map(({ command, output }, index) => ({
       id: `cmd-${index + 1}`,
       command,
       argv: command.split(" "),
-      status: "failed",
-      exitCode: 1,
+      status: commandStatus,
+      exitCode: commandStatus === "passed" ? 0 : 1,
       stdoutDigest: `stdout-${id}-${index + 1}`,
       stderrDigest: `stderr-${id}-${index + 1}`,
       stdoutExcerpt: { text: "", redacted: false, truncated: false },
       stderrExcerpt: { text: output, redacted: false, truncated: false },
     })),
-    summary: { total: commands.length, passed: 0, failed: commands.length, skipped: 0, notRun: 0, timeout: 0, killed: 0 },
+    summary: {
+      total: commands.length,
+      passed: commandStatus === "passed" ? commands.length : 0,
+      failed: commandStatus === "failed" ? commands.length : 0,
+      skipped: 0,
+      notRun: 0,
+      timeout: 0,
+      killed: 0,
+    },
     runner: { id: "test", capabilityId: "@rekon/capability-verify" },
   });
 }

@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-07-24T06:27:41.738Z",
+  "status": "calibration-no-advantage",
+  "runner": {
+    "id": "codex-subscription",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "design": {
+    "comparison": "staged-matched",
+    "rekonGate": "Three final hidden-oracle passes, three satisfied proof gates and refreshes, no protected-path changes, no infrastructure failures, and separate first-pass and repair results.",
+    "sourceRetention": "Aggregate counts, bounded fixture paths, enum statuses, scores, and digests only."
+  },
+  "campaigns": {
+    "rekon": {
+      "id": "model-interface-0a3f4b9f4e1b137d",
+      "sourceReport": ".rekon-dev/evals/checkout-baton-corrective-retry-r3.json",
+      "gitCommit": "f0286c79681cd822709e9a83719ef7514c77e4fc",
+      "dirty": false,
+      "corpus": "contracts",
+      "corpusDigest": "474edc2a34e36b7f736c134fb3e366e5b17467c1981262c181816488ae0ee95c",
+      "interfaceDigest": "65cfa507791e66b30b0c9418988eedb570505cd0b90640aa25b155e6a981aca7",
+      "managedInstructionsVersion": "2.0.6",
+      "mcpServerVersion": "1.4.5",
+      "repeats": 3
+    },
+    "baseline": {
+      "id": "model-interface-58c6417ed3e3ff9d",
+      "sourceReport": ".rekon-dev/evals/checkout-baton-baseline-r3.json",
+      "gitCommit": "f0286c79681cd822709e9a83719ef7514c77e4fc",
+      "dirty": false,
+      "corpus": "contracts",
+      "corpusDigest": "474edc2a34e36b7f736c134fb3e366e5b17467c1981262c181816488ae0ee95c",
+      "repeats": 3
+    }
+  },
+  "caseId": "checkout-baton-preservation",
+  "delivery": "managed",
+  "contextPolicy": "full",
+  "sourceRetention": "no source, prompts, diffs, free-form model text, or raw commands",
+  "outcome": {
+    "rekon": {
+      "runs": 3,
+      "firstPassAccepted": 3,
+      "finalAccepted": 3,
+      "requiredCheckPasses": 3,
+      "hiddenOraclePasses": 3,
+      "exactScopePasses": 3,
+      "protectedPathViolations": 0,
+      "unexpectedModifiedPaths": 0
+    },
+    "baseline": {
+      "runs": 3,
+      "accepted": 3,
+      "requiredCheckPasses": 3,
+      "hiddenOraclePasses": 3,
+      "exactScopePasses": 3,
+      "protectedPathViolations": 0,
+      "unexpectedModifiedPaths": 0
+    },
+    "qualityScoreDelta": 0
+  },
+  "adoption": {
+    "runs": 3,
+    "passed": 3,
+    "contextBeforeExploration": 3,
+    "contextBeforeEdit": 3,
+    "fullReadFirstUse": 3,
+    "averageReadFirstRecall": 1
+  },
+  "correction": {
+    "configuredAttempts": 1,
+    "repairsAttempted": 0,
+    "repairsRecovered": 0
+  },
+  "productLoop": {
+    "runs": 3,
+    "passed": 3,
+    "failed": 0,
+    "proofGateSatisfied": 3,
+    "refreshCompleted": 3
+  },
+  "scope": {
+    "exactSourcePaths": [
+      "src/checkout/checkout-message.ts",
+      "src/checkout/checkout-service.ts",
+      "src/receipts/receipt-publisher.ts",
+      "src/worker/checkout-worker.ts",
+      "tests/checkout-flow.test.ts"
+    ],
+    "protectedSourcePath": "src/api/checkout-controller.ts",
+    "rekonExactSourceScopeRuns": 3,
+    "baselineExactSourceScopeRuns": 3
+  },
+  "metrics": {
+    "rekon": {
+      "averageElapsedMs": 321282.6667,
+      "averageExploredPaths": 13.3333,
+      "averageCommandCount": 17.6667,
+      "averageDiscoveryCommands": 2.3333,
+      "averageReadCommands": 4.6667,
+      "averageTotalTokens": 1685001,
+      "averageNonCachedInputTokens": 131934.3333,
+      "averageVisibleEstimatedTokens": 81416.6667,
+      "contextDeliveryEstimatedTokens": 290
+    },
+    "baseline": {
+      "averageElapsedMs": 69571.3333,
+      "averageExploredPaths": 17,
+      "averageCommandCount": 4.6667,
+      "averageDiscoveryCommands": 2,
+      "averageReadCommands": 2,
+      "averageTotalTokens": 179384.6667,
+      "averageNonCachedInputTokens": 31090,
+      "averageVisibleEstimatedTokens": 5156.6667
+    },
+    "comparison": {
+      "exploredPathReductionRate": 0.2157,
+      "elapsedRatio": 4.618,
+      "commandRatio": 3.7857,
+      "subscriptionReportedTotalTokenRatio": 9.3932,
+      "nonCachedInputTokenRatio": 4.2436,
+      "visibleEstimatedTokenRatio": 15.7886
+    }
+  },
+  "decision": {
+    "productLoopExecutable": true,
+    "independentTaskShapeReliabilityObserved": true,
+    "generalReliabilityEstablished": false,
+    "baselineCeilingObserved": true,
+    "qualityLiftAccepted": false,
+    "explorationReductionObserved": true,
+    "efficiencyBenefitAccepted": false,
+    "timeSavingsClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "costSavingsClaimAccepted": false,
+    "contextOnlyDecompositionRequired": true,
+    "heldOutRepositoryExpansionApproved": false
+  },
+  "limitations": [
+    "One synthetic task, one model profile, and three repeats per condition do not establish general reliability.",
+    "The baseline passed all three runs, so this case has no remaining quality headroom for Rekon to demonstrate model lift.",
+    "The Rekon condition includes validation, verification, independent placement proof, proof-gated refresh, and maintenance while the baseline stops after implementation checks; the measured overhead cannot be attributed to context delivery alone.",
+    "The conditions ran as sequential staged campaigns rather than randomized paired runs.",
+    "The configured correction attempt was not exercised.",
+    "Subscription token counts include cached input and are not provider-billed cost.",
+    "No source bodies, prompts, diffs, raw commands, MCP payloads, or free-form model text are retained."
+  ]
+}

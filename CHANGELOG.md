@@ -4,6 +4,18 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Fixed repository-check assessment lineage so a newer verification run
+  supersedes an older run for the same plan. Historical failed runs remain
+  stored, but they no longer keep current assessments and proof-gated refresh
+  stale after the plan has passed.
+- Recorded the independent checkout baton-preservation calibration without
+  retaining source. Rekon and baseline Sol/xhigh runs both passed 3/3 with
+  exact source scope; every Rekon run also satisfied proof and refresh. Rekon
+  explored fewer unique paths, but the full governed condition took more time
+  and reported more tokens. The result supports narrow product-loop
+  reliability on a second task shape while accepting no quality, efficiency,
+  time, token, or cost advantage. The next evaluation will separate
+  context-only assistance from governance overhead.
 - Recorded the bounded-correction reliability follow-up without retaining
   source. Its first campaign recovered both attempted wrong-placement repairs;
   an unrelated canonical-path defect blocked the third otherwise-correct run.

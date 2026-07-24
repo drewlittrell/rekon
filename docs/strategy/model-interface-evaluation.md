@@ -275,6 +275,22 @@ Together the campaigns justify one next evaluation on an independent task
 shape. They do not establish general reliability, model lift, or time, token,
 and cost savings.
 
+That independent task-shape evaluation used the checkout baton-preservation
+case at the same clean commit with three Sol/xhigh repeats per condition. All
+three Rekon runs passed on the first attempt, changed only the five allowed
+handoff and test files, passed the hidden behavior oracle, received trusted
+placement support, satisfied proof, and completed refresh. All three baselines
+also passed with the same exact source scope. Rekon explored 21.57% fewer unique
+paths, but its complete governance loop averaged 4.62 times the elapsed time
+and 9.39 times the subscription-reported tokens. Those totals include
+validation, verification, independent proof, refresh, and maintenance; they do
+not isolate context delivery. The source-free record is
+`tests/evals/model-interface-contracts/sol-product-loop-checkout-baton-calibration.json`.
+This is evidence of reliable governed completion on a second task shape, not
+of quality lift or time, token, and cost savings. The baseline ceiling and
+unequal lifecycle scope make a context-only condition the next required
+measurement.
+
 A clean-SHA two-repeat paired follow-up did not establish reliability or
 outcome benefit. Both baselines passed. Both Rekon runs adopted the managed
 interface, but neither satisfied the independent change oracle: one changed a
