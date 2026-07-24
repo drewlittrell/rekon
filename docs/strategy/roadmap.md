@@ -254,20 +254,19 @@ verification recording, reconciliation planning, and artifact validation.
   terminal refresh. Both product failures now have focused regression coverage:
   proof-gated refresh terminates superseded planning-only staleness, and stage
   placement requires current independent source review.
-- The post-fix clean-HEAD atomic-experience campaign passed the complete loop in
-  2/3 Sol/xhigh Rekon-only runs. Both accepted runs changed the tokenizer and
-  regression test, received trusted placement support, satisfied proof, and
-  refreshed cleanly. The remaining run read the full packet but made the
-  prohibited complete-phrase vocabulary edit. Rekon blocked that change before
-  proof or refresh, so no unsafe change advanced, but it did not steer or repair
-  the run into an accepted implementation. Treat this as observed drift
-  prevention with incomplete task reliability, not as outcome, time, token, or
-  cost lift.
-- Do not expand to held-out repositories yet. Repeat the same clean-HEAD
-  atomic-experience case with the bounded host-managed correction enabled.
-  Report first-pass acceptance, repair attempts, recovered runs, and final
-  acceptance separately. Preserve the prior failed run and hidden oracle; do
-  not turn repaired success into a first-pass claim.
+- The bounded-correction atomic-experience campaign recovered both live
+  wrong-placement attempts. Its third run made the correct tokenizer change but
+  exposed a `/var` versus `/private/var` proof-artifact identity defect. After
+  canonical repository identity was fixed, a second clean-HEAD campaign passed
+  3/3 on the first pass with exact source scope, hidden-oracle success,
+  independent placement support, satisfied proof, and fresh maintenance.
+  Correction was not exercised in the second campaign, so retain the 2/2 repair
+  observation and the 3/3 first-pass observation as separate evidence.
+- Move the next evaluation to one genuinely independent task shape while
+  retaining bounded correction, hidden behavior checks, independent placement
+  judgment, proof, and refresh. Do not expand to held-out repositories or make
+  general reliability, outcome, time, token, or cost claims from the current
+  single-case result.
 - Repeat repository-law evaluation only on a genuinely independent repository
   layout or task shape. The current two-task corpus has enough repeats to retain
   its bounded result but not enough breadth for cross-repository or lower-model

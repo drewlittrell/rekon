@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "1.0.0",
+  "capturedAt": "2026-07-24T05:26:17.861Z",
+  "status": "calibration-positive-narrow",
+  "runner": {
+    "id": "codex-subscription",
+    "version": "codex-cli 0.144.1",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh"
+  },
+  "campaign": {
+    "id": "model-interface-bd54348757fc94ee",
+    "sourceReport": ".rekon-dev/evals/atomic-experience-corrective-retry-canonical-root-r3.json",
+    "gitCommit": "10f336a5c867db4a4cab2d798cab7c386ad19618",
+    "dirty": false,
+    "corpus": "contracts",
+    "corpusDigest": "474edc2a34e36b7f736c134fb3e366e5b17467c1981262c181816488ae0ee95c",
+    "interfaceDigest": "65cfa507791e66b30b0c9418988eedb570505cd0b90640aa25b155e6a981aca7",
+    "managedInstructionsVersion": "2.0.6",
+    "mcpServerVersion": "1.4.5",
+    "conditions": [
+      "rekon"
+    ],
+    "repeats": 3
+  },
+  "caseId": "atomic-experience-composition",
+  "delivery": "managed",
+  "contextPolicy": "full",
+  "sourceRetention": "aggregate counts, bounded fixture paths, enum statuses, scores, and digests only",
+  "outcome": {
+    "runs": 3,
+    "firstPassAccepted": 3,
+    "finalAccepted": 3,
+    "requiredCheckPasses": 3,
+    "hiddenOraclePasses": 3,
+    "exactScopePasses": 3,
+    "protectedPathViolations": 0
+  },
+  "adoption": {
+    "runs": 3,
+    "passed": 3,
+    "contextBeforeExploration": 3,
+    "contextBeforeEdit": 3,
+    "fullReadFirstUse": 3,
+    "averageReadFirstRecall": 1
+  },
+  "correction": {
+    "configuredAttempts": 1,
+    "repairsAttempted": 0,
+    "repairsRecovered": 0,
+    "priorObservedCampaign": {
+      "capturedAt": "2026-07-24T04:45:01.872Z",
+      "gitCommit": "f6aea0a58af70c355100836f1de951ad00f8f8ee",
+      "firstPassAccepted": 0,
+      "repairsAttempted": 2,
+      "repairsRecovered": 2,
+      "finalAccepted": 2,
+      "infrastructureFailures": 1,
+      "infrastructureFailureClass": "repository-path-alias"
+    }
+  },
+  "productLoop": {
+    "runs": 3,
+    "passed": 3,
+    "failed": 0,
+    "missingChecks": 0
+  },
+  "verification": {
+    "independentJudgeSupported": 3,
+    "trustedPlacementReportRuns": 3,
+    "proofGateSatisfied": 3,
+    "refreshCompleted": 3
+  },
+  "scope": {
+    "exactSourcePaths": [
+      "src/nlu/tokenize.ts",
+      "tests/experience-interpreter.test.ts"
+    ],
+    "exactSourceScopeRuns": 3
+  },
+  "metrics": {
+    "averageElapsedMs": 270612.6667,
+    "averageExploredPaths": 11.6667,
+    "averageCommandCount": 14.6667,
+    "averageTotalTokens": 1517717.3333,
+    "averageNonCachedInputTokens": 106541,
+    "averageVisibleEstimatedTokens": 62909
+  },
+  "decision": {
+    "productLoopExecutable": true,
+    "narrowFirstPassReliabilityObserved": true,
+    "boundedRepairObserved": true,
+    "generalReliabilityEstablished": false,
+    "driftPreventionObserved": true,
+    "outcomeBenefitAccepted": false,
+    "timeSavingsClaimAccepted": false,
+    "tokenSavingsClaimAccepted": false,
+    "costSavingsClaimAccepted": false,
+    "nextIndependentTaskShapeApproved": true,
+    "heldOutRepositoryExpansionApproved": false
+  },
+  "limitations": [
+    "One case, one model profile, and one synthetic repository fixture do not establish general reliability.",
+    "No contemporaneous baseline was run; this campaign cannot measure model lift or efficiency improvement.",
+    "The final campaign did not exercise correction, so its three first-pass successes cannot be attributed to the repair mechanism.",
+    "A prior campaign recovered both attempted repairs, but its third otherwise-correct run exposed a repository-path alias defect instead of a model-quality failure.",
+    "Subscription token counts include cached input and are not provider-billed cost.",
+    "No source bodies, prompts, diffs, raw commands, MCP payloads, or free-form model text are retained."
+  ]
+}

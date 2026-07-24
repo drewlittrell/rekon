@@ -251,11 +251,29 @@ also showing that task-entry guidance and the current one-turn benchmark did
 not consistently produce an accepted change. Completion reliability, outcome
 lift, time, token, and cost claims remain unaccepted.
 
-The follow-up runner can now expose that independent refutation as bounded
-proof-local context and allow one repair turn while preserving the failed
-first-pass result. This mechanism is regression-covered; a repeated clean-HEAD
-campaign is still required before claiming that it recovers the observed
-failure.
+The follow-up runner now exposes independent refutation as bounded proof-local
+context and permits one repair turn while preserving the failed first-pass
+result. In its first three-repeat campaign, all three first passes were
+unaccepted. Two runs made the prohibited vocabulary shortcut; both used the
+bounded correction and recovered to the tokenizer plus regression-test change.
+The remaining run made the correct change but could not complete validation
+because macOS exposed the same temporary checkout through `/var` and
+`/private/var`. That was a repository-identity defect, not a model-quality
+failure. The repair mechanism therefore has 2/2 observed recoveries on this
+case, alongside deterministic regression coverage.
+
+After canonical repository identity was fixed, a second clean-HEAD campaign
+completed 3/3 runs on the first pass. Every run used the exact tokenizer and
+regression-test scope, passed repository and hidden checks, received trusted
+independent placement support, satisfied the proof gate, and completed fresh
+maintenance. No repair was attempted in that campaign, so the 3/3 result is
+evidence of narrow first-pass reliability after the infrastructure fix, not
+evidence that correction caused those successes. The retained source-free
+record is
+`tests/evals/model-interface-contracts/sol-product-loop-corrective-retry-calibration.json`.
+Together the campaigns justify one next evaluation on an independent task
+shape. They do not establish general reliability, model lift, or time, token,
+and cost savings.
 
 A clean-SHA two-repeat paired follow-up did not establish reliability or
 outcome benefit. Both baselines passed. Both Rekon runs adopted the managed

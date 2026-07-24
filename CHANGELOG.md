@@ -4,6 +4,14 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Recorded the bounded-correction reliability follow-up without retaining
+  source. Its first campaign recovered both attempted wrong-placement repairs;
+  an unrelated canonical-path defect blocked the third otherwise-correct run.
+  After fixing repository identity, a clean-HEAD repeat completed 3/3 on the
+  first pass with exact scope, hidden-oracle success, independent placement
+  support, satisfied proof, and fresh maintenance. The retained calibration
+  keeps repair recovery and first-pass reliability separate and accepts no
+  general outcome, time, token, or cost claim.
 - Fixed proof-artifact repository identity checks for filesystem aliases of the
   same checkout. CLI validation now compares canonical absolute paths while
   retaining existing exact-path and basename compatibility; a symlink or the

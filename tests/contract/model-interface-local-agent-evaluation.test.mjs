@@ -2092,6 +2092,56 @@ test("clean-HEAD Sol reliability calibration preserves accepted changes and bloc
   }
 });
 
+test("corrective-retry calibration separates observed repair recovery from clean first-pass reliability", () => {
+  const calibration = JSON.parse(readFileSync(
+    resolve(
+      repoRoot,
+      "tests/evals/model-interface-contracts/sol-product-loop-corrective-retry-calibration.json",
+    ),
+    "utf8",
+  ));
+
+  assert.equal(calibration.status, "calibration-positive-narrow");
+  assert.equal(calibration.runner.model, "gpt-5.6-sol");
+  assert.equal(calibration.campaign.gitCommit, "10f336a5c867db4a4cab2d798cab7c386ad19618");
+  assert.equal(calibration.campaign.dirty, false);
+  assert.equal(calibration.campaign.repeats, 3);
+  assert.equal(calibration.outcome.firstPassAccepted, 3);
+  assert.equal(calibration.outcome.finalAccepted, 3);
+  assert.equal(calibration.outcome.hiddenOraclePasses, 3);
+  assert.equal(calibration.outcome.exactScopePasses, 3);
+  assert.equal(calibration.outcome.protectedPathViolations, 0);
+  assert.equal(calibration.adoption.passed, 3);
+  assert.equal(calibration.productLoop.passed, 3);
+  assert.equal(calibration.verification.independentJudgeSupported, 3);
+  assert.equal(calibration.verification.proofGateSatisfied, 3);
+  assert.equal(calibration.verification.refreshCompleted, 3);
+  assert.equal(calibration.correction.repairsAttempted, 0);
+  assert.equal(calibration.correction.repairsRecovered, 0);
+  assert.equal(calibration.correction.priorObservedCampaign.repairsAttempted, 2);
+  assert.equal(calibration.correction.priorObservedCampaign.repairsRecovered, 2);
+  assert.equal(calibration.correction.priorObservedCampaign.infrastructureFailures, 1);
+  assert.deepEqual(calibration.scope.exactSourcePaths, [
+    "src/nlu/tokenize.ts",
+    "tests/experience-interpreter.test.ts",
+  ]);
+  assert.equal(calibration.decision.narrowFirstPassReliabilityObserved, true);
+  assert.equal(calibration.decision.boundedRepairObserved, true);
+  assert.equal(calibration.decision.generalReliabilityEstablished, false);
+  assert.equal(calibration.decision.outcomeBenefitAccepted, false);
+  assert.equal(calibration.decision.timeSavingsClaimAccepted, false);
+  assert.equal(calibration.decision.tokenSavingsClaimAccepted, false);
+  assert.equal(calibration.decision.costSavingsClaimAccepted, false);
+  assert.equal(calibration.decision.nextIndependentTaskShapeApproved, true);
+  assert.equal(calibration.decision.heldOutRepositoryExpansionApproved, false);
+  assert.ok(calibration.limitations.some((entry) => /did not exercise correction/iu.test(entry)));
+  assert.ok(calibration.limitations.some((entry) => /no contemporaneous baseline/iu.test(entry)));
+  const encoded = JSON.stringify(calibration);
+  for (const forbidden of ["sourceBodies", "prompts", "diffs", "rawCommands", "mcpPayloads", "freeFormModelText"]) {
+    assert.equal(encoded.includes(`\"${forbidden}\"`), false);
+  }
+});
+
 test("accepted mixed-layout calibration proves quality and scope gains without retained source", () => {
   const fixture = JSON.parse(readFileSync(
     resolve(repoRoot, "tests/evals/model-interface-mixed/cases.json"),
