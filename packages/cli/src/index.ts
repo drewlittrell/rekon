@@ -15925,11 +15925,33 @@ function sameTaskPathScope(left: string[], right: string[]): boolean {
 }
 
 function assertProofArtifactRepository(root: string, header: ArtifactHeader, requested: string): void {
-  const accepted = new Set([subjectRepoIdFromStore(createLocalArtifactStore(root)), resolve(root)]);
-  if (!accepted.has(header.subject.repoId)) {
-    throw new Error(
-      `Proof artifact ${requested} belongs to repository ${header.subject.repoId}; expected ${[...accepted].join(" or ")}.`,
-    );
+  const resolvedRoot = resolve(root);
+  const canonicalRoot = canonicalAbsolutePath(resolvedRoot);
+  const accepted = new Set([
+    subjectRepoIdFromStore(createLocalArtifactStore(root)),
+    resolvedRoot,
+    ...(canonicalRoot
+      ? [subjectRepoIdFromStore(createLocalArtifactStore(canonicalRoot))]
+      : []),
+    ...(canonicalRoot ? [canonicalRoot] : []),
+  ]);
+  const subjectRepoId = header.subject.repoId;
+  const canonicalSubject = canonicalAbsolutePath(subjectRepoId);
+
+  if (accepted.has(subjectRepoId)
+    || (canonicalRoot !== undefined && canonicalSubject === canonicalRoot)) return;
+
+  throw new Error(
+    `Proof artifact ${requested} belongs to repository ${subjectRepoId}; expected ${[...accepted].join(" or ")}.`,
+  );
+}
+
+function canonicalAbsolutePath(value: string): string | undefined {
+  if (!isAbsolute(value)) return undefined;
+  try {
+    return realpathSync(resolve(value));
+  } catch {
+    return undefined;
   }
 }
 

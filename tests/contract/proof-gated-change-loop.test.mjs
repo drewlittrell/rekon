@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -390,6 +390,29 @@ test("change completion is proof-gated and a recorded gate cannot survive anothe
       [...publicationKinds].sort(),
       ["agent-contract", "agents", "architecture-summary", "proof-report", "repo-summary"],
     );
+
+    const aliasParent = await mkdtemp(join(tmpdir(), "rekon-proof-gate-alias-"));
+    try {
+      const aliasRoot = join(aliasParent, "repo");
+      await symlink(root, aliasRoot, process.platform === "win32" ? "junction" : "dir");
+      const aliasedValidation = runCliJson([
+        "context", "validate-change",
+        "--task", taskText,
+        "--changed-path", "src/index.ts",
+        "--base-ref", "HEAD",
+        "--context-usage", `${delivered.contextUsage.type}:${delivered.contextUsage.id}`,
+        "--context-claims-json", JSON.stringify({ [`memory:${memoryRef.id}`]: "applied" }),
+        "--verification-result", `${futureVerificationRef.type}:${futureVerificationRef.id}`,
+        "--judgment-json", JSON.stringify(judgments),
+        "--root", aliasRoot,
+        "--json",
+      ]);
+      assert.equal(aliasedValidation.status, "passed");
+      assert.equal(aliasedValidation.proofGate.evaluation.status, "satisfied");
+    } finally {
+      await rm(aliasParent, { recursive: true, force: true });
+    }
+
     const contractSourcePath = join(root, "rekon/contracts/proof.json");
     const contractSource = await readFile(contractSourcePath, "utf8");
     await writeFile(contractSourcePath, `${contractSource.trimEnd()}\n\n`, "utf8");

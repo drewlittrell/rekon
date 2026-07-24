@@ -4,6 +4,11 @@ All notable changes to Rekon are documented here.
 
 ## Unreleased
 
+- Fixed proof-artifact repository identity checks for filesystem aliases of the
+  same checkout. CLI validation now compares canonical absolute paths while
+  retaining existing exact-path and basename compatibility; a symlink or the
+  macOS `/var` and `/private/var` alias no longer breaks proof lineage, while
+  artifacts from a different repository remain rejected.
 - Added bounded correction for independently refuted repository-law and
   placement obligations. Change validation now emits a
   `refuted-obligation` entry with exact paths, assertion, reasons, and
